@@ -151,8 +151,15 @@ fn run() -> Result<(), Box<dyn Error>> {
                 render_cuesheet_json(&SongProject::load(project_path)?)?,
             )?;
         }
-        ("export", [project_path, output]) => {
-            let result = export_mp3(&SongProject::load(project_path)?, output)?;
+        ("export", args) => {
+            let (project_path, output, overwrite) = match args {
+                [project_path, output] => (project_path, output, false),
+                [project_path, output, flag] if flag == "--overwrite" => {
+                    (project_path, output, true)
+                }
+                _ => return usage(),
+            };
+            let result = export_mp3(&SongProject::load(project_path)?, output, overwrite)?;
             println!(
                 "{}",
                 serde_json::to_string_pretty(&serde_json::json!({
@@ -535,6 +542,7 @@ fn dispatch_rpc(request: RpcRequest) -> Result<Value, (&'static str, String)> {
                 let result = export_mp3(
                     &SongProject::load(payload_path(payload, "project_path")?)?,
                     payload_path(payload, "output_path")?,
+                    payload_bool(payload, "overwrite"),
                 )?;
                 Ok(
                     json!({"mp3": result.mp3_path, "lrc": result.lrc_path, "audio_sha256": result.audio_sha256}),
@@ -577,6 +585,10 @@ fn payload_text<'a>(payload: &'a Value, field: &str) -> Result<&'a str, Box<dyn 
         .get(field)
         .and_then(Value::as_str)
         .ok_or_else(|| format!("payload.{field} is required").into())
+}
+
+fn payload_bool(payload: &Value, field: &str) -> bool {
+    payload.get(field).and_then(Value::as_bool).unwrap_or(false)
 }
 
 fn payload_path<'a>(payload: &'a Value, field: &str) -> Result<&'a Path, Box<dyn Error>> {

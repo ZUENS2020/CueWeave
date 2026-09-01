@@ -36,6 +36,7 @@ pub fn render_lrc(project: &SongProject) -> Result<String, ExportError> {
 pub fn export_mp3(
     project: &SongProject,
     output: impl AsRef<Path>,
+    overwrite: bool,
 ) -> Result<ExportResult, ExportError> {
     project
         .validate()
@@ -48,7 +49,7 @@ pub fn export_mp3(
     if output == target.path {
         return invalid("output must not overwrite the target audio");
     }
-    if output.exists() {
+    if output.exists() && !overwrite {
         return invalid("output already exists");
     }
     let directory = output
@@ -79,7 +80,7 @@ pub fn export_mp3(
     }
 
     let mut lrc_temporary = if project.export.formats.contains(&ExportFormat::Lrc) {
-        if lrc_output.exists() {
+        if lrc_output.exists() && !overwrite {
             return invalid("LRC output already exists");
         }
         let mut file = NamedTempFile::new_in(directory)?;
@@ -90,14 +91,12 @@ pub fn export_mp3(
         None
     };
     temporary.as_file().sync_all()?;
-    temporary
-        .persist_noclobber(output)
-        .map_err(|error| ExportError::Io(error.error))?;
+    persist_output(temporary, output, overwrite)?;
     if let Some(file) = lrc_temporary.take()
-        && let Err(error) = file.persist_noclobber(&lrc_output)
+        && let Err(error) = persist_output(file, &lrc_output, overwrite)
     {
         let _ = fs::remove_file(output);
-        return Err(ExportError::Io(error.error));
+        return Err(error);
     }
     Ok(ExportResult {
         mp3_path: output.to_owned(),
@@ -209,6 +208,17 @@ fn set_optional_text(tag: &mut Tag, id: &str, value: Option<&str>) {
     if let Some(value) = value.filter(|value| !value.trim().is_empty()) {
         tag.set_text(id, value);
     }
+}
+
+fn persist_output(file: NamedTempFile, dest: &Path, overwrite: bool) -> Result<(), ExportError> {
+    let result = if overwrite {
+        file.persist(dest)
+    } else {
+        file.persist_noclobber(dest)
+    };
+    result
+        .map(|_| ())
+        .map_err(|error| ExportError::Io(error.error))
 }
 
 fn invalid<T>(message: impl Into<String>) -> Result<T, ExportError> {

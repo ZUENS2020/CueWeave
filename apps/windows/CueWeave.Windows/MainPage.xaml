@@ -223,6 +223,7 @@
                                 <ComboBoxItem x:Name="BilingualCombined" Content="Separate translation" Tag="bilingual" />
                             </ComboBox>
                             <NumberBox x:Name="OffsetBox" Header="Export offset (ms)" Minimum="-2000" Maximum="2000" SmallChange="10" SpinButtonPlacementMode="Compact" ValueChanged="Offset_Changed" />
+                            <CheckBox x:Name="OverwriteCheck" Content="Overwrite existing output" IsChecked="True" />
                         </StackPanel>
                     </Grid>
                 </Grid>

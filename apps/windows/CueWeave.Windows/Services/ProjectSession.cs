@@ -60,10 +60,14 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
         await LoadAsync(ProjectPath, token, keepUndo: true);
     }
 
-    public async Task<JsonElement> ExportAsync(string outputPath, CancellationToken token)
+    public async Task<JsonElement> ExportAsync(string outputPath, bool overwrite, CancellationToken token)
     {
         await SaveAsync(token);
-        return await core.CallAsync("export", new JsonObject { ["project_path"] = ProjectPath, ["output_path"] = outputPath }, token);
+        return await core.CallAsync("export", new JsonObject {
+            ["project_path"] = ProjectPath,
+            ["output_path"] = outputPath,
+            ["overwrite"] = overwrite
+        }, token);
     }
 
     public async Task ExportCueSheetAsync(string outputPath, CancellationToken token)

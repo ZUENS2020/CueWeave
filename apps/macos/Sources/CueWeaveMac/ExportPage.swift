@@ -56,7 +56,7 @@ struct ExportPage: View {
                 }
                 Divider()
                 HStack(spacing: 8) {
-                    StatusPill(text: l10n.t("export.noOverwrite"), tone: CueWeaveStyle.ready)
+                    StatusPill(text: l10n.t("export.protectTarget"), tone: CueWeaveStyle.ready)
                     StatusPill(text: l10n.t("export.noReencode"), tone: CueWeaveStyle.ready)
                     StatusPill(text: l10n.t("export.atomic"), tone: CueWeaveStyle.ready)
                 }
@@ -92,6 +92,16 @@ struct ExportPage: View {
                     step: 10
                 )
                 .font(.system(size: 11, design: .monospaced))
+                Divider()
+                Toggle(isOn: $store.overwriteExistingExport) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(l10n.t("export.overwriteExisting"))
+                            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                        Text(l10n.t("export.overwriteExistingHint"))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Text(l10n.t("export.adaptersNote"))
                     .font(.caption)
                     .foregroundStyle(.secondary)

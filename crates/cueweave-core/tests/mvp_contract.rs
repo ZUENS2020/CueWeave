@@ -460,7 +460,7 @@ fn mp3_export_preserves_audio_payload_and_writes_lyrics() {
     project.set_user_final(SegmentId(1), 8_450).unwrap();
     project.set_user_final(SegmentId(2), 10_750).unwrap();
 
-    let result = export_mp3(&project, &output).unwrap();
+    let result = export_mp3(&project, &output, false).unwrap();
     assert_eq!(result.audio_sha256, before);
     assert_eq!(audio_payload_sha256(&input).unwrap(), before);
     let tag = Tag::read_from_path(&output).unwrap();
@@ -546,7 +546,7 @@ fn cue_sheet_omits_lyric_events_without_final() {
             .iter()
             .all(|event| !matches!(event, cueweave_core::ExportCueEvent::Lyric { .. }))
     );
-    export_mp3(&project, &output).unwrap();
+    export_mp3(&project, &output, false).unwrap();
 
     let lrc = output.with_extension("lrc");
     fs::remove_file(&input).unwrap();
@@ -554,6 +554,46 @@ fn cue_sheet_omits_lyric_events_without_final() {
     if lrc.exists() {
         fs::remove_file(lrc).unwrap();
     }
+}
+
+
+#[test]
+fn mp3_export_overwrite_replaces_existing_output_but_never_the_target() {
+    let input = temp_path("mp3");
+    let output = temp_path("final.mp3");
+    let lrc = output.with_extension("lrc");
+    write_fake_mp3(&input);
+    fs::write(&output, b"stale-mp3").unwrap();
+    fs::write(&lrc, "stale lrc").unwrap();
+    let mut project = timed_project(input.clone());
+    project.export.formats = vec![ExportFormat::Lrc];
+    project.set_user_final(SegmentId(1), 8_450).unwrap();
+    project.set_user_final(SegmentId(2), 10_750).unwrap();
+
+    let refused = export_mp3(&project, &output, false).unwrap_err();
+    assert!(refused.to_string().contains("already exists"));
+    assert_eq!(fs::read(&output).unwrap(), b"stale-mp3");
+    assert_eq!(fs::read_to_string(&lrc).unwrap(), "stale lrc");
+
+    let result = export_mp3(&project, &output, true).unwrap();
+    assert_eq!(result.mp3_path, output);
+    assert_eq!(result.lrc_path.as_deref(), Some(lrc.as_path()));
+    let tag = Tag::read_from_path(&output).unwrap();
+    assert_eq!(tag.title(), Some("Beyond"));
+    let lrc_text = fs::read_to_string(&lrc).unwrap();
+    assert!(lrc_text.contains("朝焼けに ほどける"));
+    assert!(!lrc_text.contains("stale lrc"));
+
+    let target_guard = export_mp3(&project, &input, true).unwrap_err();
+    assert!(
+        target_guard
+            .to_string()
+            .contains("must not overwrite the target audio")
+    );
+
+    fs::remove_file(input).unwrap();
+    fs::remove_file(output).unwrap();
+    fs::remove_file(lrc).unwrap();
 }
 
 fn encrypt_ncm_metadata(json: &str) -> Vec<u8> {

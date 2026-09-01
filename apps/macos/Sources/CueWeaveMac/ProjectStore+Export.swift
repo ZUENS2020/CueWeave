@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 extension ProjectStore {
@@ -45,14 +46,36 @@ extension ProjectStore {
     @MainActor
     func exportInteractive() async {
         guard let projectURL, let output = chooseMP3Destination() else { return }
+        guard let overwrite = resolveExportOverwrite(for: output) else { return }
         save()
         await operation(L10n.shared.t("activity.exporting")) {
             try await CoreBridge.call("export", payload: [
                 "project_path": projectURL.path,
                 "output_path": output.path,
+                "overwrite": overwrite,
             ])
             self.activity = L10n.shared.t("activity.exported", output.lastPathComponent)
         }
+    }
+
+    @MainActor
+    private func resolveExportOverwrite(for output: URL) -> Bool? {
+        if !exportOutputExists(output) { return overwriteExistingExport }
+        if overwriteExistingExport { return true }
+        let alert = NSAlert()
+        alert.messageText = L10n.shared.t("export.overwriteConfirmTitle")
+        alert.informativeText = L10n.shared.t("export.overwriteConfirmMessage", output.lastPathComponent)
+        alert.addButton(withTitle: L10n.shared.t("export.overwrite"))
+        alert.addButton(withTitle: L10n.shared.t("action.cancel"))
+        return alert.runModal() == .alertFirstButtonReturn ? true : nil
+    }
+
+    private func exportOutputExists(_ output: URL) -> Bool {
+        let files = FileManager.default
+        if files.fileExists(atPath: output.path) { return true }
+        guard project?.exportProfile.formats.contains(.lrc) == true else { return false }
+        let lrc = output.deletingPathExtension().appendingPathExtension("lrc")
+        return files.fileExists(atPath: lrc.path)
     }
 
     @MainActor

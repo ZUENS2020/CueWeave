@@ -207,7 +207,9 @@ public sealed partial class MainPage : Page
     {
         if (session.Project is null) return;
         var output = await PickSaveAsync(L10n.T("pick.exportMp3"), ".mp3", $"{session.Title} [CueWeave]");
-        if (output is not null) await RunAsync(L10n.T("activity.exporting"), token => session.ExportAsync(output.Path, token));
+        if (output is null) return;
+        if (await ResolveExportOverwriteAsync(output.Path) is not bool overwrite) return;
+        await RunAsync(L10n.T("activity.exporting"), token => session.ExportAsync(output.Path, overwrite, token));
     }
 
     private void Metadata_LostFocus(object sender, RoutedEventArgs e)
@@ -550,6 +552,23 @@ public sealed partial class MainPage : Page
     {
         var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.MusicLibrary, SuggestedFileName = name, CommitButtonText = title };
         picker.FileTypeChoices.Add(title, new[] { extension }); Initialize(picker); return await picker.PickSaveFileAsync();
+    }
+
+    private async Task<bool?> ResolveExportOverwriteAsync(string path)
+    {
+        var exists = File.Exists(path);
+        if (!exists && LrcCheck.IsChecked == true)
+            exists = File.Exists(Path.ChangeExtension(path, ".lrc"));
+        if (!exists) return OverwriteCheck.IsChecked == true;
+        if (OverwriteCheck.IsChecked == true) return true;
+        var dialog = new ContentDialog {
+            XamlRoot = XamlRoot,
+            Title = L10n.T("export.overwriteConfirmTitle"),
+            Content = L10n.T("export.overwriteConfirmMessage", Path.GetFileName(path)),
+            PrimaryButtonText = L10n.T("export.overwrite"),
+            CloseButtonText = L10n.T("action.cancel")
+        };
+        return await dialog.ShowAsync() == ContentDialogResult.Primary ? true : null;
     }
 
     private static void Initialize(object picker) => WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));

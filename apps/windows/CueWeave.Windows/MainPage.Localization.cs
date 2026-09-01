@@ -88,6 +88,8 @@ public sealed partial class MainPage
         BilingualOriginal.Content = L10n.T("export.originalOnly");
         BilingualCombined.Content = L10n.T("export.combinedWin");
         OffsetBox.Header = L10n.T("export.offsetHeader");
+        OverwriteCheck.Content = L10n.T("export.overwriteExisting");
+        ToolTipService.SetToolTip(OverwriteCheck, L10n.T("export.overwriteExistingHint"));
         CancelButton.Content = L10n.T("action.cancel");
         Timeline.SetLaneLabels(L10n.T("lane.waveform"), L10n.T("lane.bandFull"), L10n.T("lane.lyricsTimestamps"));
     }

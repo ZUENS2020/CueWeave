@@ -28,6 +28,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     @Published var openRouterModel = initialSettings.openRouterModel ?? "google/gemini-3.7-flash"
     @Published var aiStudioModel = initialSettings.aiStudioModel ?? "gemini-3.7-flash"
     @Published var uiLanguage = initialSettings.uiLanguage ?? "system"
+    @Published var overwriteExistingExport = true
 
     @MainActor private var playerStorage: AudioPlayer?
     @MainActor private var waveformStorage: WaveformModel?
