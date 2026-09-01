@@ -1,0 +1,16 @@
+/target/
+/apps/macos/.build/
+/apps/windows/**/bin/
+/apps/windows/**/obj/
+.vs/
+*.user
+/dist/
+.DS_Store
+.env
+
+# Local validation media must not be committed.
+*.ncm
+*.mp3
+*.flac
+*.m4a
+*.wav

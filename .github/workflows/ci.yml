@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+      - name: Install code counter
+        run: cargo install tokei --locked
+      - name: Check formatting
+        run: cargo fmt --all --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace --all-targets
+      - name: Check P4 code budget
+        run: ./scripts/check-budget.sh P4
+
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build Core bridge
+        run: cargo build --locked --release -p cueweave-cli
+      - name: Test native app
+        run: swift test --package-path apps/macos
+      - name: Check timeline, settings and document boundaries
+        run: |
+          ./scripts/check-timeline-interaction.sh
+          ./scripts/check-local-settings.sh
+          ./scripts/check-document-lifecycle.sh
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test Core
+        run: cargo test --workspace --all-targets
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Test viewport and settings
+        run: |
+          dotnet build apps/windows/CueWeave.Windows.Tests/CueWeave.Windows.Tests.csproj --nologo
+          ./apps/windows/CueWeave.Windows.Tests/bin/Debug/net10.0/CueWeave.Windows.Tests.exe
