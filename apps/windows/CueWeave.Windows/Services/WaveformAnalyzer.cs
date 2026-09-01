@@ -3,8 +3,18 @@ using NAudio.Wave;
 
 namespace CueWeave.WinUI.Services;
 
+public sealed record SpectrogramFrame(
+    byte[] Values,
+    int TimeBins,
+    int FrequencyBins,
+    ulong StartMs,
+    ulong EndMs);
+
 public sealed record WaveformData(float[] Peak, float[] Low, float[] Mid, float[] High)
 {
+    public float[] Rms { get; init; } = [];
+    public IReadOnlyDictionary<string, SpectrogramFrame> Spectrograms { get; init; } =
+        new Dictionary<string, SpectrogramFrame>();
     public static WaveformData Empty { get; } = new([], [], [], []);
 }
 

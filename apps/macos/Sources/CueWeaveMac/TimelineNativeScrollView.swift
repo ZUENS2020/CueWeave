@@ -22,7 +22,7 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
     func makeCoordinator() -> Coordinator { Coordinator(content: content) }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = TimelineScrollView()
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
         scrollView.hasHorizontalScroller = true
@@ -31,6 +31,10 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
         scrollView.scrollerStyle = .overlay
         scrollView.horizontalScrollElasticity = .automatic
         scrollView.documentView = context.coordinator.hostingView
+        scrollView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        scrollView.setContentHuggingPriority(.defaultLow, for: .vertical)
+        scrollView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        scrollView.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
         viewport.attach(scrollView: scrollView)
         return scrollView
     }
@@ -56,6 +60,14 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
         init(content: Content) {
             hostingView = NSHostingView(rootView: content)
             hostingView.sizingOptions = []
+            hostingView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+            hostingView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
+    }
+}
+
+private final class TimelineScrollView: NSScrollView {
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
     }
 }

@@ -4,11 +4,13 @@ import SwiftUI
 @MainActor
 final class TimelineInteractionController: ObservableObject {
     @Published private(set) var selectedSegmentID: UInt64?
+    @Published private(set) var selectedCreditID: UInt64?
     @Published private(set) var activeSegmentID: UInt64?
     @Published private(set) var selectionRange: ClosedRange<Double>?
     @Published private(set) var zoom = 2.0
     @Published var followPlayback = true
     @Published var followSelection = false
+    @Published var lanes = AudioLaneSettings()
     var inspectorEditing = false
     weak var hostWindow: NSWindow?
 
@@ -40,7 +42,12 @@ final class TimelineInteractionController: ObservableObject {
     func handle(_ event: TimelinePointerEvent) {
         switch event {
         case let .click(sample):
+            if let creditID = hitCredit(at: sample.documentFraction) {
+                selectCredit(creditID)
+                return
+            }
             selectionRange = nil
+            selectedCreditID = nil
             seek(toFraction: sample.documentFraction)
         case let .selectionChanged(range):
             if selectionRange == nil { viewport.beginInteraction() }
@@ -82,7 +89,29 @@ final class TimelineInteractionController: ObservableObject {
     func select(_ segmentID: UInt64) {
         guard store.allSegments.contains(where: { $0.id == segmentID }) else { return }
         breakFollowSelection()
+        selectedCreditID = nil
         selectedSegmentID = segmentID
+    }
+
+    func selectCredit(_ creditID: UInt64) {
+        guard store.project?.lyrics.credits.contains(where: { $0.id == creditID }) == true else { return }
+        breakFollowSelection()
+        selectedCreditID = creditID
+        selectedSegmentID = nil
+    }
+
+    func stampCredit(_ creditID: UInt64) {
+        store.setCreditTime(id: creditID, milliseconds: UInt64(max(0, player.currentTime * 1_000)))
+        selectedCreditID = creditID
+        selectedSegmentID = nil
+    }
+
+    func dragCredit(_ creditID: UInt64, fraction: Double) {
+        guard player.duration > 0 else { return }
+        let milliseconds = UInt64((player.duration * min(max(0, fraction), 1) * 1_000).rounded())
+        store.setCreditTime(id: creditID, milliseconds: milliseconds)
+        selectedCreditID = creditID
+        selectedSegmentID = nil
     }
 
     func setFollowSelection(_ on: Bool) {
@@ -92,6 +121,7 @@ final class TimelineInteractionController: ObservableObject {
 
     func selectCurrent() {
         breakFollowSelection()
+        selectedCreditID = nil
         if let activeSegmentID { selectedSegmentID = activeSegmentID }
     }
 
@@ -99,6 +129,7 @@ final class TimelineInteractionController: ObservableObject {
         if !TimelineInteractionMath.keepsFollowSelection(relativeOffset: offset) {
             breakFollowSelection()
         }
+        selectedCreditID = nil
         let segments = store.allSegments
         guard !segments.isEmpty else { return }
         let playhead = activeSegmentID ?? selectedSegmentID
@@ -117,6 +148,7 @@ final class TimelineInteractionController: ObservableObject {
 
     func moveSelection(by offset: Int) {
         breakFollowSelection()
+        selectedCreditID = nil
         let segments = store.allSegments
         guard !segments.isEmpty else { return }
         let current = segments.firstIndex { $0.id == selectedSegmentID } ?? (offset > 0 ? -1 : segments.count)
@@ -128,18 +160,38 @@ final class TimelineInteractionController: ObservableObject {
     }
 
     func nudgeSelected(by delta: Int64) {
+        if let creditID = selectedCreditID {
+            let base = store.project?.creditTime(id: creditID)
+                ?? UInt64(max(0, player.currentTime * 1_000))
+            let maximum = loadedMaximum ?? store.project?.target?.durationMS ?? UInt64.max
+            store.setCreditTime(
+                id: creditID,
+                milliseconds: TimelineInteractionMath.nudged(base, by: delta, maximum: maximum)
+            )
+            return
+        }
         guard let id = selectedSegmentID,
               let segment = store.allSegments.first(where: { $0.id == id })
         else { return }
         let base = segment.timing.finalPoint?.timeMS
             ?? segment.timing.gemini?.timeMS
             ?? UInt64(max(0, player.currentTime * 1_000))
-        let loadedMaximum = player.duration > 0 ? UInt64((player.duration * 1_000).rounded()) : nil
         let maximum = loadedMaximum ?? store.project?.target?.durationMS ?? UInt64.max
         store.setFinal(
             segmentID: id,
             milliseconds: TimelineInteractionMath.nudged(base, by: delta, maximum: maximum)
         )
+    }
+
+    private var loadedMaximum: UInt64? {
+        player.duration > 0 ? UInt64((player.duration * 1_000).rounded()) : nil
+    }
+
+    private func hitCredit(at fraction: Double) -> UInt64? {
+        guard player.duration > 0, let cues = store.project?.creditCues, !cues.isEmpty else { return nil }
+        let target = fraction * player.duration * 1_000
+        return cues.min(by: { abs(Double($0.timeMS) - target) < abs(Double($1.timeMS) - target) })
+            .flatMap { abs(Double($0.timeMS) - target) <= 120 ? $0.id : nil }
     }
 
     func seek(toSeconds seconds: TimeInterval) {
@@ -189,6 +241,10 @@ final class TimelineInteractionController: ObservableObject {
         case let .selectRelativeToPlayhead(offset):
             selectRelativeToPlayhead(offset: offset)
         case .stampFinal:
+            if let creditID = selectedCreditID {
+                stampCredit(creditID)
+                return true
+            }
             guard let id = selectedSegmentID ?? store.allSegments.first?.id else { return false }
             stamp(id)
         case .clearFinal:
@@ -217,6 +273,8 @@ final class TimelineInteractionController: ObservableObject {
                     rates: AudioPlayer.supportedRates
                 )
             )
+        case .toggleFollowSelection:
+            setFollowSelection(!followSelection)
         }
         return true
     }

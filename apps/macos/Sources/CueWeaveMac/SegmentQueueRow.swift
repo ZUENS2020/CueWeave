@@ -34,8 +34,10 @@ struct SegmentQueueRow: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(9)
+        .padding(.horizontal, 9)
+        .padding(.vertical, 7)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .fixedSize(horizontal: false, vertical: true)
         .contentShape(Rectangle())
         .onTapGesture(perform: onSelect)
         .background(rowBackground)

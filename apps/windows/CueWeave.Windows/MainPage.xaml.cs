@@ -37,6 +37,7 @@ public sealed partial class MainPage : Page
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };
         Timeline.NudgeRequested += NudgeSelected;
         Timeline.CommandRequested += HandleTimelineCommand;
+        Timeline.VisualizationChanged += () => _ = ReloadSpectrogramAsync();
         Timeline.ActiveSegmentChanged += id =>
         {
             UpdateQueueVisuals(id);
@@ -326,6 +327,7 @@ public sealed partial class MainPage : Page
         LyricsList.ItemsSource = project.Lyrics.Lines;
         TranslationList.ItemsSource = project.Lyrics.Lines;
         AlignmentList.ItemsSource = project.Segments;
+        BindCredits(project);
         ConfigureTimeline(project);
         SaveCueSheetButton.IsEnabled = true;
         ExportFinalButton.IsEnabled = true;
@@ -354,7 +356,11 @@ public sealed partial class MainPage : Page
         try {
             await playback.LoadAsync(path); Timeline.Tick(0);
             var data = await WaveformAnalyzer.AnalyzeAsync(path, token: waveformCancellation.Token);
-            if (audioPath == path) Timeline.SetWaveform(data);
+            if (audioPath == path) {
+                var sha = session.Project?.Target?.Fingerprint?.Sha256;
+                data = await AudioVizClient.EnrichAsync(core, path, sha, data, Timeline.NeededScales, waveformCancellation.Token);
+                Timeline.SetWaveform(data);
+            }
         } catch (OperationCanceledException) { }
         catch (Exception error) { await ShowErrorAsync(L10n.T("error.audioAnalysis", error.Message)); }
     }
@@ -381,6 +387,11 @@ public sealed partial class MainPage : Page
 
     private void Mark_Click(object sender, RoutedEventArgs e)
     {
+        if (Timeline.SelectedCreditId is ulong creditId)
+        {
+            session.SetCreditTime(creditId, (ulong)Math.Max(0, Math.Round(playback.PositionMs)));
+            return;
+        }
         if (Timeline.SelectedSegmentId is ulong id) session.SetFinal(id, (long)Math.Round(playback.PositionMs));
     }
 
@@ -391,6 +402,13 @@ public sealed partial class MainPage : Page
 
     private void NudgeSelected(long delta)
     {
+        if (Timeline.SelectedCreditId is ulong creditId)
+        {
+            if (session.Project is null) return;
+            var time = CreditTime(session.Project, creditId);
+            session.SetCreditTime(creditId, (ulong)Math.Max(0, (long)time + delta));
+            return;
+        }
         if (Timeline.SelectedSegmentId is not ulong id) return;
         var segment = session.Project?.Segments.FirstOrDefault(value => value.Id == id);
         if (segment is null) return;
@@ -434,6 +452,7 @@ public sealed partial class MainPage : Page
         case "next": SetFollowSelection(false); NavigateSegment(1); break;
         case "previous": SetFollowSelection(false); NavigateSegment(-1); break;
         case "mark": Mark_Click(this, new RoutedEventArgs()); break;
+        case "toggle_follow_next": SetFollowSelection(NextButton.IsChecked != true); break;
         case "clear_final": ClearFinal_Click(this, new RoutedEventArgs()); break;
         case "rate_up": AdjustRate(1); break;
         case "rate_down": AdjustRate(-1); break;

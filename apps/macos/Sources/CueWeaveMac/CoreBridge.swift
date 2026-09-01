@@ -24,20 +24,25 @@ enum CoreBridge {
     private static let processes = ProcessRegistry()
 
     static func call(_ command: String, payload: [String: Any] = [:]) async throws {
+        _ = try await result(command, payload: payload)
+    }
+
+    static func result(_ command: String, payload: [String: Any] = [:]) async throws -> [String: Any] {
         try await Task.detached(priority: .userInitiated) {
             try run(command, payload: payload)
         }.value
     }
 
     static func callBlocking(_ command: String, payload: [String: Any] = [:]) throws {
-        try run(command, payload: payload)
+        _ = try run(command, payload: payload)
     }
 
     static func cancelActive() {
         processes.cancel()
     }
 
-    private static func run(_ command: String, payload: [String: Any]) throws {
+    @discardableResult
+    private static func run(_ command: String, payload: [String: Any]) throws -> [String: Any] {
         let requestID = UUID().uuidString
         let request = try JSONSerialization.data(withJSONObject: [
             "protocol_version": 1,
@@ -77,6 +82,7 @@ enum CoreBridge {
                 error?["message"] as? String ?? "Unknown Core error"
             )
         }
+        return envelope["result"] as? [String: Any] ?? [:]
     }
 
     private static func executableURL() throws -> URL {

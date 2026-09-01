@@ -9,8 +9,10 @@
 后续明确要求覆盖设计文档中的本地 DSP 方案：
 
 - 自动打轴只来自 Gemini。
-- 不包含本地自动检测、自动修轴、FFmpeg 分析或 `rustfft`。
-- 本地只解码音频用于播放和三轨视觉展示，不产生或改写任何时间点。
+- 不包含本地自动检测、自动修轴或 FFmpeg。可视化用的 Peak/RMS/STFT/Mel 在 Rust Core（`rustfft` + Symphonia），只给 UI 显示，不产生 onset/snap，不改 Final。
+- 本地三带 Band Energy（macOS vDSP / Windows NAudio）保留，供 Peak/RMS 视图。
+- `.cueweave` schema_version 3：Credit 有 CreditId，时间在 Timeline `Cue::Credit { credit_id, time_ms }`，内容在 `lyrics.credits`。
+- LRC / USLT / SYLT 都只消费 Export Timeline 里真正出现的 lyric events；USLT 不再拼接全部 `sheet.lines`。
 - 项目只保存 Gemini 建议和 Final；Final 由用户采用建议或手工编辑。
 - API Key 以明文保存在本地权限受限配置文件，不访问 Keychain，不写入项目文件。
 - 播放器插件吃 Cue Sheet JSON（`schema_version` 1），不读 `.cueweave`。契约见 [CUE_SHEET.md](CUE_SHEET.md)。
@@ -25,7 +27,7 @@
 | Lyrics | 完成 | NetEase 和手动导入、任意行间插入、源时间戳销毁、Credits、行级原文编辑和整块 Gemini 发送预览 |
 | AI Provider | 完成 | AI Studio / OpenRouter 可切换，两套 Key 和模型独立本地保留 |
 | Alignment | 完成 | 整首对齐、选区重跑、Gemini/Final 分层、歌词列表、手工打轴与恢复 Gemini 基线 |
-| Timeline | 完成 | 统一 AppKit 输入面，可缩放横向时间线，Waveform / Band Energy / Lyrics 三轨，播放头、A-B 区域和当前句同步高亮 |
+| Timeline | 完成 | 统一 AppKit 输入面；Credit 锚点可拖；两条音频轨各自在左侧选择 Peak / RMS / 频谱 / 频段能量 |
 | Playback | 完成 | 60 Hz 播放头、按视野比例 Seek、A/B/X 循环快捷键、0.50×–2.00× 防变调播放 |
 | Manual timing | 完成 | 六档按钮、三组组合键、Mark、Use Gemini、Clear Final |
 | Undo / Redo | 完成 | 快照撤销/重做，包括整体恢复 Gemini 基线后的反悔 |

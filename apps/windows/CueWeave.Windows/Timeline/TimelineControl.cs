@@ -13,11 +13,12 @@ using Windows.UI.Core;
 
 namespace CueWeave.WinUI.Timeline;
 
-public sealed class TimelineControl : UserControl
+public sealed partial class TimelineControl : UserControl
 {
     private readonly CanvasControl canvas = new();
     private readonly ScrollBar scroll = new() { Orientation = Orientation.Horizontal, Height = 12, VerticalAlignment = VerticalAlignment.Bottom };
     private IReadOnlyList<LyricSegment> segments = [];
+    private IReadOnlyList<(ulong Id, ulong TimeMs, string Text)> credits = [];
     private WaveformData waveform = WaveformData.Empty;
     private bool changingScroll;
     private uint? pointerId;
@@ -26,10 +27,21 @@ public sealed class TimelineControl : UserControl
     private int heldStep;
     private ulong? activeId;
 
+    private readonly ComboBox upperLanePicker = MakeLanePicker();
+    private readonly ComboBox lowerLanePicker = MakeLanePicker();
+    private readonly TextBlock timeLaneLabel = new() { FontSize = 10, Padding = new Thickness(8, 6, 0, 0) };
+    private readonly TextBlock lyricsLaneCaption = new() { FontSize = 10, Padding = new Thickness(8, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+
     public TimelineViewport Viewport { get; } = new();
     public double PlayheadMs { get; private set; }
     public ulong? ActiveSegmentId => activeId;
     public ulong? SelectedSegmentId { get; private set; }
+    public ulong? SelectedCreditId { get; private set; }
+    public string UpperLane { get; private set; } = "peak";
+    public string LowerLane { get; private set; } = "bands";
+    public string[] NeededScales =>
+        new[] { ScaleOf(UpperLane), ScaleOf(LowerLane) }.OfType<string>().Distinct().ToArray();
+    public bool NeedsSpectrogram => NeededScales.Length > 0;
     public double? LoopStartMs { get; set; }
     public double? LoopEndMs { get; set; }
 
@@ -39,14 +51,28 @@ public sealed class TimelineControl : UserControl
     public event Action<ulong?>? ActiveSegmentChanged;
     public event Action<ulong?>? SelectedSegmentChanged;
     public event Action<double>? ZoomChanged;
-    public string WaveformLabel { get; private set; } = "WAVEFORM";
-    public string BandLabel { get; private set; } = "BAND ENERGY  LOW / MID / HIGH";
-    public string LyricsLaneLabel { get; private set; } = "LYRICS / TIMESTAMPS";
+    public event Action? VisualizationChanged;
 
     public TimelineControl()
     {
         IsTabStop = true;
-        var grid = new Grid(); grid.Children.Add(canvas); grid.Children.Add(scroll); Content = grid;
+        var labels = new Grid();
+        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(24) });
+        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(72) });
+        Grid.SetRow(timeLaneLabel, 0); Grid.SetRow(upperLanePicker, 1);
+        Grid.SetRow(lowerLanePicker, 2); Grid.SetRow(lyricsLaneCaption, 3);
+        labels.Children.Add(timeLaneLabel); labels.Children.Add(upperLanePicker);
+        labels.Children.Add(lowerLanePicker); labels.Children.Add(lyricsLaneCaption);
+        var plot = new Grid(); plot.Children.Add(canvas); plot.Children.Add(scroll);
+        var root = new Grid();
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        root.Children.Add(labels); Grid.SetColumn(plot, 1); root.Children.Add(plot);
+        Content = root;
+        upperLanePicker.SelectedIndex = 0; lowerLanePicker.SelectedIndex = 3;
+        upperLanePicker.SelectionChanged += LaneChanged; lowerLanePicker.SelectionChanged += LaneChanged;
         canvas.Draw += Draw;
         canvas.PointerPressed += OnPointerPressed; canvas.PointerMoved += OnPointerMoved;
         canvas.PointerReleased += OnPointerReleased; canvas.PointerCaptureLost += OnPointerCaptureLost;
@@ -65,14 +91,17 @@ public sealed class TimelineControl : UserControl
         CommitViewport(); canvas.Invalidate();
     }
 
+    public WaveformData CurrentWaveform => waveform;
+
     public void SetWaveform(WaveformData value) { waveform = value; canvas.Invalidate(); }
     public void SetSegments(IReadOnlyList<LyricSegment> values) { segments = values; canvas.Invalidate(); }
-    public void SetLaneLabels(string waveformLabel, string bandLabel, string lyricsLabel)
+    public void LocalizeLanes(Func<string, string> text)
     {
-        WaveformLabel = waveformLabel;
-        BandLabel = bandLabel;
-        LyricsLaneLabel = lyricsLabel;
-        canvas.Invalidate();
+        timeLaneLabel.Text = text("lane.time");
+        lyricsLaneCaption.Text = text("lane.lyricsTimestamps");
+        foreach (var box in new[] { upperLanePicker, lowerLanePicker })
+            foreach (ComboBoxItem item in box.Items)
+                if (item.Tag is string tag) item.Content = text("audio." + tag);
     }
     public void SetFollow(bool enabled)
     {
@@ -93,9 +122,20 @@ public sealed class TimelineControl : UserControl
         Viewport.Follow(PlayheadMs); CommitViewport(invalidate: true);
     }
 
+    public void SetCredits(IReadOnlyList<(ulong Id, ulong TimeMs, string Text)> values)
+    {
+        credits = values;
+        canvas.Invalidate();
+    }
+
     public void Select(ulong? id)
     {
-        SelectedSegmentId = id; SelectedSegmentChanged?.Invoke(id); canvas.Invalidate();
+        SelectedSegmentId = id; SelectedCreditId = null; SelectedSegmentChanged?.Invoke(id); canvas.Invalidate();
+    }
+
+    public void SelectCredit(ulong? id)
+    {
+        SelectedCreditId = id; SelectedSegmentId = null; SelectedSegmentChanged?.Invoke(null); canvas.Invalidate();
     }
 
     public void SelectCurrent() => Select(activeId);
@@ -124,8 +164,11 @@ public sealed class TimelineControl : UserControl
             ds.FillRectangle(loopX0, 24, loopX1 - loopX0, height - 24, ColorHelper.FromArgb(26, 86, 138, 115));
             ds.DrawLine(loopX0, 24, loopX0, height, Colors.MediumSeaGreen, 2); ds.DrawLine(loopX1, 24, loopX1, height, Colors.Orange, 2);
         }
-        DrawRuler(ds, width); DrawWaveform(ds, width, 24, trackHeight); DrawBands(ds, width, 24 + trackHeight, trackHeight);
+        DrawRuler(ds, width);
+        DrawLane(UpperLane, ds, width, 24, trackHeight);
+        DrawLane(LowerLane, ds, width, 24 + trackHeight, trackHeight);
         DrawLyrics(ds, width, lyricTop, height - lyricTop);
+        DrawCredits(ds, width, lyricTop);
         ds.DrawLine(0, 24, width, 24, Colors.Gray, 1); ds.DrawLine(0, 24 + trackHeight, width, 24 + trackHeight, Colors.Gray, 1);
         ds.DrawLine(0, lyricTop, width, lyricTop, Colors.Gray, 1);
         if (Viewport.Selection is { } selection) {
@@ -148,20 +191,44 @@ public sealed class TimelineControl : UserControl
         }
     }
 
-    private void DrawWaveform(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
+    private void DrawLane(string kind, Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        ds.DrawText(WaveformLabel, 8, top + 5, Colors.Gray);
+        if (AudioVizCatalog.Find(kind) is not { } adapter) return;
+        switch (adapter.Surface)
+        {
+            case "waveform":
+                DrawWaveform(ds, width, top, height, adapter.Series);
+                break;
+            case "bands":
+                DrawBands(ds, width, top, height);
+                break;
+            case "spectrogram":
+                if (adapter.Scale is string scale) DrawSpectrogram(ds, width, top, height, scale);
+                break;
+        }
+    }
+
+    private void DrawWaveform(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height, string[] series)
+    {
+        var peak = series.Contains("peak");
+        var rms = series.Contains("rms");
+        if (!peak && !rms) return;
+        var mode = peak && rms ? "peakRms" : rms ? "rms" : "peak";
         if (waveform.Peak.Length == 0 || height <= 0) return;
         var center = top + height / 2; var start = VisibleBin(waveform.Peak.Length, Viewport.VisibleStartMs); var end = VisibleBin(waveform.Peak.Length, Viewport.VisibleEndMs) + 1;
         for (var index = start; index < Math.Min(end, waveform.Peak.Length); index++) {
             var time = index * Viewport.DurationMs / waveform.Peak.Length; var x = (float)Viewport.XAt(time, width);
-            var amplitude = waveform.Peak[index] * height * .43f; ds.DrawLine(x, center - amplitude, x, center + amplitude, Colors.DeepSkyBlue, 1);
+            var amplitude = (mode is "rms" && waveform.Rms.Length > index ? waveform.Rms[index] : waveform.Peak[index]) * height * .43f;
+            ds.DrawLine(x, center - amplitude, x, center + amplitude, Colors.DeepSkyBlue, 1);
+            if (mode is "peakRms" && waveform.Rms.Length > index) {
+                var rmsAmp = waveform.Rms[index] * height * .43f;
+                ds.DrawLine(x, center - rmsAmp, x, center + rmsAmp, Colors.White, 1);
+            }
         }
     }
 
     private void DrawBands(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        ds.DrawText(BandLabel, 8, top + 5, Colors.Gray);
         DrawBand(ds, waveform.Low, width, top, height, Colors.MediumSeaGreen);
         DrawBand(ds, waveform.Mid, width, top, height, Colors.Goldenrod);
         DrawBand(ds, waveform.High, width, top, height, Colors.OrangeRed);
@@ -180,7 +247,6 @@ public sealed class TimelineControl : UserControl
 
     private void DrawLyrics(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        ds.DrawText(LyricsLaneLabel, 8, top + 5, Colors.Gray);
         var timed = TimedSegments();
         for (var index = 0; index < timed.Count; index++) {
             var (segment, start) = timed[index]; var end = index + 1 < timed.Count ? timed[index + 1].Time : Viewport.DurationMs;
@@ -214,7 +280,9 @@ public sealed class TimelineControl : UserControl
     {
         if (pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
         canvas.ReleasePointerCapture(e.Pointer); pointerId = null; Viewport.GestureActive = false;
-        if (dragging) Viewport.ZoomSelection(pressedX, x, canvas.ActualWidth); else SeekRequested?.Invoke(Viewport.TimeAt(x, canvas.ActualWidth));
+        if (dragging) Viewport.ZoomSelection(pressedX, x, canvas.ActualWidth);
+        else if (HitCredit(Viewport.TimeAt(x, canvas.ActualWidth)) is ulong creditId) SelectCredit(creditId);
+        else { SelectCredit(null); SeekRequested?.Invoke(Viewport.TimeAt(x, canvas.ActualWidth)); }
         dragging = false; Viewport.Selection = null; CommitViewport(); e.Handled = true;
     }
 
@@ -272,7 +340,8 @@ public sealed class TimelineControl : UserControl
             VirtualKey.Enter => "select_current", VirtualKey.Space => "play",
             VirtualKey.A => "loop_a", VirtualKey.B => "loop_b", VirtualKey.Escape => "loop_clear",
             VirtualKey.Down => "next", VirtualKey.Up => "previous",
-            VirtualKey.M => "mark", VirtualKey.Delete or VirtualKey.Back => "clear_final",
+            VirtualKey.M => "mark", VirtualKey.N when !control => "toggle_follow_next",
+            VirtualKey.Delete or VirtualKey.Back => "clear_final",
             _ => null
         };
         if (command is not null) { CommandRequested?.Invoke(command); e.Handled = true; }
@@ -310,6 +379,74 @@ public sealed class TimelineControl : UserControl
         .Select(s => (Segment: s, Point: s.Timing.Final ?? s.Timing.Gemini))
         .Where(value => value.Point is not null).Select(value => (value.Segment, (double)value.Point!.TimeMs))
         .OrderBy(value => value.Item2).ToList();
-    private int VisibleBin(int count, double time) => (int)Math.Clamp(time / Viewport.DurationMs * count, 0, count - 1);
+    private void DrawCredits(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top)
+    {
+        foreach (var credit in credits)
+        {
+            var x = (float)Viewport.XAt(credit.TimeMs, width);
+            var color = credit.Id == SelectedCreditId ? Colors.DeepSkyBlue : ColorHelper.FromArgb(180, 50, 127, 159);
+            ds.DrawLine(x, top, x, top + 36, color, 2);
+            ds.FillCircle(x, top + 40, 5, color);
+            ds.DrawText("C", x + 6, top + 2, color);
+        }
+    }
+
+    private void DrawSpectrogram(
+        Microsoft.Graphics.Canvas.CanvasDrawingSession ds,
+        float width,
+        float top,
+        float height,
+        string scale)
+    {
+        if (!waveform.Spectrograms.TryGetValue(scale, out var frame)
+            || frame.Values.Length == 0 || frame.TimeBins == 0 || frame.FrequencyBins == 0) return;
+        var start = (double)frame.StartMs;
+        var end = frame.EndMs > frame.StartMs ? frame.EndMs : Viewport.DurationMs;
+        var span = Math.Max(1, end - start);
+        var timeStride = Math.Max(1, frame.TimeBins / Math.Max(1, (int)width));
+        var freqStride = Math.Max(1, frame.FrequencyBins / Math.Max(1, (int)height));
+        for (var time = 0; time < frame.TimeBins; time += timeStride)
+        {
+            var x = (float)Viewport.XAt(start + span * time / frame.TimeBins, width);
+            var next = (float)Viewport.XAt(start + span * Math.Min(frame.TimeBins, time + timeStride) / frame.TimeBins, width);
+            var cellW = Math.Max(1, next - x);
+            if (x + cellW < 0 || x > width) continue;
+            for (var freq = 0; freq < frame.FrequencyBins; freq += freqStride)
+            {
+                var index = time * frame.FrequencyBins + freq;
+                if (index >= frame.Values.Length) continue;
+                var value = frame.Values[index];
+                if (value < 12) continue;
+                var y = top + (frame.FrequencyBins - 1 - freq) * height / frame.FrequencyBins;
+                var cellH = Math.Max(1, height * freqStride / frame.FrequencyBins);
+                ds.FillRectangle(x, y, cellW, cellH, ColorHelper.FromArgb((byte)(40 + value * 180 / 255), 50, 127, 159));
+            }
+        }
+    }
+
+    private void LaneChanged(object sender, SelectionChangedEventArgs e)
+    {
+        UpperLane = TagOf(upperLanePicker) ?? "peak";
+        LowerLane = TagOf(lowerLanePicker) ?? "bands";
+        VisualizationChanged?.Invoke();
+        canvas.Invalidate();
+    }
+
+    private static ComboBox MakeLanePicker()
+    {
+        var box = new ComboBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0), FontSize = 11 };
+        foreach (var adapter in AudioVizCatalog.All)
+            box.Items.Add(new ComboBoxItem { Content = adapter.Id, Tag = adapter.Id });
+        return box;
+    }
+
+    private static string? TagOf(ComboBox box) => (box.SelectedItem as ComboBoxItem)?.Tag as string;
+    private static string? ScaleOf(string kind) => AudioVizCatalog.Find(kind)?.Scale;
+    private ulong? HitCredit(double timeMs)
+    {
+        if (credits.Count == 0) return null;
+        var nearest = credits.MinBy(credit => Math.Abs((double)credit.TimeMs - timeMs));
+        return Math.Abs((double)nearest.TimeMs - timeMs) <= 120 ? nearest.Id : null;
+    }
     private static string FormatTime(double ms) => $"{(long)ms / 60000:00}:{(long)ms / 1000 % 60:00}.{(long)ms % 1000:000}";
 }

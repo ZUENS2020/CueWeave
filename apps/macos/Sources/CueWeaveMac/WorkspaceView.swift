@@ -116,7 +116,7 @@ struct WorkspaceView: View {
             }
             .padding(14)
         }
-        .navigationSplitViewColumnWidth(min: 215, ideal: 230, max: 260)
+        .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 260)
     }
 
     private var workspaceHeader: some View {

@@ -25,10 +25,12 @@ pub enum ProjectError {
 
 impl SongProject {
     pub fn from_json(json: &str) -> Result<Self, ProjectError> {
-        let mut project: Self = serde_json::from_str(json)?;
-        if project.schema_version == 1 {
-            project.schema_version = CURRENT_SCHEMA_VERSION;
-        }
+        let mut value: serde_json::Value = serde_json::from_str(json)?;
+        crate::migrate::migrate_project_value(&mut value)?;
+        let mut project: Self = serde_json::from_value(value)?;
+        crate::assign_credit_ids(&mut project.lyrics.credits)?;
+        crate::sync_credit_cues(&mut project);
+        crate::sort_credit_cues(&mut project);
         project.validate()?;
         Ok(project)
     }
@@ -102,8 +104,15 @@ impl SongProject {
 
         let mut line_ids = HashSet::new();
         let mut segment_ids = HashSet::new();
+        let mut credit_ids = HashSet::new();
         let mut previous_final = None;
         let duration_ms = self.target.as_ref().and_then(|target| target.duration_ms);
+
+        for credit in &self.lyrics.credits {
+            if credit.id.0 == 0 || !credit_ids.insert(credit.id) {
+                return invariant(format!("duplicate credit id {}", credit.id.0));
+            }
+        }
 
         for line in &self.lyrics.lines {
             if !line_ids.insert(line.id) {
@@ -124,10 +133,22 @@ impl SongProject {
         }
 
         for cue in &self.timeline {
-            if let Cue::Lyric { line_id } = cue
-                && !line_ids.contains(line_id)
-            {
-                return invariant(format!("cue references missing line {}", line_id.0));
+            match cue {
+                Cue::Lyric { line_id } if !line_ids.contains(line_id) => {
+                    return invariant(format!("cue references missing line {}", line_id.0));
+                }
+                Cue::Credit { credit_id, time_ms } => {
+                    if !credit_ids.contains(credit_id) {
+                        return invariant(format!("cue references missing credit {}", credit_id.0));
+                    }
+                    if duration_ms.is_some_and(|duration| *time_ms > duration) {
+                        return invariant(format!(
+                            "credit {} is past target duration",
+                            credit_id.0
+                        ));
+                    }
+                }
+                _ => {}
             }
         }
 

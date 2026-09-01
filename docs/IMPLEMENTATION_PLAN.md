@@ -24,7 +24,7 @@ CueWeave 只解决一条工作流：
 2. 目标音轨是唯一时间基准；不得保存或展示来源时间轴。
 3. Gemini 是唯一自动打轴来源；完全人工的 Tap/步长按钮仍可作为离线或失败回退。
 4. Gemini 与 Final 分层保存；重跑只更新 Gemini 建议，不得覆盖用户确认的 Final。
-5. 不做本地自动检测或自动修轴；本地波形/频段能量视图只供人工判断。
+5. 不做本地自动检测或自动修轴；Peak / RMS / Spectrogram / Mel 由 Rust Core 算出后只给原生 Timeline 显示，不产生 onset、snap 或 Final。
 6. 目标音频只复制和改标签，不重编码，也不原地覆盖。
 7. Rust Core 承担全部业务规则；原生 GUI 只负责展示、播放和输入。
 8. 最终支持 macOS 与 Windows 原生 GUI，但只在一个平台完成闭环后才移植第二个平台。
@@ -108,7 +108,7 @@ SongProject
 │   ├── target
 │   └── draft                   # 唯一待导出值
 ├── LyricsDocument
-│   ├── Credits
+│   ├── Credits                 # CreditId + label/value；时间不在这里
 │   └── Lines
 │       ├── stable LineId
 │       ├── original
@@ -117,7 +117,7 @@ SongProject
 │           ├── stable SegmentId
 │           └── text
 ├── Timeline
-│   └── Cue: Credit | Lyric | Spacer
+│   └── Cue: Credit { credit_id, time_ms } | Lyric | Spacer
 ├── SegmentTiming
 │   ├── gemini: optional point
 │   └── final: optional point

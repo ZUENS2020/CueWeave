@@ -5,6 +5,7 @@
 - 中文文档：本文件
 - [English README](README.en.md)
 - [Cue Sheet 播放器插件契约](docs/CUE_SHEET.md)
+- [音频可视化适配器](docs/AUDIO_VIZ.md)
 
 许可证：[AGPL-3.0-only](LICENSE)
 
@@ -163,6 +164,7 @@ cueweave-cli translations song.cueweave translation.txt
 | Space | 播放 / 暂停 |
 | Return | 选中正在播放的一句 |
 | Tab / ⇧Tab | 选中播放头后一句 / 前一句 |
+| N | 开关「持续选中下一句」（工具栏 Next） |
 | ↑ / ↓ | 按当前选中句上下移动 |
 | ← / → | 按当前可视时间窗的 1% 移动播放头 |
 | Home / End | 跳到曲头 / 曲尾 |
@@ -178,7 +180,7 @@ cueweave-cli translations song.cueweave translation.txt
 | ⌘= / ⌘−（Windows：Ctrl+= / Ctrl+-） | 时间线缩放 |
 | 捏合，或 Windows 上 Ctrl+滚轮 | 时间线缩放 |
 
-工具栏 **Follow** 只让视口跟着播放头。**Next**（默认关）让选中句始终是播放头的**下一句**（与 Tab 一致）。手动改选中会关掉 Next；只有 Tab（后一句）保持跟随。
+工具栏 **Follow** 只让视口跟着播放头。**Next**（默认关，快捷键 **N**）让选中句始终是播放头的**下一句**（与 Tab 一致）。手动改选中会关掉 Next；只有 Tab（后一句）保持跟随。
 
 歌词 Inspector：**播放前两秒**、**采用 Gemini**。Credit 仍可在时间线上打点。
 
@@ -227,6 +229,10 @@ cueweave-cli export song.cueweave "song [CueWeave].mp3" --overwrite
 JSON 里的时间已经加过 `offset_ms`。插件只负责把这份 snapshot 写成 KRC / TTML / 网易云 / Apple Music / Aegisub 等目标格式。
 
 目前**没有** dylib / WASM 动态加载。进程内 Rust 接口是 `PlayerExportAdapter`；进程外读 JSON 即可。完整字段、事件类型和适配器职责见 [docs/CUE_SHEET.md](docs/CUE_SHEET.md)。
+
+## 音频可视化
+
+时间线两条通用音频轨用内置适配器选画法（Peak / RMS / Peak+RMS / Band Energy / 三种频谱）。只给眼睛看，不改轴。后续新波形实现 `AudioVizAdapter`，列入 RPC `list_audio_viz_adapters`；GUI 按 `surface` + `series` 分发。契约见 [docs/AUDIO_VIZ.md](docs/AUDIO_VIZ.md)。
 
 ## 密钥存放
 

@@ -144,6 +144,71 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
         segment.Timing.Final = null;
     });
 
+    public void SetCreditTime(ulong id, ulong milliseconds) => Mutate(document => {
+        var duration = document.Target?.DurationMs ?? ulong.MaxValue;
+        var time = Math.Min(milliseconds, duration);
+        var next = new List<JsonElement>();
+        var found = false;
+        foreach (var cue in document.Timeline)
+        {
+            if (IsCreditCue(cue, id))
+            {
+                next.Add(WithTime(cue, time));
+                found = true;
+            }
+            else next.Add(cue);
+        }
+        if (!found)
+        {
+            next.Insert(0, JsonSerializer.Deserialize<JsonElement>(
+                $$"""{"type":"credit","credit_id":{{id}},"time_ms":{{time}}}""")!);
+        }
+        document.Timeline = next;
+    });
+
+    public void AddCredit() => Mutate(document => {
+        var id = document.Lyrics.Credits.Select(credit => credit.Id).DefaultIfEmpty().Max() + 1;
+        document.Lyrics.Credits.Add(new Credit { Id = id, Label = "Role", Value = "Name" });
+        document.Timeline.Insert(0, JsonSerializer.Deserialize<JsonElement>(
+            $$"""{"type":"credit","credit_id":{{id}},"time_ms":0}""")!);
+    });
+
+    public void RemoveCredit(ulong id) => Mutate(document => {
+        document.Lyrics.Credits.RemoveAll(credit => credit.Id == id);
+        document.Timeline = [.. document.Timeline.Where(cue => !IsCreditCue(cue, id))];
+    });
+
+    public void MergeCredits() => Mutate(document => {
+        if (document.Lyrics.Credits.Count < 2) return;
+        var merged = string.Join(" / ", document.Lyrics.Credits.Select(credit => credit.DisplayText).Where(text => text.Length > 0));
+        var id = document.Lyrics.Credits[0].Id;
+        document.Lyrics.Credits = [new Credit { Id = id, Label = "", Value = merged }];
+        document.Timeline = [.. document.Timeline.Where(cue => cue.ValueKind != JsonValueKind.Object
+            || !cue.TryGetProperty("type", out var type)
+            || type.GetString() != "credit"
+            || (cue.TryGetProperty("credit_id", out var creditId) && creditId.GetUInt64() == id))];
+        SetCreditTimeRaw(document, id, 0);
+    });
+
+    private static bool IsCreditCue(JsonElement cue, ulong id) =>
+        cue.ValueKind == JsonValueKind.Object
+        && cue.TryGetProperty("type", out var type)
+        && type.GetString() == "credit"
+        && cue.TryGetProperty("credit_id", out var creditId)
+        && creditId.GetUInt64() == id;
+
+    private static JsonElement WithTime(JsonElement cue, ulong time)
+    {
+        var node = JsonNode.Parse(cue.GetRawText())!.AsObject();
+        node["time_ms"] = time;
+        return JsonSerializer.Deserialize<JsonElement>(node.ToJsonString())!;
+    }
+
+    private static void SetCreditTimeRaw(ProjectDocument document, ulong id, ulong time)
+    {
+        document.Timeline = [.. document.Timeline.Select(cue => IsCreditCue(cue, id) ? WithTime(cue, time) : cue)];
+    }
+
     private static byte[] Snapshot(ProjectDocument value) =>
         JsonSerializer.SerializeToUtf8Bytes(value, CueJsonContext.Default.ProjectDocument);
     private static ProjectDocument Restore(byte[] value) =>

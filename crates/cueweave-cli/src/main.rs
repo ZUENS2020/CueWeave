@@ -1,45 +1,18 @@
 use cueweave_core::{
-    AiStudioConfig, LineId, OpenRouterConfig, SegmentId, SongProject, align_with_ai_studio,
+    AiStudioConfig, OpenRouterConfig, SegmentId, SongProject, align_with_ai_studio,
     align_with_openrouter, apply_alignment_response, apply_alignment_response_selected,
     apply_line_translations, apply_translation_response, download_cover, export_mp3,
-    fetch_netease_lyrics, insert_project_lyrics, inspect_ncm, list_export_adapters,
-    project_from_files, render_cuesheet_json, render_lrc, replace_project_lyrics,
-    replace_target_audio, translate_with_ai_studio, translate_with_openrouter,
+    fetch_netease_lyrics, inspect_ncm, project_from_files, render_cuesheet_json, render_lrc,
+    replace_project_lyrics, replace_target_audio, translate_with_ai_studio,
+    translate_with_openrouter,
 };
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::json;
 use std::error::Error;
 use std::ffi::OsString;
 use std::fs;
-use std::io::{Read, Write};
 use std::path::Path;
 
-const RPC_PROTOCOL_VERSION: u32 = 1;
-
-#[derive(Deserialize)]
-struct RpcRequest {
-    protocol_version: u32,
-    request_id: String,
-    command: String,
-    #[serde(default)]
-    payload: Value,
-}
-
-#[derive(Serialize)]
-struct RpcResponse {
-    request_id: String,
-    ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    result: Option<Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<RpcError>,
-}
-
-#[derive(Serialize)]
-struct RpcError {
-    code: &'static str,
-    message: String,
-}
+mod rpc;
 
 fn main() {
     if let Err(error) = run() {
@@ -55,7 +28,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     };
 
     match (command, &arguments[1..]) {
-        ("rpc", []) => run_rpc()?,
+        ("rpc", []) => rpc::run_rpc()?,
         ("new", [output]) => SongProject::default().save(output)?,
         ("create", [project_path, source_path, target_path]) => {
             create_project_file(project_path, source_path, target_path)?;
@@ -226,7 +199,7 @@ fn align_project(
     align_project_with_config(project_path, selected, &provider, api_key, model)
 }
 
-fn align_project_with_config(
+pub(crate) fn align_project_with_config(
     project_path: impl AsRef<Path>,
     selected: Option<&[SegmentId]>,
     provider: &str,
@@ -281,7 +254,7 @@ fn translate_project(
     translate_project_with_config(project_path, &provider, api_key, model, target_language)
 }
 
-fn translate_project_with_config(
+pub(crate) fn translate_project_with_config(
     project_path: impl AsRef<Path>,
     provider: &str,
     api_key: String,
@@ -312,7 +285,7 @@ fn translate_project_with_config(
     Ok(())
 }
 
-fn create_project_file(
+pub(crate) fn create_project_file(
     project_path: impl AsRef<Path>,
     source_path: impl AsRef<Path>,
     target_path: impl AsRef<Path>,
@@ -339,278 +312,13 @@ fn create_project_file(
     Ok(())
 }
 
-fn run_rpc() -> Result<(), Box<dyn Error>> {
-    let mut input = String::new();
-    std::io::stdin().read_to_string(&mut input)?;
-    let response = rpc_response(&input);
-    let stdout = std::io::stdout();
-    let mut output = stdout.lock();
-    serde_json::to_writer(&mut output, &response)?;
-    output.write_all(b"\n")?;
-    Ok(())
-}
-
-fn rpc_response(input: &str) -> RpcResponse {
-    let request: RpcRequest = match serde_json::from_str(input) {
-        Ok(request) => request,
-        Err(error) => return rpc_failure(String::new(), "invalid_request", error.to_string()),
-    };
-    let request_id = request.request_id.clone();
-    if request.protocol_version != RPC_PROTOCOL_VERSION {
-        return rpc_failure(
-            request_id,
-            "unsupported_protocol",
-            format!("RPC protocol {} is unsupported", request.protocol_version),
-        );
-    }
-    match dispatch_rpc(request) {
-        Ok(result) => RpcResponse {
-            request_id,
-            ok: true,
-            result: Some(result),
-            error: None,
-        },
-        Err((code, message)) => rpc_failure(request_id, code, message),
-    }
-}
-
-fn dispatch_rpc(request: RpcRequest) -> Result<Value, (&'static str, String)> {
-    let run = || -> Result<Value, Box<dyn Error>> {
-        let payload = &request.payload;
-        match request.command.as_str() {
-            "ping" => Ok(json!({"protocol_version": RPC_PROTOCOL_VERSION})),
-            "new" => {
-                SongProject::default().save(payload_path(payload, "project_path")?)?;
-                Ok(Value::Null)
-            }
-            "create" => {
-                create_project_file(
-                    payload_path(payload, "project_path")?,
-                    payload_path(payload, "source_path")?,
-                    payload_path(payload, "target_path")?,
-                )?;
-                Ok(Value::Null)
-            }
-            "load_project" => Ok(serde_json::to_value(SongProject::load(payload_path(
-                payload,
-                "project_path",
-            )?)?)?),
-            "save_project" => {
-                let json = payload
-                    .get("project")
-                    .ok_or("payload.project is required")?;
-                let project = SongProject::from_json(&json.to_string())?;
-                if payload.get("project_path").is_some() {
-                    project.save(payload_path(payload, "project_path")?)?;
-                }
-                Ok(Value::Null)
-            }
-            "set_final" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                let id = SegmentId(
-                    payload
-                        .get("segment_id")
-                        .and_then(Value::as_u64)
-                        .ok_or("payload.segment_id is required")?,
-                );
-                match payload.get("time_ms") {
-                    None | Some(Value::Null) => project.clear_user_final(id)?,
-                    Some(value) => project.set_user_final(
-                        id,
-                        value.as_u64().ok_or("payload.time_ms must be a number")?,
-                    )?,
-                }
-                project.save(path)?;
-                Ok(Value::Null)
-            }
-            "validate" => {
-                SongProject::load(payload_path(payload, "project_path")?)?;
-                Ok(json!({"valid": true}))
-            }
-            "retarget" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                replace_target_audio(&mut project, payload_path(payload, "target_path")?)?;
-                project.save(path)?;
-                Ok(Value::Null)
-            }
-            "replace_lyrics" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                replace_project_lyrics(
-                    &mut project,
-                    payload_text(payload, "original")?,
-                    payload.get("translation").and_then(Value::as_str),
-                )?;
-                project.save(path)?;
-                Ok(Value::Null)
-            }
-            "insert_lyrics" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                let after = match payload.get("after_line_id") {
-                    None | Some(Value::Null) => None,
-                    Some(value) => Some(LineId(
-                        value
-                            .as_u64()
-                            .ok_or("payload.after_line_id must be a number")?,
-                    )),
-                };
-                let inserted =
-                    insert_project_lyrics(&mut project, after, payload_text(payload, "text")?)?;
-                project.save(path)?;
-                Ok(json!({
-                    "inserted": inserted.iter().map(|id| id.0).collect::<Vec<_>>()
-                }))
-            }
-            "fetch_lyrics" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                let music_id = project
-                    .source
-                    .as_ref()
-                    .and_then(|source| source.music_id)
-                    .ok_or("project has no NetEase musicId")?;
-                let lyrics = fetch_netease_lyrics(music_id)?;
-                replace_project_lyrics(
-                    &mut project,
-                    &lyrics.original,
-                    lyrics.translation.as_deref(),
-                )?;
-                project.save(path)?;
-                Ok(Value::Null)
-            }
-            "replace_translations" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                let applied =
-                    apply_line_translations(&mut project, payload_text(payload, "translation")?)?;
-                project.save(path)?;
-                Ok(json!({
-                    "applied": applied,
-                    "lines": project.lyrics.lines.len(),
-                }))
-            }
-            "translate" => {
-                translate_project_with_config(
-                    payload_path(payload, "project_path")?,
-                    payload_text(payload, "provider")?,
-                    payload_text(payload, "api_key")?.to_owned(),
-                    payload
-                        .get("model")
-                        .and_then(Value::as_str)
-                        .map(str::to_owned),
-                    payload.get("target_language").and_then(Value::as_str),
-                )?;
-                Ok(Value::Null)
-            }
-            "align" => {
-                let ids = payload
-                    .get("segment_ids")
-                    .and_then(Value::as_array)
-                    .map(|ids| {
-                        ids.iter()
-                            .map(|id| {
-                                id.as_u64()
-                                    .map(SegmentId)
-                                    .ok_or("segment_ids must contain integers")
-                            })
-                            .collect::<Result<Vec<_>, _>>()
-                    })
-                    .transpose()?;
-                align_project_with_config(
-                    payload_path(payload, "project_path")?,
-                    ids.as_deref().filter(|ids| !ids.is_empty()),
-                    payload_text(payload, "provider")?,
-                    payload_text(payload, "api_key")?.to_owned(),
-                    payload
-                        .get("model")
-                        .and_then(Value::as_str)
-                        .map(str::to_owned),
-                )?;
-                Ok(Value::Null)
-            }
-            "restore_gemini" => {
-                let path = payload_path(payload, "project_path")?;
-                let mut project = SongProject::load(path)?;
-                project.restore_gemini_timeline();
-                project.save(path)?;
-                Ok(Value::Null)
-            }
-            "export" => {
-                let result = export_mp3(
-                    &SongProject::load(payload_path(payload, "project_path")?)?,
-                    payload_path(payload, "output_path")?,
-                    payload_bool(payload, "overwrite"),
-                )?;
-                Ok(
-                    json!({"mp3": result.mp3_path, "lrc": result.lrc_path, "audio_sha256": result.audio_sha256}),
-                )
-            }
-            "list_export_adapters" => Ok(serde_json::to_value(list_export_adapters())?),
-            "export_cuesheet" => {
-                let output = payload_path(payload, "output_path")?;
-                fs::write(
-                    output,
-                    render_cuesheet_json(&SongProject::load(payload_path(
-                        payload,
-                        "project_path",
-                    )?)?)?,
-                )?;
-                Ok(json!({"cuesheet": output}))
-            }
-            _ => Err(format!("unknown RPC command: {}", request.command).into()),
-        }
-    };
-    run().map_err(|error| {
-        let message = error.to_string();
-        let code = if message.contains("unknown RPC command") {
-            "unknown_command"
-        } else if message.contains("HTTP 401") || message.contains("HTTP 403") {
-            "authentication"
-        } else if message.contains("HTTP 429") || message.to_lowercase().contains("quota") {
-            "quota"
-        } else if message.contains("already exists") {
-            "already_exists"
-        } else {
-            "core_error"
-        };
-        (code, message)
-    })
-}
-
-fn payload_text<'a>(payload: &'a Value, field: &str) -> Result<&'a str, Box<dyn Error>> {
-    payload
-        .get(field)
-        .and_then(Value::as_str)
-        .ok_or_else(|| format!("payload.{field} is required").into())
-}
-
-fn payload_bool(payload: &Value, field: &str) -> bool {
-    payload.get(field).and_then(Value::as_bool).unwrap_or(false)
-}
-
-fn payload_path<'a>(payload: &'a Value, field: &str) -> Result<&'a Path, Box<dyn Error>> {
-    payload_text(payload, field).map(Path::new)
-}
-
-fn rpc_failure(request_id: String, code: &'static str, message: String) -> RpcResponse {
-    RpcResponse {
-        request_id,
-        ok: false,
-        result: None,
-        error: Some(RpcError { code, message }),
-    }
-}
-
 fn usage<T>() -> Result<T, Box<dyn Error>> {
     Err("usage: cueweave-cli <rpc|new|create|inspect-ncm|validate|round-trip|lyrics|translations|fetch-lyrics|retarget|set-duration|set-final|align|align-selected|translate|restore-gemini|lrc|cuesheet|export> ...".into())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::rpc::rpc_response;
 
     #[test]
     fn rpc_ping_and_protocol_errors_use_one_envelope() {
@@ -634,5 +342,23 @@ mod tests {
         let json = serde_json::to_string(&response).unwrap();
         assert!(!json.contains("never-print-this"));
         assert!(json.contains("unknown_command"));
+    }
+
+    #[test]
+    fn rpc_lists_audio_viz_adapters() {
+        let response = rpc_response(
+            r#"{"protocol_version":1,"request_id":"viz","command":"list_audio_viz_adapters"}"#,
+        );
+        assert!(response.ok);
+        let adapters = response.result.as_ref().unwrap()["adapters"]
+            .as_array()
+            .unwrap();
+        assert_eq!(adapters.len(), 7);
+        assert_eq!(adapters[0]["id"], "peak");
+        assert_eq!(adapters[2]["id"], "peakRms");
+        let json = serde_json::to_string(&response).unwrap();
+        assert!(!json.contains("onset"));
+        assert!(!json.contains("snap"));
+        assert!(!json.contains("suggested_time"));
     }
 }

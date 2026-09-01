@@ -85,24 +85,24 @@ struct LyricsPage: View {
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
-                        ForEach(Array((store.project?.lyrics.credits ?? []).enumerated()), id: \.offset) { index, credit in
+                        ForEach(store.project?.lyrics.credits ?? []) { credit in
                             HStack(spacing: 6) {
                                 TextField(
                                     l10n.t("lyrics.role"),
                                     text: Binding(
-                                        get: { store.project?.lyrics.credits[safe: index]?.label ?? credit.label },
-                                        set: { store.updateCredit(at: index, label: $0) }
+                                        get: { store.project?.lyrics.credits.first { $0.id == credit.id }?.label ?? credit.label },
+                                        set: { store.updateCredit(id: credit.id, label: $0) }
                                     )
                                 )
                                 .frame(width: 76)
                                 TextField(
                                     l10n.t("lyrics.name"),
                                     text: Binding(
-                                        get: { store.project?.lyrics.credits[safe: index]?.value ?? credit.value },
-                                        set: { store.updateCredit(at: index, value: $0) }
+                                        get: { store.project?.lyrics.credits.first { $0.id == credit.id }?.value ?? credit.value },
+                                        set: { store.updateCredit(id: credit.id, value: $0) }
                                     )
                                 )
-                                Button { store.removeCredit(at: index) } label: {
+                                Button { store.removeCredit(id: credit.id) } label: {
                                     Image(systemName: "minus")
                                 }
                                 .buttonStyle(.plain)

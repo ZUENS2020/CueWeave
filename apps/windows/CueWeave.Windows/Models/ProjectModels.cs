@@ -69,8 +69,20 @@ public sealed class LyricsDocument
 
 public sealed class Credit
 {
+    public ulong Id { get; set; }
     public string Label { get; set; } = "";
     public string Value { get; set; } = "";
+
+    [JsonIgnore]
+    public string DisplayText
+    {
+        get
+        {
+            var label = Label.Trim();
+            var value = Value.Trim();
+            return string.IsNullOrEmpty(label) ? value : $"{label}：{value}";
+        }
+    }
 }
 
 public sealed class LyricLine

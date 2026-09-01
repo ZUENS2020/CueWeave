@@ -102,6 +102,22 @@ struct TimelineInteractionTests {
         #expect(TimelineLayoutMetrics.lane(at: 349, height: 350) == .lyrics)
     }
 
+    @Test("Each audio lane can show any visualization kind")
+    func audioLanesCombineFreely() {
+        var lanes = AudioLaneSettings()
+        #expect(lanes.upper == .peak)
+        #expect(lanes.lower == .bands)
+        #expect(lanes.neededScales.isEmpty)
+        lanes.upper = .specLog
+        lanes.lower = .peakRms
+        #expect(lanes.neededScales == [.log])
+        lanes.lower = .specMel
+        #expect(Set(lanes.neededScales) == [.log, .mel])
+        lanes.upper = .rms
+        lanes.lower = .bands
+        #expect(lanes.neededScales.isEmpty)
+    }
+
     @Test("High-zoom canvases split before the Retina rasterization cap")
     func canvasTilesCoverAZoomedDocument() {
         #expect(TimelineInteractionMath.canvasTileCount(documentWidth: 1_000) == 1)
@@ -263,6 +279,25 @@ struct TimelineInteractionTests {
             keyCode: 6, characters: "z", command: true, shift: true,
             option: false, control: false, isKeyUp: false, isRepeat: false
         )) == nil)
+        translator = TimelineHotkeyTranslator()
+        #expect(translator.translate(TimelineHotkeyInput(
+            keyCode: 45, characters: "n", command: false, shift: false,
+            option: false, control: false, isKeyUp: false, isRepeat: false
+        )) == .toggleFollowSelection)
+        #expect(translator.translate(TimelineHotkeyInput(
+            keyCode: 45, characters: "n", command: false, shift: true,
+            option: false, control: false, isKeyUp: false, isRepeat: false
+        )) == nil)
+    }
+
+    @Test("Audio visualization adapters dispatch by surface and series")
+    func audioVizAdaptersStayAlignedWithLaneKinds() {
+        #expect(AudioVizCatalog.builtins.map(\.id) == AudioLaneKind.allCases.map(\.rawValue))
+        #expect(AudioLaneKind.peak.adapter?.surface == .waveform)
+        #expect(AudioLaneKind.peakRms.adapter?.series == ["peak", "rms"])
+        #expect(AudioLaneKind.bands.adapter?.surface == .bands)
+        #expect(AudioLaneKind.specMel.adapter?.scale == .mel)
+        #expect(AudioVizCatalog.info("onset") == nil)
     }
 }
 

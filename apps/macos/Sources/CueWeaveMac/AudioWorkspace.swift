@@ -193,11 +193,19 @@ private extension AudioPlayer {
 @MainActor
 final class WaveformModel: ObservableObject {
     @Published private(set) var bins: [AudioDisplayBin] = []
+    @Published private(set) var spectrograms: [String: SpectrogramFrame] = [:]
     private var analysisTask: Task<Void, Never>?
+    private var spectrogramTask: Task<Void, Never>?
+    private var loadedURL: URL?
+    private var loadedSHA: String?
 
-    func load(_ url: URL) {
+    func load(_ url: URL, payloadSHA256: String? = nil) {
         analysisTask?.cancel()
+        spectrogramTask?.cancel()
         bins = []
+        spectrograms = [:]
+        loadedURL = url
+        loadedSHA = payloadSHA256
         analysisTask = Task { [weak self] in
             do {
                 let amplitudes = try await WaveformAnalyzer().samples(
@@ -209,12 +217,107 @@ final class WaveformModel: ObservableObject {
                     Self.decodeBandEnergy(url, binCount: amplitudes.count)
                 }.value
                 guard !Task.isCancelled else { return }
-                self?.bins = Self.combine(amplitudes: amplitudes, energy: energy)
+                var combined = Self.combine(amplitudes: amplitudes, energy: energy)
+                if url.pathExtension.lowercased() == "mp3" {
+                    combined = (try? await Self.mergeCoreWaveform(
+                        url: url,
+                        sha256: payloadSHA256,
+                        bins: combined
+                    )) ?? combined
+                }
+                self?.bins = combined
             } catch {
                 guard !Task.isCancelled else { return }
                 self?.bins = []
             }
         }
+    }
+
+    func frame(for scale: SpectrumScale) -> SpectrogramFrame? {
+        spectrograms[scale.rawValue]
+    }
+
+    func loadSpectrograms(scales: [SpectrumScale]) {
+        spectrogramTask?.cancel()
+        let unique = Array(Set(scales))
+        guard let url = loadedURL, url.pathExtension.lowercased() == "mp3", !unique.isEmpty else { return }
+        spectrogramTask = Task { [weak self, loadedSHA] in
+            for scale in unique {
+                guard !Task.isCancelled else { return }
+                guard let frame = try? await Self.fetchSpectrogram(url: url, sha256: loadedSHA, scale: scale) else {
+                    continue
+                }
+                var next = self?.spectrograms ?? [:]
+                next[scale.rawValue] = frame
+                self?.spectrograms = next
+            }
+        }
+    }
+
+    nonisolated private static func mergeCoreWaveform(
+        url: URL,
+        sha256: String?,
+        bins: [AudioDisplayBin]
+    ) async throws -> [AudioDisplayBin] {
+        var payload: [String: Any] = [
+            "action": "prepare",
+            "audio_path": url.path,
+            "cache_dir": AudioVizCache.directory,
+            "waveform_bins": bins.count,
+        ]
+        if let sha256, !sha256.isEmpty { payload["sha256"] = sha256 }
+        let result = try await CoreBridge.result("audio_viz", payload: payload)
+        let peakMin = floatArray(result["peak_min"])
+        let peakMax = floatArray(result["peak_max"])
+        let rms = floatArray(result["rms"])
+        guard peakMin.count == bins.count, peakMax.count == bins.count, rms.count == bins.count else {
+            return bins
+        }
+        return bins.enumerated().map { index, bin in
+            var next = bin
+            next.minimum = peakMin[index]
+            next.maximum = peakMax[index]
+            next.rms = rms[index]
+            return next
+        }
+    }
+
+    nonisolated private static func fetchSpectrogram(
+        url: URL,
+        sha256: String?,
+        scale: SpectrumScale
+    ) async throws -> SpectrogramFrame {
+        var payload: [String: Any] = [
+            "action": "spectrogram",
+            "audio_path": url.path,
+            "cache_dir": AudioVizCache.directory,
+            "scale": scale.rawValue,
+            "frequency_bins": 128,
+        ]
+        if let sha256, !sha256.isEmpty { payload["sha256"] = sha256 }
+        let result = try await CoreBridge.result("audio_viz", payload: payload)
+        let values = Data(
+            base64Encoded: result["values"] as? String ?? ""
+        ).map { Array($0) } ?? []
+        return SpectrogramFrame(
+            startMS: uint64Value(result["start_ms"]),
+            endMS: uint64Value(result["end_ms"]),
+            timeBins: intValue(result["time_bins"]),
+            frequencyBins: intValue(result["frequency_bins"]),
+            values: values
+        )
+    }
+
+    nonisolated private static func floatArray(_ value: Any?) -> [Float] {
+        (value as? [NSNumber])?.map(\.floatValue) ?? []
+    }
+
+    nonisolated private static func intValue(_ value: Any?) -> Int {
+        (value as? NSNumber)?.intValue ?? 0
+    }
+
+    nonisolated private static func uint64Value(_ value: Any?) -> UInt64 {
+        (value as? NSNumber)?.uint64Value ?? 0
     }
 
     nonisolated private static func decodeBandEnergy(_ url: URL, binCount: Int) -> [BandEnergy] {
@@ -289,6 +392,7 @@ final class WaveformModel: ObservableObject {
             return AudioDisplayBin(
                 minimum: -amplitude,
                 maximum: amplitude,
+                rms: amplitude * 0.7,
                 low: bands.low,
                 mid: bands.mid,
                 high: bands.high
@@ -314,9 +418,19 @@ final class WaveformModel: ObservableObject {
 struct AudioDisplayBin: Sendable {
     var minimum: Float = 0
     var maximum: Float = 0
+    var rms: Float = 0
     var low: Float = 0
     var mid: Float = 0
     var high: Float = 0
+}
+
+enum AudioVizCache {
+    static var directory: String {
+        let url = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("CueWeave", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url.path
+    }
 }
 
 private struct BandEnergy: Sendable {

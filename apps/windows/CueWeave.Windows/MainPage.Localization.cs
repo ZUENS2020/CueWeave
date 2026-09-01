@@ -72,10 +72,8 @@ public sealed partial class MainPage
         AlignButton.Content = L10n.T("align.runGemini");
         RestoreButton.Content = L10n.T("align.restoreAI");
         HotkeyHintButton.Label = L10n.T("hotkey.windowsHint");
-        InspectorMarkButton.Content = L10n.T("inspect.markPlayhead");
         PlayAroundButton.Content = L10n.T("inspect.playAround");
         UseGeminiButton.Content = L10n.T("inspect.useGemini");
-        ClearFinalButton.Content = L10n.T("align.clearFinal");
         ExportHeading.Text = L10n.T("export.title");
         ExportHint.Text = L10n.T("export.outputHint.win");
         SaveCueSheetButton.Content = L10n.T("export.saveCueSheet");
@@ -91,6 +89,10 @@ public sealed partial class MainPage
         OverwriteCheck.Content = L10n.T("export.overwriteExisting");
         ToolTipService.SetToolTip(OverwriteCheck, L10n.T("export.overwriteExistingHint"));
         CancelButton.Content = L10n.T("action.cancel");
-        Timeline.SetLaneLabels(L10n.T("lane.waveform"), L10n.T("lane.bandFull"), L10n.T("lane.lyricsTimestamps"));
+        Timeline.LocalizeLanes(L10n.T);
+        if (LyricsCreditsLabel is not null) LyricsCreditsLabel.Text = L10n.T("align.credits");
+        if (AddCreditButton is not null) AddCreditButton.Content = L10n.T("lyrics.credits");
+        if (MergeCreditsButton is not null) MergeCreditsButton.Content = L10n.T("credit.merge");
+        if (CreditIntroText is not null) CreditIntroText.Text = L10n.T("credit.introTooShort");
     }
 }

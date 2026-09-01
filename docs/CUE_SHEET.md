@@ -4,7 +4,7 @@ CueWeave 给播放器插件的稳定输入是 **Cue Sheet JSON**，不是 `.cuew
 
 `schema_version` 必须为 **1**。JSON 里的时间已经加过 `offset_ms`，适配器不要再加一次。
 
-完整产品说明（导入格式、快捷键、导出覆盖）见 [README.md](../README.md)。
+完整产品说明（导入格式、快捷键、导出覆盖）见 [README.md](../README.md)。时间线波形 / 频谱适配器是另一套契约，见 [AUDIO_VIZ.md](AUDIO_VIZ.md)。
 
 ## 从哪里拿到
 

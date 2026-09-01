@@ -4,6 +4,7 @@ CueWeave transfers song metadata and lyrics onto another vocal or mix, then rebu
 
 - [中文 README](README.md)
 - [Cue Sheet player plugin contract](docs/CUE_SHEET.md)
+- [Audio visualization adapters](docs/AUDIO_VIZ.md)
 
 License: [AGPL-3.0-only](LICENSE)
 
@@ -152,6 +153,7 @@ A timeline click seeks only; it does not select a lyric. Select with a left-list
 | Space | Play / pause |
 | Return | Select the playing lyric |
 | Tab / ⇧Tab | Select the lyric after / before the playhead |
+| N | Toggle “keep next lyric selected” (toolbar Next) |
 | ↑ / ↓ | Move selection |
 | ← / → | Seek by 1% of the visible time span |
 | Home / End | Jump to start / end |
@@ -167,7 +169,7 @@ A timeline click seeks only; it does not select a lyric. Select with a left-list
 | ⌘= / ⌘− (Windows: Ctrl+= / Ctrl+-) | Timeline zoom |
 | Pinch, or Ctrl+wheel on Windows | Timeline zoom |
 
-**Follow** keeps the viewport on the playhead. **Next** (off by default) keeps selection on the lyric *after* the playhead (same as Tab). Manual selection turns Next off; only Tab (next lyric) keeps it on.
+**Follow** keeps the viewport on the playhead. **Next** (off by default, shortcut **N**) keeps selection on the lyric *after* the playhead (same as Tab). Manual selection turns Next off; only Tab (next lyric) keeps it on.
 
 Lyric inspector: **Play two seconds before**, **Use Gemini**. Credits can still be stamped on the timeline.
 
@@ -216,6 +218,10 @@ The stable input is **Cue Sheet JSON** (`schema_version: 1`):
 Times in the JSON already include `offset_ms`. A plugin only renders that snapshot as KRC, TTML, NetEase, Apple Music, Aegisub, or any other player format.
 
 There is **no** dylib / WASM loader. In-process Rust adapters implement `PlayerExportAdapter`; out-of-process tools read the JSON. Fields, event types, and adapter duties: [docs/CUE_SHEET.md](docs/CUE_SHEET.md).
+
+## Audio visualization
+
+The two generic audio lanes pick a builtin adapter (Peak / RMS / Peak+RMS / Band Energy / three spectrograms). Display only; it does not change timing. New waveforms implement `AudioVizAdapter` and appear in RPC `list_audio_viz_adapters`; the GUI dispatches on `surface` + `series`. Contract: [docs/AUDIO_VIZ.md](docs/AUDIO_VIZ.md).
 
 ## API keys
 

@@ -251,7 +251,7 @@ Microsoft 当前仍将 [WinUI 3 / Windows App SDK](https://learn.microsoft.com/e
 | 60 Hz 播放头与 Follow | WinUI [`CompositionTarget.Rendering`](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.ui.xaml.media.compositiontarget.rendering) | **直接采用** | 播放时订阅，暂停/页面卸载立即取消；每帧只读一次播放器 Position、更新 active lyric、按需 Invalidate。不得用 DispatcherTimer 假装 60 Hz。 |
 | 音频播放、Seek、速率 | Windows [`MediaPlayer` + `MediaPlaybackSession`](https://learn.microsoft.com/en-us/windows/apps/develop/media-playback/play-audio-and-video-with-mediaplayer) | **真实音频原型，W1** | 音频-only 不放 `MediaPlayerElement` transport UI。Position 是唯一播放时钟，A/B 在渲染帧检查。微软文档支持 PlaybackRate，但没有明确承诺所有 codec 均防变调，因此必须实测后才能冻结。 |
 | 防变调失败时的回退 | [NAudio](https://github.com/naudio/NAudio) + SoundTouch | **仅回退，不预装两套播放器** | 先测系统 MediaPlayer。若 0.5–2.0× 音高不合格，再用 NAudio/SoundTouch 原型；SoundTouch 有额外 native DLL 与 LGPL 合规成本，不能提前进入发布包。 |
-| MP3 波形与三带视觉数据 | NAudio `AudioFileReader` / Media Foundation decode + NAudio FFT | **采用一个 Windows 音频依赖** | 离线生成固定 bin，UI 只消费数组；不得写入项目、参与 Gemini 或 Final。NAudio 同时作为播放回退基础，避免再加独立 DSP/图表库。 |
+| MP3 波形与三带视觉数据 | NAudio `AudioFileReader` / Media Foundation decode + NAudio FFT | **采用一个 Windows 音频依赖** | Peak/RMS/Spectrogram 优先走 Rust Core `audio_viz`；本机 NAudio 三带仍保留。分析数组不得写入项目、参与 Gemini 或 Final。 |
 | 封面显示 | WinUI `Image` / `BitmapImage` 读取 Core 验证后的本地文件 | **直接采用** | UI 不直接下载 `cover_url`，不引入图片缓存库。远端 host 白名单和下载仍在 Rust。 |
 | Rust Core 子进程 | .NET `ProcessStartInfo` + stdin/stdout JSON | **直接采用，W0** | `UseShellExecute=false`、`CreateNoWindow=true`、`ArgumentList`、重定向三流；取消时 Kill entire process tree。绝不通过 shell 拼命令。 |
 | JSON DTO | `System.Text.Json` source-generated context + 少量 C# records | **直接采用** | 不加 Newtonsoft.Json、AutoMapper 或运行时 schema 框架。C# DTO 只映射 UI 真正读取的字段；协议 golden file 防漂移。 |

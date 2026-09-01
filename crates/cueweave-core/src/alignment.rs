@@ -408,6 +408,10 @@ fn apply_alignment_items(
             )
             .map_err(|error| AlignmentError::Invalid(error.to_string()))?;
     }
+    if crate::credits_need_layout(project) {
+        crate::layout_credit_cues(project)
+            .map_err(|error| AlignmentError::Invalid(error.to_string()))?;
+    }
     Ok(())
 }
 

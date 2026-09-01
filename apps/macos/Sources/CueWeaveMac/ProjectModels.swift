@@ -97,9 +97,29 @@ struct LyricsDocument: Codable, Equatable {
     var lines: [LyricLine]
 }
 
-struct Credit: Codable, Equatable {
+struct Credit: Codable, Equatable, Identifiable {
+    var id: UInt64
     var label: String
     var value: String
+
+    var displayText: String {
+        let trimmedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedLabel.isEmpty ? trimmedValue : "\(trimmedLabel)：\(trimmedValue)"
+    }
+
+    init(id: UInt64 = 0, label: String, value: String) {
+        self.id = id
+        self.label = label
+        self.value = value
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UInt64.self, forKey: .id) ?? 0
+        label = try container.decode(String.self, forKey: .label)
+        value = try container.decode(String.self, forKey: .value)
+    }
 }
 
 struct LyricLine: Codable, Equatable, Identifiable {
@@ -138,13 +158,18 @@ struct AlignmentPoint: Codable, Equatable {
 struct Cue: Codable, Equatable {
     var type: String
     var timeMS: UInt64?
-    var text: String?
+    var creditID: UInt64?
     var lineID: UInt64?
 
     enum CodingKeys: String, CodingKey {
-        case type, text
+        case type
         case timeMS = "time_ms"
+        case creditID = "credit_id"
         case lineID = "line_id"
+    }
+
+    static func credit(id: UInt64, timeMS: UInt64) -> Cue {
+        Cue(type: "credit", timeMS: timeMS, creditID: id, lineID: nil)
     }
 }
 

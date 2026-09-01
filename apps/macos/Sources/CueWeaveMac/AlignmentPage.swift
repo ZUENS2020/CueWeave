@@ -19,6 +19,17 @@ struct AlignmentPage: View {
     var body: some View {
         VStack(spacing: 0) {
             header
+            if store.project?.creditIntroTooShort == true {
+                HStack {
+                    Text(l10n.t("credit.introTooShort"))
+                        .font(.caption)
+                    Spacer()
+                    Button(l10n.t("credit.merge")) { store.mergeCredits() }
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 8)
+                .background(CueWeaveStyle.warning.opacity(0.12))
+            }
             Divider()
             if store.allSegments.isEmpty {
                 EmptyWorkspaceState(
@@ -28,7 +39,7 @@ struct AlignmentPage: View {
                 )
             } else {
                 HSplitView {
-                    segmentSidebar.frame(minWidth: 230, idealWidth: 280, maxWidth: 340)
+                    segmentSidebar.frame(minWidth: 200, idealWidth: 280, maxWidth: 340)
                     VStack(spacing: 0) {
                         TimelinePlaybackBar(store: store, interaction: interaction)
                         PlaybackTickBridge(player: store.player) {
@@ -40,10 +51,13 @@ struct AlignmentPage: View {
                             waveform: waveform,
                             interaction: interaction
                         )
+                        .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
                         Divider()
-                        inspector.frame(minHeight: 210, idealHeight: 230, maxHeight: 260)
+                        inspector.frame(minHeight: 180, idealHeight: 220, maxHeight: 260)
                     }
+                    .frame(minWidth: 0, maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .background(WindowAnchor { interaction.hostWindow = $0 })
@@ -95,7 +109,31 @@ struct AlignmentPage: View {
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVStack(spacing: 0) {
+                    VStack(spacing: 0) {
+                        if let credits = store.project?.creditCues, !credits.isEmpty {
+                            Text(l10n.t("align.credits"))
+                                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 10)
+                                .padding(.top, 8)
+                            ForEach(credits, id: \.id) { credit in
+                                CreditQueueRow(
+                                    text: credit.text,
+                                    timeMS: credit.timeMS,
+                                    isPrimary: interaction.selectedCreditID == credit.id,
+                                    onSelect: { interaction.selectCredit(credit.id) },
+                                    onStamp: { interaction.stampCredit(credit.id) }
+                                )
+                                Divider()
+                            }
+                            Text(l10n.t("align.lyricsSection"))
+                                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                                .foregroundStyle(.tertiary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.horizontal, 10)
+                                .padding(.top, 8)
+                        }
                         ForEach(store.allSegments) { segment in
                             SegmentQueueRow(
                                 segment: segment,
@@ -114,20 +152,10 @@ struct AlignmentPage: View {
                     }
                 }
                 .onChange(of: interaction.activeSegmentID) { _, segmentID in
-                    guard let segmentID,
-                          store.allSegments.contains(where: { $0.id == segmentID })
-                    else { return }
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        proxy.scrollTo(segmentID, anchor: .center)
-                    }
+                    revealQueueItem(segmentID, proxy: proxy)
                 }
                 .onChange(of: interaction.selectedSegmentID) { _, segmentID in
-                    guard let segmentID,
-                          store.allSegments.contains(where: { $0.id == segmentID })
-                    else { return }
-                    withAnimation(.easeOut(duration: 0.16)) {
-                        proxy.scrollTo(segmentID, anchor: .center)
-                    }
+                    revealQueueItem(segmentID, proxy: proxy)
                 }
             }
             Divider()
@@ -156,12 +184,38 @@ struct AlignmentPage: View {
 
     @ViewBuilder
     private var inspector: some View {
-        if let segment = selected {
+        if let credit = selectedCredit {
+            creditInspector(credit)
+                .padding(14)
+                .background(CueWeaveStyle.panel)
+        } else if let segment = selected {
             unifiedInspector(segment)
             .padding(14)
             .background(CueWeaveStyle.panel)
         } else {
             EmptyWorkspaceState(title: l10n.t("inspect.emptyTitle"), detail: l10n.t("inspect.emptyDetail"))
+        }
+    }
+
+    private func creditInspector(_ credit: Credit) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(l10n.t("align.credits"))
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.tertiary)
+            Text(credit.displayText).font(.title3).textSelection(.enabled)
+            HStack(spacing: 8) {
+                Text(cueTime(store.project?.creditTime(id: credit.id) ?? 0))
+                    .font(.system(size: 11, design: .monospaced))
+                Button(l10n.t("inspect.markPlayhead")) { interaction.stampCredit(credit.id) }
+                Button("−50") { interaction.nudgeSelected(by: -50) }
+                Button("−10") { interaction.nudgeSelected(by: -10) }
+                Button("−1") { interaction.nudgeSelected(by: -1) }
+                Button("+1") { interaction.nudgeSelected(by: 1) }
+                Button("+10") { interaction.nudgeSelected(by: 10) }
+                Button("+50") { interaction.nudgeSelected(by: 50) }
+                Spacer()
+            }
+            .controlSize(.small)
         }
     }
 
@@ -185,9 +239,8 @@ struct AlignmentPage: View {
             inspectorHeader(segment)
             HStack(spacing: 8) {
                 timingReadouts(segment)
-                    .frame(minWidth: 240, idealWidth: 270, maxWidth: 300)
+                    .frame(minWidth: 0, idealWidth: 270, maxWidth: 300)
                 Divider().frame(height: 34)
-                Button(l10n.t("inspect.markPlayhead")) { interaction.stamp(segment.id) }
                 Button("−50") { interaction.nudgeSelected(by: -50) }
                 Button("−10") { interaction.nudgeSelected(by: -10) }
                 Button("−1") { interaction.nudgeSelected(by: -1) }
@@ -198,10 +251,9 @@ struct AlignmentPage: View {
                 Button(l10n.t("inspect.playAround")) { playAround(segment) }
                 Button(l10n.t("inspect.useGemini")) { store.acceptGeminiSuggestion(segmentID: segment.id) }
                     .disabled(segment.timing.gemini == nil)
-                Button(l10n.t("align.clearFinal")) { store.clearFinal(segmentID: segment.id) }
-                    .disabled(segment.timing.finalPoint == nil)
             }
             .controlSize(.small)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             inspectorField(l10n.t("inspect.lyricText"), placeholder: l10n.t("inspect.lyricPlaceholder"), text: originalLineBinding(segment.id), field: .original)
         }
     }
@@ -240,6 +292,19 @@ struct AlignmentPage: View {
 
     private var selected: LyricSegment? {
         store.allSegments.first { $0.id == interaction.selectedSegmentID }
+    }
+
+    private var selectedCredit: Credit? {
+        store.project?.lyrics.credits.first { $0.id == interaction.selectedCreditID }
+    }
+
+    private func revealQueueItem(_ segmentID: UInt64?, proxy: ScrollViewProxy) {
+        guard let segmentID,
+              let index = store.allSegments.firstIndex(where: { $0.id == segmentID })
+        else { return }
+        withAnimation(.easeOut(duration: 0.16)) {
+            proxy.scrollTo(segmentID, anchor: index < 2 ? .top : .center)
+        }
     }
 
     private func translation(for segmentID: UInt64) -> String? {
@@ -380,7 +445,7 @@ private struct TimelinePlaybackBar: View {
             .help(l10n.t("next.help"))
             Divider().frame(height: 18)
             Button(l10n.t("mark")) { stampCurrent() }
-            .disabled(interaction.selectedSegmentID == nil)
+            .disabled(interaction.selectedSegmentID == nil && interaction.selectedCreditID == nil)
             Divider().frame(height: 18)
             Button { store.undo() } label: { Image(systemName: "arrow.uturn.backward") }
                 .disabled(!store.canUndo)
@@ -393,6 +458,9 @@ private struct TimelinePlaybackBar: View {
                 Button(l10n.t("hotkey.selectPlaying")) { interaction.selectCurrent() }
                 Button(l10n.t("hotkey.selectNext")) { interaction.selectRelativeToPlayhead(offset: 1) }
                 Button(l10n.t("hotkey.selectPrev")) { interaction.selectRelativeToPlayhead(offset: -1) }
+                Button(l10n.t("hotkey.followNext")) {
+                    interaction.setFollowSelection(!interaction.followSelection)
+                }
                 Button(l10n.t("hotkey.mark")) { stampCurrent() }
                 Button(l10n.t("hotkey.clearFinal")) {
                     if let id = interaction.selectedSegmentID { store.clearFinal(segmentID: id) }
@@ -443,6 +511,10 @@ private struct TimelinePlaybackBar: View {
     }
 
     private func stampCurrent() {
+        if let creditID = interaction.selectedCreditID {
+            interaction.stampCredit(creditID)
+            return
+        }
         guard let id = interaction.selectedSegmentID ?? store.allSegments.first?.id else { return }
         interaction.stamp(id)
     }

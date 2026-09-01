@@ -66,9 +66,8 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     nonisolated convenience init(encodedProject data: Data) throws {
         self.init()
         var decoded = try JSONDecoder().decode(ProjectDocument.self, from: data)
-        let migrated = decoded.schemaVersion == 1
-        guard decoded.schemaVersion <= 2 else { throw CocoaError(.fileReadUnknown) }
-        if decoded.schemaVersion == 1 { decoded.schemaVersion = 2 }
+        let migrated = decoded.migrateToCurrentSchema()
+        guard decoded.schemaVersion <= 3 else { throw CocoaError(.fileReadUnknown) }
         project = decoded
         hasUnsavedChanges = migrated
         activity = L10n.shared.t("activity.loaded")
@@ -196,11 +195,10 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     func openProject(_ url: URL, preservingCurrentForUndo: Bool = false) throws {
         let previous = preservingCurrentForUndo ? project : nil
         var decoded = try JSONDecoder().decode(ProjectDocument.self, from: Data(contentsOf: url))
-        let migrated = decoded.schemaVersion == 1
-        guard decoded.schemaVersion <= 2 else {
+        let migrated = decoded.migrateToCurrentSchema()
+        guard decoded.schemaVersion <= 3 else {
             throw CoreBridgeError.invalidResponse("project schema \(decoded.schemaVersion) is newer than this app")
         }
-        if decoded.schemaVersion == 1 { decoded.schemaVersion = 2 }
         projectURL = url
         project = decoded
         if let previous, previous != decoded {
@@ -324,23 +322,31 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         mutate { $0.metadata.draft.coverPath = url.path }
     }
 
-    func updateCredit(at index: Int, label: String? = nil, value: String? = nil) {
+    func updateCredit(id: UInt64, label: String? = nil, value: String? = nil) {
         mutate { document in
-            guard document.lyrics.credits.indices.contains(index) else { return }
+            guard let index = document.lyrics.credits.firstIndex(where: { $0.id == id }) else { return }
             if let label { document.lyrics.credits[index].label = label }
             if let value { document.lyrics.credits[index].value = value }
         }
     }
 
     func addCredit() {
-        mutate { $0.lyrics.credits.append(Credit(label: "Role", value: "Name")) }
+        mutate { $0.addCredit(label: "Role", value: "Name") }
     }
 
-    func removeCredit(at index: Int) {
+    func removeCredit(id: UInt64) {
+        mutate { $0.removeCredit(id: id) }
+    }
+
+    func setCreditTime(id: UInt64, milliseconds: UInt64) {
         mutate { document in
-            guard document.lyrics.credits.indices.contains(index) else { return }
-            document.lyrics.credits.remove(at: index)
+            let maximum = document.target?.durationMS ?? UInt64.max
+            document.setCreditTime(id: id, milliseconds: min(milliseconds, maximum))
         }
+    }
+
+    func mergeCredits() {
+        mutate { $0.mergeCredits() }
     }
 
     func updateLine(_ lineID: UInt64, original: String? = nil, translation: String? = nil) {
@@ -444,7 +450,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     }
 
     @MainActor
-    func operation(_ label: String, body: @escaping () async throws -> Void) async {
+    func operation(_ label: String, body: @escaping @MainActor () async throws -> Void) async {
         cancellationRequested = false
         isBusy = true
         activity = label
@@ -483,8 +489,15 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     }
 
     private func registerUndo(_ document: ProjectDocument) {
-        resolvedUndoManager?.registerUndo(withTarget: self) { store in
-            store.restoreForUndo(document)
+        let register = { [self] in
+            resolvedUndoManager?.registerUndo(withTarget: self) { store in
+                store.restoreForUndo(document)
+            }
+        }
+        if Thread.isMainThread {
+            register()
+        } else {
+            DispatchQueue.main.sync(execute: register)
         }
     }
 
@@ -545,7 +558,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         }
         do {
             try player.load(url)
-            waveform.load(url)
+            waveform.load(url, payloadSHA256: project?.target?.fingerprint?.sha256)
             if var document = project, document.target?.durationMS == nil {
                 document.target?.durationMS = UInt64((player.duration * 1000).rounded())
                 project = document

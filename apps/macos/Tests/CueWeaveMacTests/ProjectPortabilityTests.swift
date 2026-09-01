@@ -4,7 +4,7 @@ import Testing
 
 @Suite("Portable project")
 struct ProjectPortabilityTests {
-    @Test("Schema v2 preserves fingerprints and resolves relative media")
+    @Test("Schema v3 preserves fingerprints and resolves relative media")
     func roundTrip() throws {
         let json = projectJSON
         let project = try JSONDecoder().decode(ProjectDocument.self, from: Data(json.utf8))
@@ -73,7 +73,30 @@ struct ProjectPortabilityTests {
         #expect(loaded.activity == L10n.shared.t("activity.loaded"))
     }
 
+    @Test("Reloading after a detached Core hop registers undo on the main thread")
+    @MainActor
+    func reloadAfterDetachedHopRegistersUndoOnMain() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("song.cueweave")
+        try Data(projectJSON.utf8).write(to: url)
+
+        let store = ProjectStore()
+        store.project = try JSONDecoder().decode(ProjectDocument.self, from: Data(projectJSON.utf8))
+        store.project?.metadata.draft.title = "Before fetch"
+        let undo = UndoManager()
+        store.attachDocument(url: url, undoManager: undo)
+
+        await store.operation("reload") {
+            _ = await Task.detached { 0 }.value
+            try store.openProject(url, preservingCurrentForUndo: true)
+        }
+        #expect(undo.canUndo)
+        #expect(store.project?.metadata.draft.title == nil)
+    }
+
     private var projectJSON: String {
-        #"{"schema_version":2,"source":{"path":"media/source.ncm","fingerprint":{"file_name":"source.ncm","size_bytes":12,"sha256":"aa"}},"target":{"path":"media/target.mp3","fingerprint":{"file_name":"target.mp3","size_bytes":34,"sha256":"bb"},"duration_ms":149091},"metadata":{"source":{"artists":[]},"target":{"artists":[]},"draft":{"artists":[]}},"lyrics":{"credits":[],"lines":[]},"timeline":[],"export":{"offset_ms":0,"formats":["lrc"],"bilingual":"original_only"}}"#
+        #"{"schema_version":3,"source":{"path":"media/source.ncm","fingerprint":{"file_name":"source.ncm","size_bytes":12,"sha256":"aa"}},"target":{"path":"media/target.mp3","fingerprint":{"file_name":"target.mp3","size_bytes":34,"sha256":"bb"},"duration_ms":149091},"metadata":{"source":{"artists":[]},"target":{"artists":[]},"draft":{"artists":[]}},"lyrics":{"credits":[],"lines":[]},"timeline":[],"export":{"offset_ms":0,"formats":["lrc"],"bilingual":"original_only"}}"#
     }
 }

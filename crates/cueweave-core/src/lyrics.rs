@@ -1,4 +1,4 @@
-use crate::{Credit, LineId, ProjectError, SongProject};
+use crate::{Credit, CreditId, LineId, ProjectError, SongProject};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -45,6 +45,7 @@ pub fn replace_project_lyrics(
     let translations = translation.map(normalize_lyrics).unwrap_or_default().lines;
 
     project.lyrics.credits = original.credits;
+    crate::assign_credit_ids(&mut project.lyrics.credits)?;
     project.lyrics.lines.clear();
     project.timeline.clear();
     for (index, text) in original.lines.into_iter().enumerate() {
@@ -60,6 +61,7 @@ pub fn replace_project_lyrics(
                 .translation = Some(translation.clone());
         }
     }
+    crate::sync_credit_cues(project);
     Ok(())
 }
 
@@ -228,6 +230,7 @@ fn parse_credit(text: &str) -> Option<Credit> {
         .iter()
         .any(|prefix| label.trim().eq_ignore_ascii_case(prefix))
         .then(|| Credit {
+            id: CreditId(0),
             label: label.trim().to_owned(),
             value: value.trim().to_owned(),
         })

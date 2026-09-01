@@ -493,10 +493,7 @@ fn export_cue_sheet_is_the_player_adapter_contract() {
     write_fake_mp3(&input);
     let mut project = timed_project(input.clone());
     project.export.bilingual = BilingualMode::Bilingual;
-    project.lyrics.credits.push(cueweave_core::Credit {
-        label: "作词".into(),
-        value: "MOMIKEN".into(),
-    });
+    cueweave_core::add_credit(&mut project, "作词", "MOMIKEN").unwrap();
     project.lyrics.lines[0].translation = Some("在朝霞中舒展".into());
     project.set_user_final(SegmentId(1), 8_450).unwrap();
     project.set_user_final(SegmentId(2), 10_750).unwrap();
@@ -555,7 +552,6 @@ fn cue_sheet_omits_lyric_events_without_final() {
         fs::remove_file(lrc).unwrap();
     }
 }
-
 
 #[test]
 fn mp3_export_overwrite_replaces_existing_output_but_never_the_target() {

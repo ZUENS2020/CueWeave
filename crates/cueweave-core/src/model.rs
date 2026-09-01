@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-pub const CURRENT_SCHEMA_VERSION: u32 = 2;
+pub const CURRENT_SCHEMA_VERSION: u32 = 3;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SongProject {
@@ -144,8 +144,22 @@ pub struct LyricsDocument {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Credit {
+    #[serde(default)]
+    pub id: CreditId,
     pub label: String,
     pub value: String,
+}
+
+impl Credit {
+    pub fn display_text(&self) -> String {
+        let label = self.label.trim();
+        let value = self.value.trim();
+        if label.is_empty() {
+            value.to_owned()
+        } else {
+            format!("{label}：{value}")
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -165,6 +179,10 @@ pub struct LyricSegment {
     #[serde(default)]
     pub timing: SegmentTiming,
 }
+
+#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct CreditId(pub u64);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -192,7 +210,7 @@ pub struct SegmentTiming {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Cue {
-    Credit { time_ms: u64, text: String },
+    Credit { credit_id: CreditId, time_ms: u64 },
     Lyric { line_id: LineId },
     Spacer { time_ms: u64 },
 }
