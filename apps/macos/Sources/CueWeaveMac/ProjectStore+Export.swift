@@ -4,7 +4,7 @@ extension ProjectStore {
     func applyRawTranslations(_ translation: String) async {
         guard let projectURL else { return }
         save()
-        await operation("Applying translations") {
+        await operation(L10n.shared.t("activity.applyingTranslations")) {
             try await CoreBridge.call("replace_translations", payload: [
                 "project_path": projectURL.path,
                 "translation": translation,
@@ -12,7 +12,7 @@ extension ProjectStore {
             try self.openProject(projectURL, preservingCurrentForUndo: true)
             self.selection = .translation
             let count = self.project?.lyrics.lines.filter { $0.translation?.isEmpty == false }.count ?? 0
-            self.activity = "Imported \(count) translation line(s)"
+            self.activity = L10n.shared.t("activity.importedTranslations", String(count))
         }
     }
 
@@ -20,7 +20,7 @@ extension ProjectStore {
         guard let projectURL else { return }
         save()
         let provider = alignmentProvider
-        await operation("Translating through \(provider.title)") {
+        await operation(L10n.shared.t("activity.translating", provider.title)) {
             try await CoreBridge.call("translate", payload: [
                 "project_path": projectURL.path,
                 "provider": provider.rawValue,
@@ -30,7 +30,7 @@ extension ProjectStore {
             ])
             try self.openProject(projectURL, preservingCurrentForUndo: true)
             self.selection = .translation
-            self.activity = "Gemini translation ready for review"
+            self.activity = L10n.shared.t("activity.translationReady")
         }
     }
 
@@ -46,12 +46,12 @@ extension ProjectStore {
     func exportInteractive() async {
         guard let projectURL, let output = chooseMP3Destination() else { return }
         save()
-        await operation("Exporting without re-encoding") {
+        await operation(L10n.shared.t("activity.exporting")) {
             try await CoreBridge.call("export", payload: [
                 "project_path": projectURL.path,
                 "output_path": output.path,
             ])
-            self.activity = "Exported \(output.lastPathComponent)"
+            self.activity = L10n.shared.t("activity.exported", output.lastPathComponent)
         }
     }
 
@@ -59,12 +59,12 @@ extension ProjectStore {
     func exportCueSheetInteractive() async {
         guard let projectURL, let output = chooseCueSheetDestination() else { return }
         save()
-        await operation("Writing cue sheet") {
+        await operation(L10n.shared.t("activity.writingCueSheet")) {
             try await CoreBridge.call("export_cuesheet", payload: [
                 "project_path": projectURL.path,
                 "output_path": output.path,
             ])
-            self.activity = "Wrote \(output.lastPathComponent)"
+            self.activity = L10n.shared.t("activity.wrote", output.lastPathComponent)
         }
     }
 }

@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <Content Include="Assets\**" />
+    <Content Include="..\..\shared\l10n.json" Link="l10n.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 

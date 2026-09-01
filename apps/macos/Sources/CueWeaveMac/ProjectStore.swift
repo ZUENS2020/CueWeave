@@ -5,12 +5,19 @@ import UniformTypeIdentifiers
 
 final class ProjectStore: ObservableObject, ReferenceFileDocument {
     static let readableContentTypes: [UTType] = [.cueWeaveProject]
-    private static let initialSettings = LocalSettingsStore.load()
+    private static let initialSettings: LocalSettings = {
+        let loaded = LocalSettingsStore.load()
+        L10n.shared.setPreference(loaded.uiLanguage ?? "system")
+        return loaded
+    }()
 
     @Published var project: ProjectDocument?
     @Published var selection: WorkspacePage = .source
     @Published var isBusy = false
-    @Published var activity = "No project"
+    @Published var activity: String = {
+        _ = initialSettings
+        return L10n.shared.t("activity.none")
+    }()
     @Published var errorMessage: String?
     @Published var hasUnsavedChanges = false
     @Published var alignmentProvider = AlignmentProvider(
@@ -20,6 +27,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     @Published var aiStudioAPIKey = initialSettings.aiStudioAPIKey ?? ""
     @Published var openRouterModel = initialSettings.openRouterModel ?? "google/gemini-3.7-flash"
     @Published var aiStudioModel = initialSettings.aiStudioModel ?? "gemini-3.7-flash"
+    @Published var uiLanguage = initialSettings.uiLanguage ?? "system"
 
     @MainActor private var playerStorage: AudioPlayer?
     @MainActor private var waveformStorage: WaveformModel?
@@ -62,7 +70,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         if decoded.schemaVersion == 1 { decoded.schemaVersion = 2 }
         project = decoded
         hasUnsavedChanges = migrated
-        activity = "Project loaded"
+        activity = L10n.shared.t("activity.loaded")
     }
 
     nonisolated func snapshot(contentType: UTType) throws -> ProjectDocument? { project }
@@ -73,10 +81,9 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     }
 
     var title: String { project?.metadata.draft.title ?? "CueWeave" }
-    var projectPath: String { projectURL?.path ?? "No project file" }
+    var projectPath: String { projectURL?.path ?? L10n.shared.t("project.noFile") }
     var saveState: String {
-        if hasUnsavedChanges { return "EDITED" }
-        return "SAVED"
+        L10n.shared.t(hasUnsavedChanges ? "status.edited" : "status.saved")
     }
     var reviewCount: Int {
         allSegments.filter { [.pending, .needsReview, .unmatched].contains($0.timing.review) }.count
@@ -115,25 +122,25 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
 
     @MainActor
     func createInteractive() async {
-        guard let source = chooseFile(extension: "ncm", title: "Choose the original NCM"),
-              let target = chooseFile(extension: "mp3", title: "Choose the target MP3"),
+        guard let source = chooseFile(extension: "ncm", title: L10n.shared.t("pick.ncm")),
+              let target = chooseFile(extension: "mp3", title: L10n.shared.t("pick.mp3")),
               let output = chooseProjectDestination(defaultName: target.deletingPathExtension().lastPathComponent)
         else { return }
-        await operation("Creating project") {
+        await operation(L10n.shared.t("activity.creating")) {
             try await CoreBridge.call("create", payload: [
                 "project_path": output.path,
                 "source_path": source.path,
                 "target_path": target.path,
             ])
             await MainActor.run { self.presentProject(at: output) }
-            self.activity = "Project created"
+            self.activity = L10n.shared.t("activity.created")
         }
     }
 
     @MainActor
     func openInteractive() {
         let panel = NSOpenPanel()
-        panel.title = "Open Project"
+        panel.title = L10n.shared.t("welcome.open")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = Self.readableContentTypes
@@ -191,10 +198,10 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     @MainActor
     func replaceTargetInteractive() async {
         guard let projectURL,
-              let target = chooseFile(extension: "mp3", title: "Choose the replacement target MP3")
+              let target = chooseFile(extension: "mp3", title: L10n.shared.t("pick.replaceMp3"))
         else { return }
         save()
-        await operation("Replacing target") {
+        await operation(L10n.shared.t("activity.replacingTarget")) {
             try await CoreBridge.call("retarget", payload: [
                 "project_path": projectURL.path,
                 "target_path": target.path,
@@ -221,7 +228,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         }
         selection = .source
         hasUnsavedChanges = migrated
-        activity = "Project loaded"
+        activity = L10n.shared.t("activity.loaded")
         Task { @MainActor in
             self.loadAudio()
         }
@@ -232,12 +239,12 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         do {
             try encode(project).write(to: projectURL, options: .atomic)
             hasUnsavedChanges = false
-            activity = "Saved"
+            activity = L10n.shared.t("activity.saved")
         } catch { errorMessage = error.localizedDescription }
     }
 
     func scheduleAutosave() {
-        activity = "Edited"
+        activity = L10n.shared.t("activity.edited")
     }
 
     func mutate(_ body: (inout ProjectDocument) -> Void) {
@@ -256,7 +263,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
 
     func cancelOperation() {
         cancellationRequested = true
-        activity = "Cancelling"
+        activity = L10n.shared.t("activity.cancelling")
         CoreBridge.cancelActive()
     }
 
@@ -322,7 +329,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     @MainActor
     func replaceCoverInteractive() {
         let panel = NSOpenPanel()
-        panel.title = "Choose PNG or JPEG cover art"
+        panel.title = L10n.shared.t("pick.cover")
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.png, .jpeg]
@@ -446,10 +453,18 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
                 openRouterAPIKey: openRouterAPIKey,
                 aiStudioAPIKey: aiStudioAPIKey,
                 openRouterModel: openRouterModel,
-                aiStudioModel: aiStudioModel
+                aiStudioModel: aiStudioModel,
+                uiLanguage: uiLanguage
             ))
-            activity = "Provider settings saved locally"
+            L10n.shared.setPreference(uiLanguage)
+            activity = L10n.shared.t("activity.settingsSaved")
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    func applyUiLanguage() {
+        L10n.shared.setPreference(uiLanguage)
+        if project == nil { activity = L10n.shared.t("activity.none") }
+        objectWillChange.send()
     }
 
     func clearAPIKey(for provider: AlignmentProvider) {
@@ -476,8 +491,8 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         activity = label
         defer { isBusy = false; cancellationRequested = false }
         do { try await body() } catch {
-            if cancellationRequested { activity = "Cancelled" }
-            else { errorMessage = actionableMessage(for: error); activity = "Failed" }
+            if cancellationRequested { activity = L10n.shared.t("activity.cancelled") }
+            else { errorMessage = actionableMessage(for: error); activity = L10n.shared.t("activity.failed") }
         }
     }
 
@@ -519,7 +534,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         registerUndo(current)
         project = document
         hasUnsavedChanges = true
-        activity = documentUndoManager?.isUndoing == true ? "Undid last edit" : "Redid last edit"
+        activity = L10n.shared.t(documentUndoManager?.isUndoing == true ? "activity.undid" : "activity.redid")
     }
 
     nonisolated private func encode(_ project: ProjectDocument) throws -> Data {

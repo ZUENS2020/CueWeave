@@ -84,9 +84,9 @@ private struct CueWeaveUndoCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
-            Button("Undo") { store?.undo() }
+            Button(L10n.shared.t("action.undo")) { store?.undo() }
                 .keyboardShortcut("z")
-            Button("Redo") { store?.redo() }
+            Button(L10n.shared.t("action.redo")) { store?.redo() }
                 .keyboardShortcut("z", modifiers: [.command, .shift])
         }
     }

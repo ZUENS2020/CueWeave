@@ -8,17 +8,17 @@ extension ProjectStore {
     func restoreGeminiAlignment() async {
         guard let projectURL, hasGeminiSuggestions else { return }
         save()
-        await operation("Restoring Gemini alignment") {
+        await operation(L10n.shared.t("activity.restoringGemini")) {
             try await CoreBridge.call("restore_gemini", payload: ["project_path": projectURL.path])
             try self.openProject(projectURL, preservingCurrentForUndo: true)
             self.selection = .alignment
-            self.activity = "Restored every Final time from Gemini"
+            self.activity = L10n.shared.t("activity.restoredGemini")
         }
     }
 
     func applyRawLyrics(original: String, translation: String) async {
         guard let projectURL else { return }
-        await operation("Applying lyrics") {
+        await operation(L10n.shared.t("activity.applyingLyrics")) {
             try await CoreBridge.call("replace_lyrics", payload: [
                 "project_path": projectURL.path,
                 "original": original,
@@ -32,7 +32,7 @@ extension ProjectStore {
     func fetchLyrics() async {
         guard let projectURL else { return }
         save()
-        await operation("Fetching NetEase lyrics") {
+        await operation(L10n.shared.t("activity.fetchingLyrics")) {
             try await CoreBridge.call("fetch_lyrics", payload: ["project_path": projectURL.path])
             try self.openProject(projectURL, preservingCurrentForUndo: true)
             self.selection = .lyrics
@@ -43,7 +43,9 @@ extension ProjectStore {
         guard let projectURL else { return }
         save()
         let provider = alignmentProvider
-        let label = segmentIDs.isEmpty ? "Aligning through \(provider.title)" : "Re-aligning selection"
+        let label = segmentIDs.isEmpty
+            ? L10n.shared.t("activity.aligning", provider.title)
+            : L10n.shared.t("activity.aligningSelection")
         await operation(label) {
             try await CoreBridge.call("align", payload: [
                 "project_path": projectURL.path,
@@ -55,8 +57,8 @@ extension ProjectStore {
             try self.openProject(projectURL, preservingCurrentForUndo: true)
             self.selection = .alignment
             self.activity = segmentIDs.isEmpty
-                ? "Gemini alignment ready for review"
-                : "Re-aligned \(segmentIDs.count) selected segment(s)"
+                ? L10n.shared.t("activity.geminiReady")
+                : L10n.shared.t("activity.realigned", String(segmentIDs.count))
         }
     }
 }

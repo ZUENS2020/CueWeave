@@ -70,7 +70,7 @@ struct ProjectPortabilityTests {
         }.value
         #expect(loaded.project?.target?.fingerprint?.sha256 == "bb")
         #expect(loaded.hasUnsavedChanges == false)
-        #expect(loaded.activity == "Project loaded")
+        #expect(loaded.activity == L10n.shared.t("activity.loaded"))
     }
 
     private var projectJSON: String {

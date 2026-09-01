@@ -99,6 +99,10 @@ Alignment 检查器里的译文只读。默认模型：AI Studio `gemini-3.7-fla
 | macOS | `~/Library/Application Support/CueWeave/config.json`（目录 700，文件 600） |
 | Windows | `%LOCALAPPDATA%\CueWeave\settings.json` |
 
+## 界面语言
+
+设置里可选：**跟随系统** / **English** / **简体中文**。系统语言以 `zh` 开头时默认中文，否则英文。写在同一份本地配置里，立即生效。
+
 ## 打包
 
 macOS（验收包 `dist/CueWeave.app`，请完全退出后再打开）：

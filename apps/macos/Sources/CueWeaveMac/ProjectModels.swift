@@ -146,12 +146,12 @@ enum ReviewState: String, Codable, CaseIterable {
 
     var title: String {
         switch self {
-        case .pending: "Pending"
-        case .autoAccepted: "Auto"
-        case .needsReview: "Review"
-        case .userConfirmed: "Confirmed"
-        case .ignored: "Ignored"
-        case .unmatched: "Unmatched"
+        case .pending: L10n.shared.t("review.pending")
+        case .autoAccepted: L10n.shared.t("review.auto")
+        case .needsReview: L10n.shared.t("review.review")
+        case .userConfirmed: L10n.shared.t("review.confirmed")
+        case .ignored: L10n.shared.t("review.ignored")
+        case .unmatched: L10n.shared.t("review.unmatched")
         }
     }
 }
@@ -186,9 +186,9 @@ enum ExportFormat: String, Codable, CaseIterable, Identifiable {
     var title: String { rawValue.uppercased() }
     var detail: String {
         switch self {
-        case .lrc: "Sidecar synced lyrics"
-        case .uslt: "Embedded static lyrics"
-        case .sylt: "Embedded synced lyrics"
+        case .lrc: L10n.shared.t("export.lrc")
+        case .uslt: L10n.shared.t("export.uslt")
+        case .sylt: L10n.shared.t("export.sylt")
         }
     }
 }
@@ -197,7 +197,7 @@ enum BilingualMode: String, Codable, CaseIterable, Identifiable {
     case originalOnly = "original_only"
     case combined
     var id: String { rawValue }
-    var title: String { self == .originalOnly ? "Original only" : "Combined line" }
+    var title: String { self == .originalOnly ? L10n.shared.t("export.originalOnly") : L10n.shared.t("export.combined") }
 }
 
 enum WorkspacePage: String, CaseIterable, Identifiable {
@@ -209,6 +209,16 @@ enum WorkspacePage: String, CaseIterable, Identifiable {
     case export = "Export"
 
     var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .source: L10n.shared.t("page.source")
+        case .metadata: L10n.shared.t("page.metadata")
+        case .lyrics: L10n.shared.t("page.lyrics")
+        case .translation: L10n.shared.t("page.translation")
+        case .alignment: L10n.shared.t("page.alignment")
+        case .export: L10n.shared.t("page.export")
+        }
+    }
     var icon: String {
         switch self {
         case .source: "square.and.arrow.down"
@@ -222,12 +232,12 @@ enum WorkspacePage: String, CaseIterable, Identifiable {
 
     var detail: String {
         switch self {
-        case .source: "Inputs"
-        case .metadata: "Draft tags"
-        case .lyrics: "Text & segments"
-        case .translation: "Line translations"
-        case .alignment: "Timeline"
-        case .export: "Final output"
+        case .source: L10n.shared.t("page.source.detail")
+        case .metadata: L10n.shared.t("page.metadata.detail")
+        case .lyrics: L10n.shared.t("page.lyrics.detail")
+        case .translation: L10n.shared.t("page.translation.detail")
+        case .alignment: L10n.shared.t("page.alignment.detail")
+        case .export: L10n.shared.t("page.export.detail")
         }
     }
 }
@@ -247,9 +257,9 @@ enum WorkspaceStageState: Equatable {
 
     var label: String {
         switch self {
-        case .ready: "READY"
-        case let .review(count): "\(count) REVIEW"
-        case .pending: "PENDING"
+        case .ready: L10n.shared.t("stage.ready")
+        case let .review(count): L10n.shared.t("stage.review", String(count))
+        case .pending: L10n.shared.t("stage.pending")
         }
     }
 }

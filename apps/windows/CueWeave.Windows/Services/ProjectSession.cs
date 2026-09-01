@@ -32,7 +32,7 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
     {
         var result = await core.CallAsync("load_project", new JsonObject { ["project_path"] = path }, token);
         var loaded = JsonSerializer.Deserialize(result.GetRawText(), CueJsonContext.Default.ProjectDocument)
-            ?? throw new CoreException("invalid_response", "The project document was empty.");
+            ?? throw new CoreException("invalid_response", L10n.T("error.coreEmpty"));
         if (keepUndo && Project is not null) Push(undo, Snapshot(Project));
         else { undo.Clear(); redo.Clear(); }
         Project = loaded;

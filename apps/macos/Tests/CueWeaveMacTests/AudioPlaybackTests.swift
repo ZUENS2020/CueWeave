@@ -62,7 +62,7 @@ struct AudioPlaybackTests {
             for: missing,
             error: NSError(domain: NSOSStatusErrorDomain, code: 2_003_334_207)
         )
-        #expect(missingMessage.contains("not found"))
+        #expect(missingMessage == L10n.shared.t("error.audioMissing", missing.path))
         #expect(!missingMessage.contains("OSStatus"))
 
         let junk = FileManager.default.temporaryDirectory
@@ -73,7 +73,7 @@ struct AudioPlaybackTests {
             for: junk,
             error: NSError(domain: NSOSStatusErrorDomain, code: 2_003_334_207)
         )
-        #expect(junkMessage.contains("could not decode"))
+        #expect(junkMessage == L10n.shared.t("error.audioDecode", junk.path))
         #expect(!junkMessage.contains("OSStatus"))
     }
 

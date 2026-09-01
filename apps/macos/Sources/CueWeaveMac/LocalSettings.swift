@@ -6,6 +6,7 @@ struct LocalSettings: Codable, Equatable {
     var aiStudioAPIKey: String?
     var openRouterModel: String?
     var aiStudioModel: String?
+    var uiLanguage: String?
 }
 
 enum LocalSettingsStore {

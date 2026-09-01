@@ -7,4 +7,5 @@ public sealed class LocalSettings
     public string AiStudioApiKey { get; set; } = "";
     public string OpenRouterModel { get; set; } = "google/gemini-3.7-flash";
     public string AiStudioModel { get; set; } = "gemini-3.7-flash";
+    public string UiLanguage { get; set; } = "system";
 }

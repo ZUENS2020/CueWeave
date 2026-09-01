@@ -3,46 +3,51 @@ import SwiftUI
 
 struct SourcePage: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    SectionHeading("Source", subtitle: "Information source and target timing authority")
+                    SectionHeading(l10n.t("page.source"), subtitle: l10n.t("page.source.subtitle"))
                     Spacer()
-                    StatusPill(text: "Target = timing authority", tone: CueWeaveStyle.accent)
+                    StatusPill(text: l10n.t("source.timingAuthority"), tone: CueWeaveStyle.accent)
                 }
                 if let project = store.project {
                     HStack(alignment: .top, spacing: 18) {
                         cover(project).frame(width: 210)
                         VStack(spacing: 12) {
                             InputFilePanel(
-                                role: "INFORMATION SOURCE",
-                                name: URL(fileURLWithPath: project.source?.path ?? "Missing").lastPathComponent,
-                                path: project.source?.path ?? "Missing",
+                                role: l10n.t("source.infoRole"),
+                                name: URL(fileURLWithPath: project.source?.path ?? l10n.t("file.missing")).lastPathComponent,
+                                path: project.source?.path ?? l10n.t("file.missing"),
                                 details: [
-                                    ("FORMAT", project.source?.format?.uppercased() ?? "NCM"),
-                                    ("MUSIC ID", project.source?.musicID.map(String.init) ?? "—"),
-                                    ("DURATION", cueTime(project.source?.durationMS)),
+                                    (l10n.t("source.format"), project.source?.format?.uppercased() ?? "NCM"),
+                                    (l10n.t("source.musicId"), project.source?.musicID.map(String.init) ?? "—"),
+                                    (l10n.t("source.duration"), cueTime(project.source?.durationMS)),
                                 ],
-                                actionTitle: "Fixed for this project",
+                                actionTitle: l10n.t("source.fixed"),
                                 action: {},
                                 enabled: false,
-                                help: "Create a new project to change the original NCM information source."
+                                help: l10n.t("source.help.fixed"),
+                                missingLabel: l10n.t("file.missing"),
+                                loadedLabel: l10n.t("file.loaded")
                             )
                             InputFilePanel(
-                                role: "TARGET AUDIO · ONLY TIMING AUTHORITY",
-                                name: URL(fileURLWithPath: project.target?.path ?? "Missing").lastPathComponent,
-                                path: project.target?.path ?? "Missing",
+                                role: l10n.t("source.targetRole"),
+                                name: URL(fileURLWithPath: project.target?.path ?? l10n.t("file.missing")).lastPathComponent,
+                                path: project.target?.path ?? l10n.t("file.missing"),
                                 details: [
-                                    ("FORMAT", "MP3"),
-                                    ("DURATION", cueTime(project.target?.durationMS)),
-                                    ("ALIGNMENT", store.stageState(.alignment).label),
+                                    (l10n.t("source.format"), "MP3"),
+                                    (l10n.t("source.duration"), cueTime(project.target?.durationMS)),
+                                    (l10n.t("source.alignment"), store.stageState(.alignment).label),
                                 ],
-                                actionTitle: "Replace Target…",
+                                actionTitle: l10n.t("source.replace"),
                                 action: { Task { await store.replaceTargetInteractive() } },
                                 enabled: !store.isBusy,
-                                help: "Replacing the target invalidates Gemini and Final timing while preserving lyrics and metadata draft."
+                                help: l10n.t("source.help.replace"),
+                                missingLabel: l10n.t("file.missing"),
+                                loadedLabel: l10n.t("file.loaded")
                             )
                         }
                     }
@@ -51,8 +56,8 @@ struct SourcePage: View {
                             Image(systemName: "shield.lefthalf.filled")
                                 .foregroundStyle(CueWeaveStyle.accent)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text("TIMING ISOLATION").font(.system(size: 10, weight: .semibold, design: .monospaced))
-                                Text("Source lyric timestamps are destroyed before project creation. Only the selected Gemini provider or manual timing can place lyrics on this target audio.")
+                                Text(l10n.t("source.timingIsolation")).font(.system(size: 10, weight: .semibold, design: .monospaced))
+                                Text(l10n.t("source.timingIsolationBody"))
                                     .font(.callout)
                                     .foregroundStyle(.secondary)
                             }
@@ -69,9 +74,9 @@ struct SourcePage: View {
     private func cover(_ project: ProjectDocument) -> some View {
         Panel {
             VStack(alignment: .leading, spacing: 12) {
-                Text("REFERENCE COVER").font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
+                Text(l10n.t("source.referenceCover")).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
                 CoverArtwork(project: project, projectURL: store.projectURL).frame(width: 178, height: 178)
-                DataReadout(label: "Draft", value: project.metadata.draft.coverPath ?? "Remote or missing")
+                DataReadout(label: l10n.t("source.draft"), value: project.metadata.draft.coverPath ?? l10n.t("source.remoteCover"))
             }
         }
     }
@@ -79,12 +84,13 @@ struct SourcePage: View {
 
 struct MetadataPage: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    SectionHeading("Metadata", subtitle: "Source and target stay visible; only Draft is exported")
+                    SectionHeading(l10n.t("page.metadata"), subtitle: l10n.t("page.metadata.subtitle"))
                     Spacer()
                     StatusPill(text: store.stageState(.metadata).label, tone: CueWeaveStyle.ready)
                 }
@@ -94,60 +100,78 @@ struct MetadataPage: View {
                         VStack(spacing: 0) {
                             metadataHeader
                             MetadataTextRow(
-                                label: "TITLE", source: metadata.source.title, target: metadata.target.title,
+                                label: l10n.t("meta.title"), source: metadata.source.title, target: metadata.target.title,
                                 draft: store.draftBinding(\.title),
                                 useSource: { store.adoptMetadata(\.title, from: .source) },
-                                useTarget: { store.adoptMetadata(\.title, from: .target) }
+                                useTarget: { store.adoptMetadata(\.title, from: .target) },
+                                useSourceHelp: l10n.t("meta.useSource"),
+                                useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
-                                label: "ARTIST", source: artists(metadata.source), target: artists(metadata.target),
+                                label: l10n.t("meta.artist"), source: artists(metadata.source), target: artists(metadata.target),
                                 draft: store.artistsBinding(),
                                 useSource: { store.adoptArtists(from: .source) },
-                                useTarget: { store.adoptArtists(from: .target) }
+                                useTarget: { store.adoptArtists(from: .target) },
+                                useSourceHelp: l10n.t("meta.useSource"),
+                                useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
-                                label: "ALBUM ARTIST", source: metadata.source.albumArtist, target: metadata.target.albumArtist,
+                                label: l10n.t("meta.albumArtist"), source: metadata.source.albumArtist, target: metadata.target.albumArtist,
                                 draft: store.draftBinding(\.albumArtist),
                                 useSource: { store.adoptMetadata(\.albumArtist, from: .source) },
-                                useTarget: { store.adoptMetadata(\.albumArtist, from: .target) }
+                                useTarget: { store.adoptMetadata(\.albumArtist, from: .target) },
+                                useSourceHelp: l10n.t("meta.useSource"),
+                                useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
-                                label: "ALBUM", source: metadata.source.album, target: metadata.target.album,
+                                label: l10n.t("meta.album"), source: metadata.source.album, target: metadata.target.album,
                                 draft: store.draftBinding(\.album),
                                 useSource: { store.adoptMetadata(\.album, from: .source) },
-                                useTarget: { store.adoptMetadata(\.album, from: .target) }
+                                useTarget: { store.adoptMetadata(\.album, from: .target) },
+                                useSourceHelp: l10n.t("meta.useSource"),
+                                useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
-                                label: "DATE", source: metadata.source.date, target: metadata.target.date,
+                                label: l10n.t("meta.date"), source: metadata.source.date, target: metadata.target.date,
                                 draft: store.draftBinding(\.date),
                                 useSource: { store.adoptMetadata(\.date, from: .source) },
-                                useTarget: { store.adoptMetadata(\.date, from: .target) }
+                                useTarget: { store.adoptMetadata(\.date, from: .target) },
+                                useSourceHelp: l10n.t("meta.useSource"),
+                                useTargetHelp: l10n.t("meta.useTarget")
                             )
-                            DisclosureGroup("ADVANCED METADATA") {
+                            DisclosureGroup(l10n.t("meta.advanced")) {
                                 VStack(spacing: 0) {
                                     MetadataTextRow(
-                                        label: "TRACK", source: number(metadata.source.track), target: number(metadata.target.track),
+                                        label: l10n.t("meta.track"), source: number(metadata.source.track), target: number(metadata.target.track),
                                         draft: store.numberBinding(\.track),
                                         useSource: { store.adoptNumber(\.track, from: .source) },
-                                        useTarget: { store.adoptNumber(\.track, from: .target) }
+                                        useTarget: { store.adoptNumber(\.track, from: .target) },
+                                        useSourceHelp: l10n.t("meta.useSource"),
+                                        useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                     MetadataTextRow(
-                                        label: "DISC", source: number(metadata.source.disc), target: number(metadata.target.disc),
+                                        label: l10n.t("meta.disc"), source: number(metadata.source.disc), target: number(metadata.target.disc),
                                         draft: store.numberBinding(\.disc),
                                         useSource: { store.adoptNumber(\.disc, from: .source) },
-                                        useTarget: { store.adoptNumber(\.disc, from: .target) }
+                                        useTarget: { store.adoptNumber(\.disc, from: .target) },
+                                        useSourceHelp: l10n.t("meta.useSource"),
+                                        useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                     MetadataTextRow(
-                                        label: "COMPOSER", source: metadata.source.composer, target: metadata.target.composer,
+                                        label: l10n.t("meta.composer"), source: metadata.source.composer, target: metadata.target.composer,
                                         draft: store.draftBinding(\.composer),
                                         useSource: { store.adoptMetadata(\.composer, from: .source) },
-                                        useTarget: { store.adoptMetadata(\.composer, from: .target) }
+                                        useTarget: { store.adoptMetadata(\.composer, from: .target) },
+                                        useSourceHelp: l10n.t("meta.useSource"),
+                                        useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                     MetadataTextRow(
-                                        label: "LYRICIST", source: metadata.source.lyricist, target: metadata.target.lyricist,
+                                        label: l10n.t("meta.lyricist"), source: metadata.source.lyricist, target: metadata.target.lyricist,
                                         draft: store.draftBinding(\.lyricist),
                                         useSource: { store.adoptMetadata(\.lyricist, from: .source) },
-                                        useTarget: { store.adoptMetadata(\.lyricist, from: .target) }
+                                        useTarget: { store.adoptMetadata(\.lyricist, from: .target) },
+                                        useSourceHelp: l10n.t("meta.useSource"),
+                                        useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                 }
                                 .padding(.top, 8)
@@ -168,12 +192,12 @@ struct MetadataPage: View {
     private var coverEditor: some View {
         Panel {
             VStack(alignment: .leading, spacing: 12) {
-                Text("DRAFT COVER").font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
+                Text(l10n.t("meta.draftCover")).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
                 if let project = store.project {
                     CoverArtwork(project: project, projectURL: store.projectURL).frame(width: 198, height: 198)
                 }
-                Button("Choose Cover…") { store.replaceCoverInteractive() }
-                Text("PNG or JPEG · embedded at export")
+                Button(l10n.t("meta.chooseCover")) { store.replaceCoverInteractive() }
+                Text(l10n.t("meta.coverHint"))
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
@@ -183,10 +207,10 @@ struct MetadataPage: View {
     private var metadataHeader: some View {
         Grid(horizontalSpacing: 12) {
             GridRow {
-                Text("FIELD").frame(width: 92, alignment: .leading)
-                Text("SOURCE").frame(maxWidth: .infinity, alignment: .leading)
-                Text("TARGET").frame(maxWidth: .infinity, alignment: .leading)
-                Text("DRAFT").frame(maxWidth: .infinity, alignment: .leading)
+                Text(l10n.t("meta.field")).frame(width: 92, alignment: .leading)
+                Text(l10n.t("meta.source")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(l10n.t("meta.target")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(l10n.t("meta.draft")).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .font(.system(size: 9, weight: .semibold, design: .monospaced))
@@ -208,13 +232,15 @@ private struct MetadataTextRow: View {
     @Binding var draft: String
     let useSource: () -> Void
     let useTarget: () -> Void
+    var useSourceHelp = L10n.shared.t("meta.useSource")
+    var useTargetHelp = L10n.shared.t("meta.useTarget")
 
     var body: some View {
         Grid(alignment: .center, horizontalSpacing: 12) {
             GridRow {
                 Text(label).frame(width: 92, alignment: .leading)
-                valueCell(source, action: useSource, help: "Use source value")
-                valueCell(target, action: useTarget, help: "Use target value")
+                valueCell(source, action: useSource, help: useSourceHelp)
+                valueCell(target, action: useTarget, help: useTargetHelp)
                 TextField(label, text: $draft).textFieldStyle(.squareBorder)
             }
         }
@@ -248,6 +274,8 @@ private struct InputFilePanel: View {
     let action: () -> Void
     let enabled: Bool
     let help: String
+    var missingLabel = L10n.shared.t("file.missing")
+    var loadedLabel = L10n.shared.t("file.loaded")
 
     var body: some View {
         Panel {
@@ -255,7 +283,7 @@ private struct InputFilePanel: View {
                 HStack {
                     Text(role).font(.system(size: 9, weight: .semibold, design: .monospaced)).foregroundStyle(.secondary)
                     Spacer()
-                    StatusPill(text: path == "Missing" ? "Missing" : "Loaded", tone: path == "Missing" ? CueWeaveStyle.warning : CueWeaveStyle.ready)
+                    StatusPill(text: path == missingLabel ? missingLabel : loadedLabel, tone: path == missingLabel ? CueWeaveStyle.warning : CueWeaveStyle.ready)
                 }
                 Text(name).font(.headline).lineLimit(1)
                 Text(path)

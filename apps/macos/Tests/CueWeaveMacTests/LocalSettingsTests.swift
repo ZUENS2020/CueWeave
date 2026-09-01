@@ -15,7 +15,8 @@ struct LocalSettingsTests {
             openRouterAPIKey: "openrouter-secret",
             aiStudioAPIKey: "aistudio-secret",
             openRouterModel: "google/gemini-3.7-flash",
-            aiStudioModel: "gemini-3.7-flash"
+            aiStudioModel: "gemini-3.7-flash",
+            uiLanguage: "zh"
         )
 
         try LocalSettingsStore.save(expected, to: url)

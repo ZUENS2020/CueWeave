@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SegmentQueueRow: View {
+    @ObservedObject private var l10n = L10n.shared
     let segment: LyricSegment
     let isPrimary: Bool
     let isPlaybackActive: Bool
@@ -45,12 +46,12 @@ struct SegmentQueueRow: View {
         }
         .clipped()
         .accessibilityAddTraits(isPrimary ? [.isSelected] : [])
-        .accessibilityHint("Select this lyric. Return, Tab, and Shift-Tab use the same selection.")
+        .accessibilityHint(l10n.t("row.hint"))
         .contextMenu {
-            Button("Select", action: onSelect)
-            Button("Jump to Time", action: onJump)
-            Button("Place Final at Playhead", action: onStamp)
-            Button("Clear Final", action: onClear).disabled(segment.timing.finalPoint == nil)
+            Button(l10n.t("row.select"), action: onSelect)
+            Button(l10n.t("row.jump"), action: onJump)
+            Button(l10n.t("row.stamp"), action: onStamp)
+            Button(l10n.t("row.clear"), action: onClear).disabled(segment.timing.finalPoint == nil)
         }
     }
 

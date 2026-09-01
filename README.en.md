@@ -94,6 +94,10 @@ Plain local JSON. Not Keychain / Credential Manager. Not stored in the project.
 | macOS | `~/Library/Application Support/CueWeave/config.json` (dir 700, file 600) |
 | Windows | `%LOCALAPPDATA%\CueWeave\settings.json` |
 
+## Interface language
+
+Settings can follow the system, or lock to English or Simplified Chinese. Systems whose language code starts with `zh` default to Chinese. The choice is stored in the same local config file and applies immediately.
+
 ## Packaging
 
 macOS (quit fully before reopening `dist/CueWeave.app`):

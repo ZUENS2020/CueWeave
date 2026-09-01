@@ -2,19 +2,20 @@ import SwiftUI
 
 struct TranslationPage: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @State private var showingImport = false
-    @State private var targetLanguage = "Simplified Chinese"
+    @State private var targetLanguage = ""
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                SectionHeading("Translation", subtitle: "Line-level only · originals and timing stay untouched")
+                SectionHeading(l10n.t("page.translation"), subtitle: l10n.t("page.translation.subtitle"))
                 Spacer()
-                Button("Import Text…") { showingImport = true }
+                Button(l10n.t("translation.import")) { showingImport = true }
                     .disabled(store.project?.lyrics.lines.isEmpty != false || store.isBusy)
-                Button("Clear All") { store.clearTranslations() }
+                Button(l10n.t("translation.clearAll")) { store.clearTranslations() }
                     .disabled(translationCount == 0 || store.isBusy)
-                Button("Translate with \(store.alignmentProvider.title)") {
+                Button(l10n.t("translation.translateWith", store.alignmentProvider.title)) {
                     Task { await store.translateLyrics(targetLanguage: targetLanguage) }
                 }
                 .buttonStyle(.borderedProminent)
@@ -27,8 +28,8 @@ struct TranslationPage: View {
             Divider()
             if store.project?.lyrics.lines.isEmpty != false {
                 EmptyWorkspaceState(
-                    title: "No lyric lines",
-                    detail: "Import or fetch lyrics first. Translation is bound to those line IDs.",
+                    title: l10n.t("translation.emptyTitle"),
+                    detail: l10n.t("translation.emptyDetail"),
                     icon: "translate"
                 )
             } else {
@@ -41,6 +42,9 @@ struct TranslationPage: View {
         .sheet(isPresented: $showingImport) {
             ImportTranslationSheet(store: store, isPresented: $showingImport)
         }
+        .onAppear {
+            if targetLanguage.isEmpty { targetLanguage = l10n.t("translation.targetDefault") }
+        }
     }
 
     private var controls: some View {
@@ -48,34 +52,34 @@ struct TranslationPage: View {
             VStack(alignment: .leading, spacing: 14) {
                 Panel {
                     VStack(alignment: .leading, spacing: 10) {
-                        Text("GEMINI").font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        Text(l10n.t("translation.gemini")).font(.system(size: 10, weight: .semibold, design: .monospaced))
                         HStack {
                             StatusPill(
                                 text: store.alignmentProvider.title,
                                 tone: store.alignmentAPIKey.isEmpty ? CueWeaveStyle.warning : CueWeaveStyle.ready
                             )
                             StatusPill(
-                                text: store.alignmentAPIKey.isEmpty ? "Key missing" : "Same key as Align",
+                                text: store.alignmentAPIKey.isEmpty ? l10n.t("settings.keyMissing") : l10n.t("translation.sameKey"),
                                 tone: store.alignmentAPIKey.isEmpty ? CueWeaveStyle.warning : CueWeaveStyle.ready
                             )
                         }
-                        Text("Uses the current alignment provider, model, and API key. The request is text-only — no target audio is uploaded.")
+                        Text(l10n.t("translation.geminiHint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        TextField("Target language", text: $targetLanguage)
+                        TextField(l10n.t("translation.targetLanguage"), text: $targetLanguage)
                             .textFieldStyle(.squareBorder)
                     }
                 }
                 Panel {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("COVERAGE").font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        Text(l10n.t("translation.coverage")).font(.system(size: 10, weight: .semibold, design: .monospaced))
                         StatusPill(
                             text: translationCount > 0
-                                ? "\(translationCount) / \(store.project?.lyrics.lines.count ?? 0) lines"
-                                : "None",
+                                ? l10n.t("translation.coverageCount", String(translationCount), String(store.project?.lyrics.lines.count ?? 0))
+                                : l10n.t("translation.none"),
                             tone: translationCount > 0 ? CueWeaveStyle.ready : .secondary
                         )
-                        Text("Import a plain-text or LRC translation, one line per original lyric. Extra lines are ignored; shorter imports leave the rest unchanged.")
+                        Text(l10n.t("translation.coverageHint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -89,10 +93,10 @@ struct TranslationPage: View {
     private var translationEditor: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("LINE TRANSLATIONS")
+                Text(l10n.t("translation.lineHeader"))
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 Spacer()
-                Text("\(store.project?.lyrics.lines.count ?? 0) LINES")
+                Text(l10n.t("translation.linesCount", String(store.project?.lyrics.lines.count ?? 0)))
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
@@ -116,6 +120,7 @@ struct TranslationPage: View {
 
 private struct TranslationLineEditor: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     let line: LyricLine
 
     var body: some View {
@@ -129,7 +134,7 @@ private struct TranslationLineEditor: View {
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            TextField("Line translation", text: translationBinding)
+            TextField(l10n.t("translation.placeholder"), text: translationBinding)
                 .foregroundStyle(.secondary)
         }
         .textFieldStyle(.squareBorder)
@@ -151,19 +156,20 @@ private struct TranslationLineEditor: View {
 
 private struct ImportTranslationSheet: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @Binding var isPresented: Bool
     @State private var translation = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeading("Import Translation", subtitle: "LRC timing is stripped · originals are not replaced")
+            SectionHeading(l10n.t("translation.importTitle"), subtitle: l10n.t("translation.importSubtitle"))
             VStack(alignment: .leading, spacing: 7) {
                 HStack {
-                    Text("TRANSLATION TEXT")
+                    Text(l10n.t("translation.text"))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Text("\(store.project?.lyrics.lines.count ?? 0) original lines")
+                    Text(l10n.t("translation.originalLines", String(store.project?.lyrics.lines.count ?? 0)))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.tertiary)
                 }
@@ -172,10 +178,10 @@ private struct ImportTranslationSheet: View {
                     .overlay { Rectangle().stroke(.quaternary, lineWidth: 1) }
             }
             HStack {
-                StatusPill(text: "Line order only", tone: CueWeaveStyle.accent)
+                StatusPill(text: l10n.t("translation.lineOrder"), tone: CueWeaveStyle.accent)
                 Spacer()
-                Button("Cancel") { isPresented = false }
-                Button("Apply") {
+                Button(l10n.t("action.cancel")) { isPresented = false }
+                Button(l10n.t("action.apply")) {
                     Task {
                         await store.applyRawTranslations(translation)
                         isPresented = false

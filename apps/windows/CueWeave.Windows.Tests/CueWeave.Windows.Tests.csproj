@@ -9,8 +9,10 @@
     <Compile Include="..\CueWeave.Windows\Timeline\TimelineViewport.cs" Link="TimelineViewport.cs" />
     <Compile Include="..\CueWeave.Windows\Services\WaveformAnalyzer.cs" Link="WaveformAnalyzer.cs" />
     <Compile Include="..\CueWeave.Windows\Services\LocalSettingsStore.cs" Link="LocalSettingsStore.cs" />
+    <Compile Include="..\CueWeave.Windows\Services\L10n.cs" Link="L10n.cs" />
     <Compile Include="..\CueWeave.Windows\Models\LocalSettings.cs" Link="LocalSettings.cs" />
     <Compile Include="..\CueWeave.Windows\Models\ProjectModels.cs" Link="ProjectModels.cs" />
+    <Content Include="..\..\shared\l10n.json" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="NAudio" Version="3.0.1" />
   </ItemGroup>
 </Project>

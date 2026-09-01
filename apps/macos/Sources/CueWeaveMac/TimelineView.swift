@@ -33,31 +33,32 @@ struct ZoomableTimeline: View {
 }
 
 private struct TimelineLaneLabels: View {
+    @ObservedObject private var l10n = L10n.shared
     let metrics: TimelineLayoutMetrics
 
     var body: some View {
         VStack(spacing: 0) {
-            lane("TIME", height: TimelineLayoutMetrics.ruler)
-            lane("WAVEFORM", detail: "MONO", height: metrics.waveform)
+            lane(l10n.t("lane.time"), height: TimelineLayoutMetrics.ruler)
+            lane(l10n.t("lane.waveform"), detail: l10n.t("lane.mono"), height: metrics.waveform)
             bandLane
-            lane("LYRICS", detail: "TIMESTAMPS", height: TimelineLayoutMetrics.lyrics)
+            lane(l10n.t("lane.lyrics"), detail: l10n.t("lane.timestamps"), height: TimelineLayoutMetrics.lyrics)
         }
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
     private var bandLane: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("BAND ENERGY").fontWeight(.semibold).foregroundStyle(.secondary)
-            Text("LOW").foregroundStyle(CueWeaveStyle.lowBand)
-            Text("MID").foregroundStyle(CueWeaveStyle.midBand)
-            Text("HIGH").foregroundStyle(CueWeaveStyle.highBand)
+            Text(l10n.t("lane.band")).fontWeight(.semibold).foregroundStyle(.secondary)
+            Text(l10n.t("lane.low")).foregroundStyle(CueWeaveStyle.lowBand)
+            Text(l10n.t("lane.mid")).foregroundStyle(CueWeaveStyle.midBand)
+            Text(l10n.t("lane.high")).foregroundStyle(CueWeaveStyle.highBand)
         }
         .font(.system(size: 8, design: .monospaced))
         .padding(.horizontal, 8)
         .frame(maxWidth: .infinity, alignment: .leading)
         .frame(height: metrics.bands)
         .overlay(alignment: .bottom) { Divider() }
-        .accessibilityLabel("Band energy: low, mid, high")
+        .accessibilityLabel(l10n.t("lane.bandA11y"))
     }
 
     private func lane(_ title: String, detail: String? = nil, height: CGFloat?) -> some View {

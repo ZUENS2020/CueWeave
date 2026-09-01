@@ -16,11 +16,13 @@ public sealed class LocalSettingsTests
                 AlignmentProvider = "ai_studio",
                 OpenRouterApiKey = "openrouter-secret",
                 AiStudioApiKey = "aistudio-secret",
+                UiLanguage = "zh",
             }, path);
             var loaded = LocalSettingsStore.Load(path);
             Assert.AreEqual("ai_studio", loaded.AlignmentProvider);
             Assert.AreEqual("openrouter-secret", loaded.OpenRouterApiKey);
             Assert.AreEqual("aistudio-secret", loaded.AiStudioApiKey);
+            Assert.AreEqual("zh", loaded.UiLanguage);
             StringAssert.Contains(LocalSettingsStore.ConfigPath, "CueWeave");
             StringAssert.Contains(LocalSettingsStore.ConfigPath, "settings.json");
         }

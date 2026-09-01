@@ -2,12 +2,13 @@ import SwiftUI
 
 struct ExportPage: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 HStack {
-                    SectionHeading("Final Export", subtitle: "Write a new MP3, then adapt lyrics through player plugins")
+                    SectionHeading(l10n.t("export.title"), subtitle: l10n.t("page.export.subtitle"))
                     Spacer()
                     StatusPill(text: store.stageState(.export).label, tone: exportTone)
                 }
@@ -19,15 +20,15 @@ struct ExportPage: View {
                     blockingStatus(project)
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
-                            Text("OUTPUT").font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
-                            Text("Export Final writes a new MP3. Save Cue Sheet writes the player-agnostic JSON later plugins will consume.")
+                            Text(l10n.t("export.output")).font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
+                            Text(l10n.t("export.outputHint"))
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button("Save Cue Sheet…") { Task { await store.exportCueSheetInteractive() } }
+                        Button(l10n.t("export.saveCueSheet")) { Task { await store.exportCueSheetInteractive() } }
                             .disabled(store.project?.lyrics.lines.isEmpty != false || store.isBusy)
-                        Button("Export Final…") { Task { await store.exportInteractive() } }
+                        Button(l10n.t("export.exportFinal")) { Task { await store.exportInteractive() } }
                             .buttonStyle(.borderedProminent)
                             .controlSize(.large)
                             .disabled(!exportReady || store.isBusy)
@@ -46,45 +47,45 @@ struct ExportPage: View {
                 HStack(alignment: .top, spacing: 16) {
                     CoverArtwork(project: project, projectURL: store.projectURL).frame(width: 132, height: 132)
                     VStack(alignment: .leading, spacing: 11) {
-                        Text(project.metadata.draft.title ?? "Untitled")
+                        Text(project.metadata.draft.title ?? l10n.t("file.untitled"))
                             .font(.system(size: 24, weight: .semibold))
                         Text(project.metadata.draft.artists.joined(separator: " / "))
                             .foregroundStyle(.secondary)
                         Divider()
                         HStack(spacing: 26) {
-                            DataReadout(label: "Album", value: project.metadata.draft.album ?? "—")
-                            DataReadout(label: "Album Artist", value: project.metadata.draft.albumArtist ?? "—")
-                            DataReadout(label: "Release", value: project.metadata.draft.date ?? "—")
+                            DataReadout(label: l10n.t("meta.albumLabel"), value: project.metadata.draft.album ?? "—")
+                            DataReadout(label: l10n.t("meta.albumArtistLabel"), value: project.metadata.draft.albumArtist ?? "—")
+                            DataReadout(label: l10n.t("meta.release"), value: project.metadata.draft.date ?? "—")
                         }
                     }
                 }
                 Divider()
-                Text("PROJECT CONTENT").font(.system(size: 9, weight: .semibold, design: .monospaced)).foregroundStyle(.secondary)
+                Text(l10n.t("export.projectContent")).font(.system(size: 9, weight: .semibold, design: .monospaced)).foregroundStyle(.secondary)
                 SummaryRow(
-                    icon: "tag", title: "Metadata",
-                    detail: metadataReady ? "Title and artist ready" : "Title or artist missing",
+                    icon: "tag", title: l10n.t("page.metadata"),
+                    detail: metadataReady ? l10n.t("export.metadataReady") : l10n.t("export.metadataMissing"),
                     ready: metadataReady
                 )
                 SummaryRow(
-                    icon: "text.quote", title: "Lyrics",
-                    detail: "\(project.lyrics.lines.count) lines · \(store.allSegments.count) segments · \(translationCount) translated",
+                    icon: "text.quote", title: l10n.t("page.lyrics"),
+                    detail: l10n.t("export.lyricsDetail", String(project.lyrics.lines.count), String(store.allSegments.count), String(translationCount)),
                     ready: !project.lyrics.lines.isEmpty
                 )
                 SummaryRow(
-                    icon: "waveform.path", title: "Alignment",
-                    detail: "\(alignedCount) / \(store.allSegments.count) have Final times",
+                    icon: "waveform.path", title: l10n.t("page.alignment"),
+                    detail: l10n.t("export.alignmentDetail", String(alignedCount), String(store.allSegments.count)),
                     ready: alignedCount == store.allSegments.count && !store.allSegments.isEmpty
                 )
                 SummaryRow(
-                    icon: "waveform", title: "Audio",
-                    detail: "Original MPEG frame payload · SHA-256 verified after tagging",
+                    icon: "waveform", title: l10n.t("export.audio"),
+                    detail: l10n.t("export.audioDetail"),
                     ready: project.target != nil
                 )
                 Divider()
                 HStack(spacing: 8) {
-                    StatusPill(text: "No overwrite", tone: CueWeaveStyle.ready)
-                    StatusPill(text: "No re-encode", tone: CueWeaveStyle.ready)
-                    StatusPill(text: "Atomic output", tone: CueWeaveStyle.ready)
+                    StatusPill(text: l10n.t("export.noOverwrite"), tone: CueWeaveStyle.ready)
+                    StatusPill(text: l10n.t("export.noReencode"), tone: CueWeaveStyle.ready)
+                    StatusPill(text: l10n.t("export.atomic"), tone: CueWeaveStyle.ready)
                 }
             }
         }
@@ -93,7 +94,7 @@ struct ExportPage: View {
     private func options(_ project: ProjectDocument) -> some View {
         Panel {
             VStack(alignment: .leading, spacing: 14) {
-                Text("PLAYER ADAPTERS").font(.system(size: 10, weight: .semibold, design: .monospaced))
+                Text(l10n.t("export.adapters")).font(.system(size: 10, weight: .semibold, design: .monospaced))
                 ForEach(ExportFormat.allCases) { format in
                     HStack {
                         Toggle(isOn: store.formatBinding(format)) {
@@ -105,20 +106,20 @@ struct ExportPage: View {
                     }
                 }
                 Divider()
-                Text("BILINGUAL").font(.system(size: 10, weight: .semibold, design: .monospaced))
-                Picker("Bilingual", selection: bilingualBinding) {
+                Text(l10n.t("export.bilingual")).font(.system(size: 10, weight: .semibold, design: .monospaced))
+                Picker(l10n.t("export.bilingual"), selection: bilingualBinding) {
                     ForEach(BilingualMode.allCases) { mode in Text(mode.title).tag(mode) }
                 }
                 .labelsHidden()
                 Divider()
                 Stepper(
-                    "Export offset  \(project.exportProfile.offsetMS) ms",
+                    l10n.t("export.offset", String(project.exportProfile.offsetMS)),
                     value: offsetBinding,
                     in: -2_000 ... 2_000,
                     step: 10
                 )
                 .font(.system(size: 11, design: .monospaced))
-                Text("Built-in adapters: LRC sidecar, USLT/SYLT tags. Additional players will plug into the Cue Sheet JSON, not the project file.")
+                Text(l10n.t("export.adaptersNote"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -131,7 +132,7 @@ struct ExportPage: View {
                 Image(systemName: exportReady ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
                     .foregroundStyle(exportReady ? CueWeaveStyle.ready : CueWeaveStyle.warning)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(exportReady ? "READY TO EXPORT" : "EXPORT BLOCKED")
+                    Text(exportReady ? l10n.t("export.ready") : l10n.t("export.blocked"))
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     Text(blockingReason(project)).font(.callout).foregroundStyle(.secondary)
                 }
@@ -164,16 +165,17 @@ struct ExportPage: View {
     }
 
     private func blockingReason(_ project: ProjectDocument) -> String {
-        if !metadataReady { return "Add at least a title and one artist in Metadata." }
-        if project.lyrics.lines.isEmpty { return "Fetch or import lyric text." }
+        if !metadataReady { return l10n.t("export.block.metadata") }
+        if project.lyrics.lines.isEmpty { return l10n.t("export.block.lyrics") }
         let missing = store.allSegments.count - alignedCount
-        if missing > 0 { return "Set Final timing for \(missing) segment(s)." }
-        if project.exportProfile.formats.isEmpty { return "Select at least one lyric output format." }
-        return "Metadata, lyric timing and output formats are ready."
+        if missing > 0 { return l10n.t("export.block.final", String(missing)) }
+        if project.exportProfile.formats.isEmpty { return l10n.t("export.block.formats") }
+        return l10n.t("export.allReady")
     }
 }
 
 private struct SummaryRow: View {
+    @ObservedObject private var l10n = L10n.shared
     let icon: String
     let title: String
     let detail: String
@@ -184,7 +186,7 @@ private struct SummaryRow: View {
             Image(systemName: icon).frame(width: 18).foregroundStyle(.secondary)
             Text(title).frame(width: 84, alignment: .leading)
             Text(detail).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-            StatusPill(text: ready ? "Ready" : "Pending", tone: ready ? CueWeaveStyle.ready : CueWeaveStyle.warning)
+            StatusPill(text: ready ? l10n.t("pill.ready") : l10n.t("pill.pending"), tone: ready ? CueWeaveStyle.ready : CueWeaveStyle.warning)
         }
         .font(.callout)
     }

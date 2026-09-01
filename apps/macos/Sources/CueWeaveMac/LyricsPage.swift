@@ -2,6 +2,7 @@ import SwiftUI
 
 struct LyricsPage: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @State private var provider: LyricsProviderMode = .auto
     @State private var showingImport = false
     @State private var showingPreview = false
@@ -9,11 +10,11 @@ struct LyricsPage: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                SectionHeading("Lyrics", subtitle: "Source text only · timing is always rebuilt")
+                SectionHeading(l10n.t("page.lyrics"), subtitle: l10n.t("page.lyrics.subtitle"))
                 Spacer()
-                Button("Request Preview") { showingPreview = true }
+                Button(l10n.t("lyrics.requestPreview")) { showingPreview = true }
                     .disabled(store.allSegments.isEmpty)
-                Button("Import Text…") { showingImport = true }
+                Button(l10n.t("lyrics.import")) { showingImport = true }
                 Button(fetchTitle) { Task { await store.fetchLyrics() } }
                     .buttonStyle(.borderedProminent)
                     .disabled(provider == .manual || store.project?.source?.musicID == nil || store.isBusy)
@@ -38,18 +39,18 @@ struct LyricsPage: View {
         }
     }
 
-    private var fetchTitle: String { provider == .auto ? "Resolve Lyrics" : "Fetch NetEase" }
+    private var fetchTitle: String { provider == .auto ? l10n.t("lyrics.resolve") : l10n.t("lyrics.fetchNetease") }
 
     private var emptyState: some View {
         VStack(spacing: 20) {
             EmptyWorkspaceState(
-                title: "No lyric text",
-                detail: "Resolve by NetEase musicId or import plain text, LRC or YRC. Every source timestamp will be removed.",
+                title: l10n.t("lyrics.emptyTitle"),
+                detail: l10n.t("lyrics.emptyDetail"),
                 icon: "text.quote"
             )
             providerControls.frame(maxWidth: 520)
             HStack {
-                Button("Import Text…") { showingImport = true }
+                Button(l10n.t("lyrics.import")) { showingImport = true }
                 Button(fetchTitle) { Task { await store.fetchLyrics() } }
                     .buttonStyle(.borderedProminent)
                     .disabled(provider == .manual || store.project?.source?.musicID == nil)
@@ -66,20 +67,20 @@ struct LyricsPage: View {
                 Panel {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text("CREDITS").font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            Text(l10n.t("lyrics.credits")).font(.system(size: 10, weight: .semibold, design: .monospaced))
                             Spacer()
                             Button { store.addCredit() } label: { Image(systemName: "plus") }
                                 .buttonStyle(.plain)
                         }
                         if store.project?.lyrics.credits.isEmpty != false {
-                            Text("No credits detected")
+                            Text(l10n.t("lyrics.noCredits"))
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
                         ForEach(Array((store.project?.lyrics.credits ?? []).enumerated()), id: \.offset) { index, credit in
                             HStack(spacing: 6) {
                                 TextField(
-                                    "Role",
+                                    l10n.t("lyrics.role"),
                                     text: Binding(
                                         get: { store.project?.lyrics.credits[safe: index]?.label ?? credit.label },
                                         set: { store.updateCredit(at: index, label: $0) }
@@ -87,7 +88,7 @@ struct LyricsPage: View {
                                 )
                                 .frame(width: 76)
                                 TextField(
-                                    "Name",
+                                    l10n.t("lyrics.name"),
                                     text: Binding(
                                         get: { store.project?.lyrics.credits[safe: index]?.value ?? credit.value },
                                         set: { store.updateCredit(at: index, value: $0) }
@@ -100,22 +101,22 @@ struct LyricsPage: View {
                             }
                             .textFieldStyle(.squareBorder)
                         }
-                        Text("Credits are preserved separately and are never sent to Gemini as sung lyrics.")
+                        Text(l10n.t("lyrics.creditsNote"))
                             .font(.caption2)
                             .foregroundStyle(.tertiary)
                     }
                 }
                 Panel {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("TRANSLATION").font(.system(size: 10, weight: .semibold, design: .monospaced))
+                        Text(l10n.t("lyrics.translation")).font(.system(size: 10, weight: .semibold, design: .monospaced))
                         StatusPill(
-                            text: translationCount > 0 ? "\(translationCount) lines" : "Optional",
+                            text: translationCount > 0 ? l10n.t("lyrics.translationCount", String(translationCount)) : l10n.t("lyrics.optional"),
                             tone: translationCount > 0 ? CueWeaveStyle.ready : .secondary
                         )
-                        Text("Gemini, text import, and line editing live on the Translation page. This page keeps original lyric text only.")
+                        Text(l10n.t("lyrics.translationHint"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                        Button("Open Translation") { store.selection = .translation }
+                        Button(l10n.t("lyrics.openTranslation")) { store.selection = .translation }
                             .disabled(store.project?.lyrics.lines.isEmpty != false)
                     }
                 }
@@ -128,8 +129,8 @@ struct LyricsPage: View {
     private var providerControls: some View {
         Panel {
             VStack(alignment: .leading, spacing: 10) {
-                Text("LYRICS SOURCE").font(.system(size: 10, weight: .semibold, design: .monospaced))
-                Picker("Provider", selection: $provider) {
+                Text(l10n.t("lyrics.source")).font(.system(size: 10, weight: .semibold, design: .monospaced))
+                Picker(l10n.t("lyrics.provider"), selection: $provider) {
                     ForEach(LyricsProviderMode.allCases) { mode in Text(mode.title).tag(mode) }
                 }
                 .labelsHidden()
@@ -137,8 +138,8 @@ struct LyricsPage: View {
                 Text(provider.detail).font(.caption).foregroundStyle(.secondary)
                 if provider == .auto {
                     HStack {
-                        StatusPill(text: "1 · NetEase", tone: CueWeaveStyle.ready)
-                        StatusPill(text: "2 · Manual fallback", tone: .secondary)
+                        StatusPill(text: l10n.t("lyrics.stepNetease"), tone: CueWeaveStyle.ready)
+                        StatusPill(text: l10n.t("lyrics.stepManual"), tone: .secondary)
                     }
                 }
             }
@@ -148,10 +149,10 @@ struct LyricsPage: View {
     private var lyricEditor: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("LYRIC LINES")
+                Text(l10n.t("lyrics.lines"))
                     .font(.system(size: 10, weight: .semibold, design: .monospaced))
                 Spacer()
-                Text("\(store.project?.lyrics.lines.count ?? 0) LINES · \(store.allSegments.count) STABLE IDS")
+                Text(l10n.t("lyrics.linesMeta", String(store.project?.lyrics.lines.count ?? 0), String(store.allSegments.count)))
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
@@ -176,18 +177,25 @@ struct LyricsPage: View {
 private enum LyricsProviderMode: String, CaseIterable, Identifiable {
     case auto, netease, manual
     var id: String { rawValue }
-    var title: String { rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .auto: L10n.shared.t("lyrics.provider.auto")
+        case .netease: L10n.shared.t("lyrics.provider.netease")
+        case .manual: L10n.shared.t("lyrics.provider.manual")
+        }
+    }
     var detail: String {
         switch self {
-        case .auto: "Use the NCM musicId first; stop before any unavailable provider."
-        case .netease: "Fetch directly from NetEase using the NCM musicId."
-        case .manual: "Paste plain text, LRC or YRC; timing is stripped during import."
+        case .auto: L10n.shared.t("lyrics.provider.auto.detail")
+        case .netease: L10n.shared.t("lyrics.provider.netease.detail")
+        case .manual: L10n.shared.t("lyrics.provider.manual.detail")
         }
     }
 }
 
 private struct LyricLineEditor: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     let line: LyricLine
 
     var body: some View {
@@ -196,7 +204,7 @@ private struct LyricLineEditor: View {
                 Text(String(format: "%03llu", line.id))
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.tertiary)
-                TextField("Original lyric", text: originalBinding)
+                TextField(l10n.t("lyrics.originalPlaceholder"), text: originalBinding)
                     .font(.body)
                 Text(String(format: "ID %04llu", line.segments.first?.id ?? 0))
                     .font(.system(size: 8, design: .monospaced))
@@ -218,18 +226,19 @@ private struct LyricLineEditor: View {
 
 private struct ImportLyricsSheet: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @Binding var isPresented: Bool
     @State private var original = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeading("Import Lyrics", subtitle: "LRC and YRC timing will be discarded")
-            editor("ORIGINAL", text: $original)
+            SectionHeading(l10n.t("lyrics.importTitle"), subtitle: l10n.t("lyrics.importSubtitle"))
+            editor(l10n.t("lyrics.original"), text: $original)
             HStack {
-                StatusPill(text: "Source timing rejected", tone: CueWeaveStyle.accent)
+                StatusPill(text: l10n.t("lyrics.timingRejected"), tone: CueWeaveStyle.accent)
                 Spacer()
-                Button("Cancel") { isPresented = false }
-                Button("Normalize & Replace") {
+                Button(l10n.t("action.cancel")) { isPresented = false }
+                Button(l10n.t("lyrics.normalize")) {
                     Task {
                         await store.applyRawLyrics(original: original, translation: "")
                         isPresented = false
@@ -254,20 +263,21 @@ private struct ImportLyricsSheet: View {
 
 private struct AlignmentRequestPreview: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @Binding var isPresented: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                SectionHeading("Alignment Request", subtitle: "Exactly the lyric text sent with the target MP3")
+                SectionHeading(l10n.t("lyrics.previewTitle"), subtitle: l10n.t("lyrics.previewSubtitle"))
                 Spacer()
-                Button("Done") { isPresented = false }
+                Button(l10n.t("action.done")) { isPresented = false }
             }
             Panel {
                 HStack {
-                    StatusPill(text: "No source timing", tone: CueWeaveStyle.ready)
-                    StatusPill(text: "No credits", tone: CueWeaveStyle.ready)
-                    StatusPill(text: "\(store.project?.lyrics.lines.count ?? 0) lines", tone: CueWeaveStyle.accent)
+                    StatusPill(text: l10n.t("lyrics.noSourceTiming"), tone: CueWeaveStyle.ready)
+                    StatusPill(text: l10n.t("lyrics.noCreditsPill"), tone: CueWeaveStyle.ready)
+                    StatusPill(text: l10n.t("lyrics.linesPill", String(store.project?.lyrics.lines.count ?? 0)), tone: CueWeaveStyle.accent)
                 }
             }
             ScrollView {

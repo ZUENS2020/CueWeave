@@ -2,6 +2,7 @@ import SwiftUI
 
 struct WorkspaceView: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     let documentURL: URL?
     @Environment(\.undoManager) private var undoManager
     @State private var showingSettings = false
@@ -36,23 +37,23 @@ struct WorkspaceView: View {
         .toolbar {
             ToolbarItemGroup {
                 Button { Task { await store.createInteractive() } } label: {
-                    Label("New Project", systemImage: "plus")
+                    Label(l10n.t("action.new"), systemImage: "plus")
                 }
-                .help("New Project")
+                .help(l10n.t("action.new"))
                 Button { store.openInteractive() } label: {
-                    Label("Open Project", systemImage: "square.and.arrow.down")
+                    Label(l10n.t("action.open"), systemImage: "square.and.arrow.down")
                 }
-                .help("Open Project")
+                .help(l10n.t("action.open"))
                 Button { store.undo() } label: {
-                    Label("Undo", systemImage: "arrow.uturn.backward")
+                    Label(l10n.t("action.undo"), systemImage: "arrow.uturn.backward")
                 }
                 .disabled(!store.canUndo)
                 Button { store.redo() } label: {
-                    Label("Redo", systemImage: "arrow.uturn.forward")
+                    Label(l10n.t("action.redo"), systemImage: "arrow.uturn.forward")
                 }
                 .disabled(!store.canRedo)
                 Button { showingSettings = true } label: {
-                    Label("Settings", systemImage: "slider.horizontal.3")
+                    Label(l10n.t("action.settings"), systemImage: "slider.horizontal.3")
                 }
             }
         }
@@ -66,9 +67,9 @@ struct WorkspaceView: View {
                 set: { if !$0 { store.errorMessage = nil } }
             )
         ) {
-            Button("OK") { store.errorMessage = nil }
+            Button(l10n.t("action.ok")) { store.errorMessage = nil }
         } message: {
-            Text(store.errorMessage ?? "Unknown error")
+            Text(store.errorMessage ?? l10n.t("error.unknown"))
         }
     }
 
@@ -102,7 +103,7 @@ struct WorkspaceView: View {
             Divider()
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("ALIGNMENT")
+                    Text(l10n.t("chrome.alignment"))
                         .font(.system(size: 9, design: .monospaced))
                         .foregroundStyle(.tertiary)
                     Text(store.alignmentProvider.title)
@@ -121,7 +122,7 @@ struct WorkspaceView: View {
     private var workspaceHeader: some View {
         HStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(store.selection.rawValue.uppercased())
+                Text(store.selection.title.uppercased())
                     .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 Text(store.selection.detail)
                     .font(.caption)
@@ -154,6 +155,7 @@ struct WorkspaceView: View {
 private struct PlaybackStatusBar: View {
     @ObservedObject var store: ProjectStore
     @ObservedObject var player: AudioPlayer
+    @ObservedObject private var l10n = L10n.shared
 
     init(store: ProjectStore) {
         self.store = store
@@ -172,13 +174,13 @@ private struct PlaybackStatusBar: View {
             Text(time(player.duration)).foregroundStyle(.secondary)
             if let start = player.loopStart, let end = player.loopEnd, end > start {
                 Divider().frame(height: 14)
-                Text("LOOP \(time(start))–\(time(end))")
+                Text(l10n.t("loop.status", time(start), time(end)))
                     .foregroundStyle(CueWeaveStyle.accent)
             }
             Spacer()
             if store.isBusy {
                 ProgressView().controlSize(.small)
-                Button("Cancel") { store.cancelOperation() }.buttonStyle(.plain)
+                Button(l10n.t("action.cancel")) { store.cancelOperation() }.buttonStyle(.plain)
             }
             Text(store.activity).foregroundStyle(.secondary)
         }
@@ -196,13 +198,14 @@ private struct PlaybackStatusBar: View {
 }
 
 private struct SidebarRow: View {
+    @ObservedObject private var l10n = L10n.shared
     let page: WorkspacePage
 
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: page.icon).frame(width: 17)
             VStack(alignment: .leading, spacing: 2) {
-                Text(page.rawValue)
+                Text(page.title)
                 Text(page.detail)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
@@ -215,29 +218,30 @@ private struct SidebarRow: View {
 
 private struct WelcomeView: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
 
     var body: some View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 24) {
                 Spacer()
-                Text("CUEWEAVE / 02")
+                Text(l10n.t("welcome.kicker"))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
-                Text("Lyrics, aligned\nto your track.")
+                Text(l10n.t("welcome.headline"))
                     .font(.system(size: 38, weight: .semibold))
                     .tracking(-1.1)
-                Text("Transfer metadata. Rebuild timing against the target vocal. Adjust Final times on the timeline.")
+                Text(l10n.t("welcome.body"))
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 520, alignment: .leading)
                 HStack(spacing: 10) {
-                    Button("New Song Project…") { Task { await store.createInteractive() } }
+                    Button(l10n.t("welcome.new")) { Task { await store.createInteractive() } }
                         .controlSize(.large)
-                    Button("Open Project…") { store.openInteractive() }
+                    Button(l10n.t("welcome.open")) { store.openInteractive() }
                         .controlSize(.large)
                 }
                 Spacer()
-                Text("SOURCE TEXT  →  TARGET AUDIO  →  FINAL TIMELINE")
+                Text(l10n.t("welcome.pipeline"))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
             }
@@ -262,12 +266,21 @@ private struct WelcomeView: View {
 
 private struct SettingsView: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @Binding var isPresented: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
-            SectionHeading("Alignment Provider", subtitle: "Gemini transport and local credentials")
-            Picker("Provider", selection: $store.alignmentProvider) {
+            SectionHeading(l10n.t("settings.language"), subtitle: l10n.t("settings.languageHint"))
+            Picker(l10n.t("settings.language"), selection: $store.uiLanguage) {
+                Text(l10n.t("lang.system")).tag("system")
+                Text(l10n.t("lang.en")).tag("en")
+                Text(l10n.t("lang.zh")).tag("zh")
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: store.uiLanguage) { _, _ in store.applyUiLanguage() }
+            SectionHeading(l10n.t("settings.title"), subtitle: l10n.t("settings.subtitle"))
+            Picker(l10n.t("settings.provider"), selection: $store.alignmentProvider) {
                 ForEach(AlignmentProvider.allCases) { provider in
                     Text(provider.title).tag(provider)
                 }
@@ -275,29 +288,29 @@ private struct SettingsView: View {
             .pickerStyle(.segmented)
             Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
                 GridRow {
-                    Text("API KEY").font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
-                    SecureField("Paste key", text: selectedKey)
-                    Link("Create", destination: keyURL)
+                    Text(l10n.t("settings.apiKey")).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
+                    SecureField(l10n.t("settings.pasteKey"), text: selectedKey)
+                    Link(l10n.t("action.create"), destination: keyURL)
                 }
                 GridRow {
-                    Text("MODEL").font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
-                    TextField("Model", text: selectedModel)
+                    Text(l10n.t("settings.model")).font(.system(size: 9, design: .monospaced)).foregroundStyle(.secondary)
+                    TextField(l10n.t("settings.modelPlaceholder"), text: selectedModel)
                         .font(.system(.body, design: .monospaced))
-                    Button("Default") { resetModel() }
+                    Button(l10n.t("action.default")) { resetModel() }
                 }
             }
             HStack(spacing: 8) {
                 StatusPill(
-                    text: selectedKey.wrappedValue.isEmpty ? "Key missing" : "Key stored locally",
+                    text: selectedKey.wrappedValue.isEmpty ? l10n.t("settings.keyMissing") : l10n.t("settings.keyStored"),
                     tone: selectedKey.wrappedValue.isEmpty ? CueWeaveStyle.warning : CueWeaveStyle.ready
                 )
-                Button("Clear Key", role: .destructive) {
+                Button(l10n.t("settings.clearKey"), role: .destructive) {
                     store.clearAPIKey(for: store.alignmentProvider)
                 }
                 .disabled(selectedKey.wrappedValue.isEmpty)
             }
             Divider()
-            Text("Keys are saved as plain text in an owner-only local configuration file (0600). CueWeave does not access Keychain or write keys into project files.")
+            Text(l10n.t("settings.keysNote"))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Text(store.settingsPath)
@@ -306,8 +319,8 @@ private struct SettingsView: View {
                 .textSelection(.enabled)
             HStack {
                 Spacer()
-                Button("Cancel") { isPresented = false }
-                Button("Save") {
+                Button(l10n.t("action.cancel")) { isPresented = false }
+                Button(l10n.t("action.save")) {
                     store.persistSettings()
                     isPresented = false
                 }

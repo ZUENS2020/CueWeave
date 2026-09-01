@@ -9,13 +9,13 @@ enum CoreBridgeError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cliMissing:
-            "cueweave-cli was not found. Run `cargo build -p cueweave-cli` from the repository root."
+            L10n.shared.t("error.cliMissing")
         case let .failed(code, message):
-            "CueWeave Core exited with \(code): \(message)"
+            L10n.shared.t("error.coreExit", String(code), message)
         case let .invalidResponse(message):
-            "CueWeave Core returned an invalid response: \(message)"
+            L10n.shared.t("error.invalidResponse", message)
         case let .core(code, message):
-            "CueWeave Core [\(code)]: \(message)"
+            L10n.shared.t("error.core", code, message)
         }
     }
 }

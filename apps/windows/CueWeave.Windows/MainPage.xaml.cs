@@ -29,7 +29,10 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         session = new ProjectSession(core);
+        settings = LocalSettingsStore.Load();
+        L10n.Apply(settings.UiLanguage);
         InitializeComponent();
+        BindChrome();
         session.PropertyChanged += (_, _) => Refresh();
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };
         Timeline.NudgeRequested += NudgeSelected;
@@ -49,77 +52,77 @@ public sealed partial class MainPage : Page
 
     private async void NewProject_Click(object sender, RoutedEventArgs e)
     {
-        var source = await PickOpenAsync("Choose the original NCM", ".ncm");
+        var source = await PickOpenAsync(L10n.T("pick.ncm"), ".ncm");
         if (source is null) return;
-        var target = await PickOpenAsync("Choose the target MP3", ".mp3");
+        var target = await PickOpenAsync(L10n.T("pick.mp3"), ".mp3");
         if (target is null) return;
-        var output = await PickSaveAsync("CueWeave project", ".cueweave", Path.GetFileNameWithoutExtension(target.Name));
+        var output = await PickSaveAsync(L10n.T("pick.project"), ".cueweave", Path.GetFileNameWithoutExtension(target.Name));
         if (output is null) return;
-        await RunAsync("Creating project", token => session.CreateAsync(output.Path, source.Path, target.Path, token));
+        await RunAsync(L10n.T("activity.creating"), token => session.CreateAsync(output.Path, source.Path, target.Path, token));
     }
 
     private async void OpenProject_Click(object sender, RoutedEventArgs e)
     {
-        var file = await PickOpenAsync("Open CueWeave project", ".cueweave");
-        if (file is not null) await RunAsync("Opening project", token => session.LoadAsync(file.Path, token));
+        var file = await PickOpenAsync(L10n.T("pick.openProject"), ".cueweave");
+        if (file is not null) await RunAsync(L10n.T("activity.opening"), token => session.LoadAsync(file.Path, token));
     }
 
-    private async void Save_Click(object sender, RoutedEventArgs e) => await RunAsync("Saving", session.SaveAsync);
+    private async void Save_Click(object sender, RoutedEventArgs e) => await RunAsync(L10n.T("activity.saving"), session.SaveAsync);
     private async void Revert_Click(object sender, RoutedEventArgs e)
     {
-        if (session.ProjectPath is not null) await RunAsync("Reverting", token => session.LoadAsync(session.ProjectPath, token));
+        if (session.ProjectPath is not null) await RunAsync(L10n.T("activity.reverting"), token => session.LoadAsync(session.ProjectPath, token));
     }
     private void Undo_Click(object sender, RoutedEventArgs e) => session.Undo();
     private void Redo_Click(object sender, RoutedEventArgs e) => session.Redo();
 
     private async void ReplaceTarget_Click(object sender, RoutedEventArgs e)
     {
-        var file = await PickOpenAsync("Choose the replacement target MP3", ".mp3");
-        if (file is not null) await RunAsync("Replacing target", token => session.RunProjectCommandAsync("retarget", new JsonObject { ["target_path"] = file.Path }, token));
+        var file = await PickOpenAsync(L10n.T("pick.replaceMp3"), ".mp3");
+        if (file is not null) await RunAsync(L10n.T("activity.replacingTarget"), token => session.RunProjectCommandAsync("retarget", new JsonObject { ["target_path"] = file.Path }, token));
     }
 
     private async void ImportLyrics_Click(object sender, RoutedEventArgs e)
     {
-        var file = await PickOpenAsync("Import lyric text", ".txt", ".lrc", ".yrc");
+        var file = await PickOpenAsync(L10n.T("pick.importLyrics"), ".txt", ".lrc", ".yrc");
         if (file is null) return;
         var text = await FileIO.ReadTextAsync(file);
-        await RunAsync("Applying lyrics", token => session.RunProjectCommandAsync("replace_lyrics", new JsonObject { ["original"] = text, ["translation"] = "" }, token));
+        await RunAsync(L10n.T("activity.applyingLyrics"), token => session.RunProjectCommandAsync("replace_lyrics", new JsonObject { ["original"] = text, ["translation"] = "" }, token));
     }
 
     private async void FetchLyrics_Click(object sender, RoutedEventArgs e) =>
-        await RunAsync("Fetching NetEase lyrics", token => session.RunProjectCommandAsync("fetch_lyrics", null, token));
+        await RunAsync(L10n.T("activity.fetchingLyrics"), token => session.RunProjectCommandAsync("fetch_lyrics", null, token));
 
     private async void Align_Click(object sender, RoutedEventArgs e)
     {
         var provider = settings.AlignmentProvider;
         var key = provider == "openrouter" ? settings.OpenRouterApiKey : settings.AiStudioApiKey;
         var model = provider == "openrouter" ? settings.OpenRouterModel : settings.AiStudioModel;
-        if (string.IsNullOrWhiteSpace(key)) { await ShowErrorAsync("Add the selected provider API key in Settings first."); return; }
-        await RunAsync("Aligning complete lyric block with Gemini", token => session.RunProjectCommandAsync("align", new JsonObject {
+        if (string.IsNullOrWhiteSpace(key)) { await ShowErrorAsync(L10n.T("error.needApiKey")); return; }
+        await RunAsync(L10n.T("activity.aligningAll"), token => session.RunProjectCommandAsync("align", new JsonObject {
             ["provider"] = provider, ["api_key"] = key, ["model"] = model, ["segment_ids"] = new JsonArray()
         }, token));
     }
 
     private async void RestoreGemini_Click(object sender, RoutedEventArgs e) =>
-        await RunAsync("Restoring Gemini alignment", token => session.RunProjectCommandAsync("restore_gemini", null, token));
+        await RunAsync(L10n.T("activity.restoringGemini"), token => session.RunProjectCommandAsync("restore_gemini", null, token));
 
     private async void Translate_Click(object sender, RoutedEventArgs e)
     {
         var provider = settings.AlignmentProvider;
         var key = provider == "openrouter" ? settings.OpenRouterApiKey : settings.AiStudioApiKey;
         var model = provider == "openrouter" ? settings.OpenRouterModel : settings.AiStudioModel;
-        if (string.IsNullOrWhiteSpace(key)) { await ShowErrorAsync("Add the selected provider API key in Settings first."); return; }
-        await RunAsync("Translating through Gemini", token => session.RunProjectCommandAsync("translate", new JsonObject {
+        if (string.IsNullOrWhiteSpace(key)) { await ShowErrorAsync(L10n.T("error.needApiKey")); return; }
+        await RunAsync(L10n.T("activity.translating", "Gemini"), token => session.RunProjectCommandAsync("translate", new JsonObject {
             ["provider"] = provider, ["api_key"] = key, ["model"] = model, ["target_language"] = TargetLanguageBox.Text
         }, token));
     }
 
     private async void ImportTranslations_Click(object sender, RoutedEventArgs e)
     {
-        var file = await PickOpenAsync("Import translation text", ".txt", ".lrc");
+        var file = await PickOpenAsync(L10n.T("pick.importTranslation"), ".txt", ".lrc");
         if (file is null) return;
         var text = await FileIO.ReadTextAsync(file);
-        await RunAsync("Applying translations", token => session.RunProjectCommandAsync("replace_translations", new JsonObject { ["translation"] = text }, token));
+        await RunAsync(L10n.T("activity.applyingTranslations"), token => session.RunProjectCommandAsync("replace_translations", new JsonObject { ["translation"] = text }, token));
     }
 
     private void ClearTranslations_Click(object sender, RoutedEventArgs e) => session.ClearTranslations();
@@ -132,8 +135,8 @@ public sealed partial class MainPage : Page
 
     private async void ExportCueSheet_Click(object sender, RoutedEventArgs e)
     {
-        var output = await PickSaveAsync("Cue Sheet JSON", ".json", $"{session.Title}.cuesheet");
-        if (output is not null) await RunAsync("Writing cue sheet", token => session.ExportCueSheetAsync(output.Path, token));
+        var output = await PickSaveAsync(L10n.T("pick.cueSheet"), ".json", $"{session.Title}.cuesheet");
+        if (output is not null) await RunAsync(L10n.T("activity.writingCueSheet"), token => session.ExportCueSheetAsync(output.Path, token));
     }
 
     private void ExportOption_Changed(object sender, RoutedEventArgs e) => ApplyExportOptions();
@@ -160,8 +163,8 @@ public sealed partial class MainPage : Page
 
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
-        var output = await PickSaveAsync("Export final MP3", ".mp3", $"{session.Title} [CueWeave]");
-        if (output is not null) await RunAsync("Exporting without re-encoding", token => session.ExportAsync(output.Path, token));
+        var output = await PickSaveAsync(L10n.T("pick.exportMp3"), ".mp3", $"{session.Title} [CueWeave]");
+        if (output is not null) await RunAsync(L10n.T("activity.exporting"), token => session.ExportAsync(output.Path, token));
     }
 
     private void Metadata_LostFocus(object sender, RoutedEventArgs e)
@@ -178,24 +181,31 @@ public sealed partial class MainPage : Page
 
     private async void Settings_Click(object sender, RoutedEventArgs e)
     {
+        var language = new ComboBox {
+            ItemsSource = new[] { L10n.T("lang.system"), L10n.T("lang.en"), L10n.T("lang.zh") },
+            SelectedIndex = settings.UiLanguage == "en" ? 1 : settings.UiLanguage == "zh" ? 2 : 0
+        };
         var provider = new ComboBox { ItemsSource = new[] { "OpenRouter", "AI Studio" }, SelectedIndex = settings.AlignmentProvider == "ai_studio" ? 1 : 0 };
-        var openRouterKey = new PasswordBox { Password = settings.OpenRouterApiKey, PlaceholderText = "OpenRouter API key" };
-        var aiStudioKey = new PasswordBox { Password = settings.AiStudioApiKey, PlaceholderText = "AI Studio API key" };
-        var openRouterModel = new TextBox { Text = settings.OpenRouterModel, Header = "OpenRouter model" };
-        var aiStudioModel = new TextBox { Text = settings.AiStudioModel, Header = "AI Studio model" };
+        var openRouterKey = new PasswordBox { Password = settings.OpenRouterApiKey, PlaceholderText = L10n.T("settings.openRouterKey") };
+        var aiStudioKey = new PasswordBox { Password = settings.AiStudioApiKey, PlaceholderText = L10n.T("settings.aiStudioKey") };
+        var openRouterModel = new TextBox { Text = settings.OpenRouterModel, Header = L10n.T("settings.openRouterModel") };
+        var aiStudioModel = new TextBox { Text = settings.AiStudioModel, Header = L10n.T("settings.aiStudioModel") };
         var content = new StackPanel { Spacing = 10 };
-        content.Children.Add(new TextBlock { Text = "Provider", FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas") });
+        content.Children.Add(new TextBlock { Text = L10n.T("settings.language"), FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas") });
+        content.Children.Add(language);
+        content.Children.Add(new TextBlock { Text = L10n.T("settings.provider"), FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Consolas") });
         content.Children.Add(provider); content.Children.Add(openRouterKey); content.Children.Add(openRouterModel);
         content.Children.Add(aiStudioKey); content.Children.Add(aiStudioModel);
-        content.Children.Add(new TextBlock { Text = $"Stored locally as plain JSON:\n{LocalSettingsStore.ConfigPath}", TextWrapping = TextWrapping.Wrap, Opacity = .65 });
-        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = "Alignment Settings", Content = content, PrimaryButtonText = "Save locally", CloseButtonText = "Cancel" };
+        content.Children.Add(new TextBlock { Text = L10n.T("settings.keysNote.win", LocalSettingsStore.ConfigPath), TextWrapping = TextWrapping.Wrap, Opacity = .65 });
+        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = L10n.T("settings.title"), Content = content, PrimaryButtonText = L10n.T("settings.saveLocally"), CloseButtonText = L10n.T("action.cancel") };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        settings.UiLanguage = language.SelectedIndex == 1 ? "en" : language.SelectedIndex == 2 ? "zh" : "system";
         settings.AlignmentProvider = provider.SelectedIndex == 1 ? "ai_studio" : "openrouter";
         settings.OpenRouterApiKey = openRouterKey.Password;
         settings.AiStudioApiKey = aiStudioKey.Password;
         settings.OpenRouterModel = openRouterModel.Text.Trim();
         settings.AiStudioModel = aiStudioModel.Text.Trim();
-        try { LocalSettingsStore.Save(settings); ActivityText.Text = "Provider settings saved locally"; }
+        try { LocalSettingsStore.Save(settings); L10n.Apply(settings.UiLanguage); BindChrome(); ActivityText.Text = L10n.T("activity.settingsSaved"); }
         catch (Exception error) { await ShowErrorAsync(error.Message); }
         Refresh();
     }
@@ -219,9 +229,9 @@ public sealed partial class MainPage : Page
         operationCancellation?.Dispose();
         operationCancellation = new CancellationTokenSource();
         SetBusy(true, label);
-        try { await operation(operationCancellation.Token); ActivityText.Text = label + " complete"; }
-        catch (OperationCanceledException) { ActivityText.Text = "Cancelled"; }
-        catch (Exception error) { ActivityText.Text = "Failed"; await ShowErrorAsync(error.Message); }
+        try { await operation(operationCancellation.Token); ActivityText.Text = L10n.T("activity.doneFmt", label); }
+        catch (OperationCanceledException) { ActivityText.Text = L10n.T("activity.cancelled"); }
+        catch (Exception error) { ActivityText.Text = L10n.T("activity.failed"); await ShowErrorAsync(error.Message); }
         finally { SetBusy(false, ActivityText.Text); Refresh(); }
     }
 
@@ -236,26 +246,29 @@ public sealed partial class MainPage : Page
     private void Refresh()
     {
         refreshing = true;
+        BindChrome();
         var project = session.Project;
         WelcomePanel.Visibility = project is null ? Visibility.Visible : Visibility.Collapsed;
-        ProjectTitle.Text = project is null ? "Lyrics, aligned to your track." : session.Title;
-        SaveStateText.Text = project is null ? "NO PROJECT" : session.IsDirty ? "EDITED" : "SAVED";
+        ProjectTitle.Text = project is null ? L10n.T("welcome.headline.one") : session.Title;
+        SaveStateText.Text = project is null ? L10n.T("status.noProject") : session.IsDirty ? L10n.T("status.edited") : L10n.T("status.saved");
         SaveButton.IsEnabled = project is not null;
         RevertButton.IsEnabled = project is not null && session.ProjectPath is not null;
         UndoButton.IsEnabled = session.CanUndo; RedoButton.IsEnabled = session.CanRedo;
-        FinalState.Text = project is null ? "FINAL 0" : $"FINAL {project.Segments.Count(s => s.Timing.Final is not null)}/{project.Segments.Count}";
+        FinalState.Text = project is null ? L10n.T("status.finalCount", "0") : L10n.T("status.finalRatio", project.Segments.Count(s => s.Timing.Final is not null).ToString(), project.Segments.Count.ToString());
         var activeKey = settings.AlignmentProvider == "openrouter" ? settings.OpenRouterApiKey : settings.AiStudioApiKey;
-        ProviderState.Text = $"{(settings.AlignmentProvider == "openrouter" ? "OpenRouter" : "AI Studio")} · {(activeKey.Length == 0 ? "key missing" : "ready")}";
+        var providerName = settings.AlignmentProvider == "openrouter" ? "OpenRouter" : "AI Studio";
+        ProviderState.Text = activeKey.Length == 0 ? L10n.T("chrome.providerMissing", providerName) : L10n.T("chrome.providerReady", providerName);
         if (project is not null) PopulateProject(project);
+        else if (BusyBar.Visibility != Visibility.Visible) ActivityText.Text = L10n.T("activity.none");
         refreshing = false;
     }
 
     private void PopulateProject(ProjectDocument project)
     {
-        SourceName.Text = Path.GetFileName(project.Source?.Path ?? "Missing"); SourcePath.Text = project.Source?.Path ?? "Missing";
-        SourceDetails.Text = $"FORMAT  {project.Source?.Format?.ToUpperInvariant() ?? "NCM"}\nMUSIC ID  {project.Source?.MusicId?.ToString() ?? "—"}";
-        TargetName.Text = Path.GetFileName(project.Target?.Path ?? "Missing"); TargetPath.Text = project.Target?.Path ?? "Missing";
-        TargetDetails.Text = $"FORMAT  MP3\nDURATION  {FormatTime(project.Target?.DurationMs)}";
+        SourceName.Text = Path.GetFileName(project.Source?.Path ?? L10n.T("file.missing")); SourcePath.Text = project.Source?.Path ?? L10n.T("file.missing");
+        SourceDetails.Text = L10n.T("source.details", project.Source?.Format?.ToUpperInvariant() ?? "NCM", project.Source?.MusicId?.ToString() ?? "—");
+        TargetName.Text = Path.GetFileName(project.Target?.Path ?? L10n.T("file.missing")); TargetPath.Text = project.Target?.Path ?? L10n.T("file.missing");
+        TargetDetails.Text = L10n.T("source.targetDetails", FormatTime(project.Target?.DurationMs));
         var source = project.Metadata.Source; var target = project.Metadata.Target; var draft = project.Metadata.Draft;
         SourceTitle.Text = source.Title ?? "—"; TargetTitle.Text = target.Title ?? "—"; DraftTitle.Text = draft.Title ?? "";
         SourceArtist.Text = Join(source.Artists); TargetArtist.Text = Join(target.Artists); DraftArtist.Text = Join(draft.Artists, " / ");
@@ -268,7 +281,7 @@ public sealed partial class MainPage : Page
         ConfigureTimeline(project);
         var aligned = project.Segments.Count(s => s.Timing.Final is not null);
         var translated = project.Lyrics.Lines.Count(line => !string.IsNullOrWhiteSpace(line.Translation));
-        ExportSummary.Text = $"{project.Lyrics.Lines.Count} lines · {translated} translated · {aligned}/{project.Segments.Count} final";
+        ExportSummary.Text = L10n.T("export.summary", project.Lyrics.Lines.Count.ToString(), translated.ToString(), aligned.ToString(), project.Segments.Count.ToString());
         LrcCheck.IsChecked = project.ExportProfile.Formats.Contains("lrc");
         UsltCheck.IsChecked = project.ExportProfile.Formats.Contains("uslt");
         SyltCheck.IsChecked = project.ExportProfile.Formats.Contains("sylt");
@@ -296,7 +309,7 @@ public sealed partial class MainPage : Page
             var data = await WaveformAnalyzer.AnalyzeAsync(path, token: waveformCancellation.Token);
             if (audioPath == path) Timeline.SetWaveform(data);
         } catch (OperationCanceledException) { }
-        catch (Exception error) { await ShowErrorAsync($"Audio analysis failed: {error.Message}"); }
+        catch (Exception error) { await ShowErrorAsync(L10n.T("error.audioAnalysis", error.Message)); }
     }
 
     private void Play_Click(object sender, RoutedEventArgs e)
@@ -419,11 +432,11 @@ public sealed partial class MainPage : Page
     private void RefreshInspector()
     {
         var segment = SelectedSegment();
-        InspectorLabel.Text = segment is null ? "NO SEGMENT SELECTED" : $"SEGMENT {segment.Id:0000}";
-        InspectorText.Text = segment?.Text ?? "Press Enter to select the lyric at the playhead.";
+        InspectorLabel.Text = segment is null ? L10n.T("inspect.none") : L10n.T("inspect.segment", segment.Id.ToString("0000"));
+        InspectorText.Text = segment?.Text ?? L10n.T("inspect.hint.win");
         var line = segment is null ? null : session.Project?.Lyrics.Lines.FirstOrDefault(value => value.Segments.Any(item => item.Id == segment.Id));
         InspectorTranslation.Text = string.IsNullOrWhiteSpace(line?.Translation)
-            ? "Translation is edited on the Translation page."
+            ? L10n.T("inspect.translationHint")
             : line!.Translation;
         GeminiTime.Text = "GEMINI " + FormatTime(segment?.Timing.Gemini?.TimeMs);
         FinalTime.Text = "FINAL " + FormatTime(segment?.Timing.Final?.TimeMs);
@@ -495,7 +508,7 @@ public sealed partial class MainPage : Page
     }
 
     private static void Initialize(object picker) => WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));
-    private async Task ShowErrorAsync(string message) => await new ContentDialog { XamlRoot = XamlRoot, Title = "CueWeave", Content = message, CloseButtonText = "OK" }.ShowAsync();
+    private async Task ShowErrorAsync(string message) => await new ContentDialog { XamlRoot = XamlRoot, Title = "CueWeave", Content = L10n.WrapError(message), CloseButtonText = L10n.T("action.ok") }.ShowAsync();
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string Join(IEnumerable<string> values, string separator = ", ") => string.Join(separator, values.DefaultIfEmpty("—"));
     private static string FormatTime(ulong? milliseconds) => milliseconds is null ? "—" : $"{milliseconds / 60000:00}:{milliseconds / 1000 % 60:00}.{milliseconds % 1000:000}";

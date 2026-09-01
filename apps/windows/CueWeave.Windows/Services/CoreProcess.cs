@@ -35,7 +35,7 @@ public sealed class CoreProcess
             }
         };
         process.StartInfo.ArgumentList.Add("rpc");
-        if (!process.Start()) throw new CoreException("launch_failed", "CueWeave Core could not start.");
+        if (!process.Start()) throw new CoreException("launch_failed", L10n.T("error.coreLaunch"));
         lock (sync) active = process;
         using var registration = cancellationToken.Register(() => {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
@@ -50,15 +50,15 @@ public sealed class CoreProcess
             var stderr = await stderrTask;
             cancellationToken.ThrowIfCancellationRequested();
             if (process.ExitCode != 0)
-                throw new CoreException("process_failed", string.IsNullOrWhiteSpace(stderr) ? "CueWeave Core failed." : stderr.Trim());
+                throw new CoreException("process_failed", string.IsNullOrWhiteSpace(stderr) ? L10n.T("error.coreFailed") : stderr.Trim());
             using var document = JsonDocument.Parse(stdout);
             var root = document.RootElement;
             if (root.GetProperty("request_id").GetString() != requestId)
-                throw new CoreException("invalid_response", "CueWeave Core returned a mismatched response.");
+                throw new CoreException("invalid_response", L10n.T("error.coreMismatch"));
             if (!root.GetProperty("ok").GetBoolean()) {
                 var error = root.GetProperty("error");
                 throw new CoreException(error.GetProperty("code").GetString() ?? "core_error",
-                    error.GetProperty("message").GetString() ?? "CueWeave Core failed.");
+                    error.GetProperty("message").GetString() ?? L10n.T("error.coreFailed"));
             }
             return root.TryGetProperty("result", out var result) ? result.Clone() : default;
         } finally {
@@ -84,6 +84,6 @@ public sealed class CoreProcess
             var candidate = Path.Combine(directory.FullName, "target", "release", "cueweave-cli.exe");
             if (File.Exists(candidate)) return candidate;
         }
-        throw new CoreException("cli_missing", "cueweave-cli.exe was not found beside CueWeave or in target\\release.");
+        throw new CoreException("cli_missing", L10n.T("error.cliMissingWin"));
     }
 }

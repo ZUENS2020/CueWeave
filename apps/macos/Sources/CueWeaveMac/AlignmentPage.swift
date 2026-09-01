@@ -3,6 +3,7 @@ import SwiftUI
 
 struct AlignmentPage: View {
     @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
     @ObservedObject private var waveform: WaveformModel
     @StateObject private var interaction: TimelineInteractionController
     @State private var selectedIDs = Set<UInt64>()
@@ -21,8 +22,8 @@ struct AlignmentPage: View {
             Divider()
             if store.allSegments.isEmpty {
                 EmptyWorkspaceState(
-                    title: "No lyric segments",
-                    detail: "Fetch or import lyrics before opening the timeline.",
+                    title: l10n.t("align.emptyTitle"),
+                    detail: l10n.t("align.emptyDetail"),
                     icon: "waveform.path"
                 )
             } else {
@@ -62,14 +63,14 @@ struct AlignmentPage: View {
 
     private var header: some View {
         HStack(alignment: .center, spacing: 12) {
-            SectionHeading("Timeline", subtitle: "Target audio is the only timing authority")
+            SectionHeading(l10n.t("timeline.title"), subtitle: l10n.t("page.alignment.subtitle"))
             Spacer()
-            Button("Restore Gemini") {
+            Button(l10n.t("align.restoreGemini")) {
                 Task { await store.restoreGeminiAlignment() }
             }
             .disabled(store.isBusy || !store.hasGeminiSuggestions)
-            .help("Replace every Final value with the stored Gemini baseline. Undo with ⌘Z.")
-            Button("\(store.alignmentProvider.title) · Align All") {
+            .help(l10n.t("align.restoreHelp"))
+            Button("\(store.alignmentProvider.title) · \(l10n.t("align.all"))") {
                 Task { await store.align() }
             }
             .disabled(store.isBusy || store.alignmentAPIKey.isEmpty || store.allSegments.isEmpty)
@@ -82,7 +83,7 @@ struct AlignmentPage: View {
         VStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    Text("SEGMENTS")
+                    Text(l10n.t("align.segments"))
                         .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     Spacer()
                     Text("\(store.allSegments.count)")
@@ -132,16 +133,16 @@ struct AlignmentPage: View {
             Divider()
             VStack(spacing: 7) {
                 HStack(spacing: 6) {
-                    Text("\(selectedIDs.count) SELECTED")
+                    Text(l10n.t("align.selected", String(selectedIDs.count)))
                         .font(.system(size: 8, design: .monospaced))
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("All") { selectedIDs.formUnion(store.allSegments.map(\.id)) }
-                    Button("Clear") { selectedIDs.removeAll() }.disabled(selectedIDs.isEmpty)
+                    Button(l10n.t("align.allBtn")) { selectedIDs.formUnion(store.allSegments.map(\.id)) }
+                    Button(l10n.t("action.clear")) { selectedIDs.removeAll() }.disabled(selectedIDs.isEmpty)
                 }
                 HStack(spacing: 6) {
                     Spacer()
-                    Button("Clear Final") {
+                    Button(l10n.t("align.clearFinal")) {
                         store.clearFinals(segmentIDs: selectedIDs)
                     }
                     .disabled(selectedIDs.isEmpty)
@@ -160,14 +161,14 @@ struct AlignmentPage: View {
             .padding(14)
             .background(CueWeaveStyle.panel)
         } else {
-            EmptyWorkspaceState(title: "Select a segment", detail: "Choose a lyric segment to inspect its timing.")
+            EmptyWorkspaceState(title: l10n.t("inspect.emptyTitle"), detail: l10n.t("inspect.emptyDetail"))
         }
     }
 
     private func inspectorHeader(_ segment: LyricSegment) -> some View {
         HStack(alignment: .top) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("SEGMENT \(String(format: "%04llu", segment.id))")
+                Text(l10n.t("inspect.segment", String(format: "%04llu", segment.id)))
                     .font(.system(size: 9, design: .monospaced))
                     .foregroundStyle(.tertiary)
                 Text(segment.text).font(.title3).textSelection(.enabled)
@@ -186,7 +187,7 @@ struct AlignmentPage: View {
                 timingReadouts(segment)
                     .frame(minWidth: 240, idealWidth: 270, maxWidth: 300)
                 Divider().frame(height: 34)
-                Button("Mark at Playhead") { interaction.stamp(segment.id) }
+                Button(l10n.t("inspect.markPlayhead")) { interaction.stamp(segment.id) }
                 Button("−50") { interaction.nudgeSelected(by: -50) }
                 Button("−10") { interaction.nudgeSelected(by: -10) }
                 Button("−1") { interaction.nudgeSelected(by: -1) }
@@ -194,14 +195,14 @@ struct AlignmentPage: View {
                 Button("+10") { interaction.nudgeSelected(by: 10) }
                 Button("+50") { interaction.nudgeSelected(by: 50) }
                 Spacer(minLength: 4)
-                Button("Play −2s") { playAround(segment) }
-                Button("Use Gemini") { store.acceptGeminiSuggestion(segmentID: segment.id) }
+                Button(l10n.t("inspect.playAround")) { playAround(segment) }
+                Button(l10n.t("inspect.useGemini")) { store.acceptGeminiSuggestion(segmentID: segment.id) }
                     .disabled(segment.timing.gemini == nil)
-                Button("Clear Final") { store.clearFinal(segmentID: segment.id) }
+                Button(l10n.t("align.clearFinal")) { store.clearFinal(segmentID: segment.id) }
                     .disabled(segment.timing.finalPoint == nil)
             }
             .controlSize(.small)
-            inspectorField("LYRIC TEXT", placeholder: "Original lyric line", text: originalLineBinding(segment.id), field: .original)
+            inspectorField(l10n.t("inspect.lyricText"), placeholder: l10n.t("inspect.lyricPlaceholder"), text: originalLineBinding(segment.id), field: .original)
         }
     }
 
@@ -334,6 +335,7 @@ private struct TimelinePlaybackBar: View {
     @ObservedObject var store: ProjectStore
     @ObservedObject var player: AudioPlayer
     @ObservedObject var interaction: TimelineInteractionController
+    @ObservedObject private var l10n = L10n.shared
 
     init(store: ProjectStore, interaction: TimelineInteractionController) {
         self.store = store
@@ -347,7 +349,7 @@ private struct TimelinePlaybackBar: View {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
             }
             Picker(
-                "Playback Speed",
+                l10n.t("playback.speed"),
                 selection: Binding(get: { player.playbackRate }, set: { player.setPlaybackRate($0) })
             ) {
                 ForEach(AudioPlayer.supportedRates, id: \.self) { rate in
@@ -357,63 +359,63 @@ private struct TimelinePlaybackBar: View {
             .labelsHidden()
             .pickerStyle(.menu)
             .frame(width: 76)
-            .help("Playback speed with pitch preservation. = faster, − slower")
-            Button("A") { player.markLoopStart() }.help("Set the left loop boundary (A)")
-            Button("B") { player.markLoopEnd() }.help("Set the right loop boundary (B)")
-            Button("Clear") { player.clearLoop() }.disabled(player.loopStart == nil && player.loopEnd == nil)
+            .help(l10n.t("playback.speedHelp"))
+            Button("A") { player.markLoopStart() }.help(l10n.t("loop.a.help"))
+            Button("B") { player.markLoopEnd() }.help(l10n.t("loop.b.help"))
+            Button(l10n.t("action.clear")) { player.clearLoop() }.disabled(player.loopStart == nil && player.loopEnd == nil)
             Toggle(isOn: $interaction.followPlayback) {
-                Label("Follow", systemImage: "location.fill")
+                Label(l10n.t("follow"), systemImage: "location.fill")
             }
             .toggleStyle(.button)
-            .help("Keep the playback position centered while audio is playing")
+            .help(l10n.t("follow.help"))
             Toggle(
                 isOn: Binding(
                     get: { interaction.followSelection },
                     set: { interaction.setFollowSelection($0) }
                 )
             ) {
-                Label("Next", systemImage: "forward.end")
+                Label(l10n.t("next"), systemImage: "forward.end")
             }
             .toggleStyle(.button)
-            .help("Keep the selected lyric on the next line after the playhead. Turns off if you click a lyric or use Return, ↑↓, or ⇧Tab")
+            .help(l10n.t("next.help"))
             Divider().frame(height: 18)
-            Button("Mark") { stampCurrent() }
+            Button(l10n.t("mark")) { stampCurrent() }
             .disabled(interaction.selectedSegmentID == nil)
             Divider().frame(height: 18)
             Button { store.undo() } label: { Image(systemName: "arrow.uturn.backward") }
                 .disabled(!store.canUndo)
-                .help("Undo (⌘Z)")
+                .help(l10n.t("undo.help"))
             Button { store.redo() } label: { Image(systemName: "arrow.uturn.forward") }
                 .disabled(!store.canRedo)
-                .help("Redo (⇧⌘Z)")
+                .help(l10n.t("redo.help"))
             Menu {
-                Button("Play / Pause   Space") { player.playPause() }
-                Button("Select Playing Lyric   Return") { interaction.selectCurrent() }
-                Button("Select Next Playing Lyric   Tab") { interaction.selectRelativeToPlayhead(offset: 1) }
-                Button("Select Previous Playing Lyric   ⇧Tab") { interaction.selectRelativeToPlayhead(offset: -1) }
-                Button("Place Final at Playhead   M") { stampCurrent() }
-                Button("Clear Final   Delete") {
+                Button(l10n.t("hotkey.play")) { player.playPause() }
+                Button(l10n.t("hotkey.selectPlaying")) { interaction.selectCurrent() }
+                Button(l10n.t("hotkey.selectNext")) { interaction.selectRelativeToPlayhead(offset: 1) }
+                Button(l10n.t("hotkey.selectPrev")) { interaction.selectRelativeToPlayhead(offset: -1) }
+                Button(l10n.t("hotkey.mark")) { stampCurrent() }
+                Button(l10n.t("hotkey.clearFinal")) {
                     if let id = interaction.selectedSegmentID { store.clearFinal(segmentID: id) }
                 }
                 .disabled(selected?.timing.finalPoint == nil)
-                Text("Next / Previous Selected   ↓ / ↑")
-                Text("Move Playhead   ← / → (1% of visible time)")
-                Text("Hold 1 + ←/→   −/+ 1 ms")
-                Text("Hold 2 + ←/→   −/+ 10 ms")
-                Text("Hold 3 + ←/→   −/+ 50 ms")
-                Text("Nudge 1 ms   , / .")
-                Text("Jump   Home / End")
-                Text("Playback Speed   = / −")
-                Text("Zoom   ⌘+ / ⌘−, pinch, or Ctrl+wheel")
-                Text("Click empty space to leave a text field")
+                Text(l10n.t("hotkey.nextPrev"))
+                Text(l10n.t("hotkey.movePlayhead"))
+                Text(l10n.t("hotkey.nudge1"))
+                Text(l10n.t("hotkey.nudge10"))
+                Text(l10n.t("hotkey.nudge50"))
+                Text(l10n.t("hotkey.nudgeComma"))
+                Text(l10n.t("hotkey.jump"))
+                Text(l10n.t("hotkey.speed"))
+                Text(l10n.t("hotkey.zoom"))
+                Text(l10n.t("hotkey.clickAway"))
                 Divider()
-                Button("Loop Start   A") { player.markLoopStart() }
-                Button("Loop End   B") { player.markLoopEnd() }
-                Button("Clear Loop   Esc") { player.clearLoop() }
+                Button(l10n.t("hotkey.loopA")) { player.markLoopStart() }
+                Button(l10n.t("hotkey.loopB")) { player.markLoopEnd() }
+                Button(l10n.t("hotkey.loopClear")) { player.clearLoop() }
             } label: {
                 Image(systemName: "keyboard")
             }
-            .help("Keyboard controls")
+            .help(l10n.t("hotkeys.help"))
             Divider().frame(height: 18)
             Image(systemName: "minus.magnifyingglass")
             Slider(

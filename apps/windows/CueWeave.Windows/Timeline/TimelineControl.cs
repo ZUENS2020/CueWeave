@@ -39,6 +39,9 @@ public sealed class TimelineControl : UserControl
     public event Action<ulong?>? ActiveSegmentChanged;
     public event Action<ulong?>? SelectedSegmentChanged;
     public event Action<double>? ZoomChanged;
+    public string WaveformLabel { get; private set; } = "WAVEFORM";
+    public string BandLabel { get; private set; } = "BAND ENERGY  LOW / MID / HIGH";
+    public string LyricsLaneLabel { get; private set; } = "LYRICS / TIMESTAMPS";
 
     public TimelineControl()
     {
@@ -64,6 +67,13 @@ public sealed class TimelineControl : UserControl
 
     public void SetWaveform(WaveformData value) { waveform = value; canvas.Invalidate(); }
     public void SetSegments(IReadOnlyList<LyricSegment> values) { segments = values; canvas.Invalidate(); }
+    public void SetLaneLabels(string waveformLabel, string bandLabel, string lyricsLabel)
+    {
+        WaveformLabel = waveformLabel;
+        BandLabel = bandLabel;
+        LyricsLaneLabel = lyricsLabel;
+        canvas.Invalidate();
+    }
     public void SetFollow(bool enabled)
     {
         Viewport.FollowEnabled = enabled;
@@ -140,7 +150,7 @@ public sealed class TimelineControl : UserControl
 
     private void DrawWaveform(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        ds.DrawText("WAVEFORM", 8, top + 5, Colors.Gray);
+        ds.DrawText(WaveformLabel, 8, top + 5, Colors.Gray);
         if (waveform.Peak.Length == 0 || height <= 0) return;
         var center = top + height / 2; var start = VisibleBin(waveform.Peak.Length, Viewport.VisibleStartMs); var end = VisibleBin(waveform.Peak.Length, Viewport.VisibleEndMs) + 1;
         for (var index = start; index < Math.Min(end, waveform.Peak.Length); index++) {
@@ -151,7 +161,7 @@ public sealed class TimelineControl : UserControl
 
     private void DrawBands(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        ds.DrawText("BAND ENERGY  LOW / MID / HIGH", 8, top + 5, Colors.Gray);
+        ds.DrawText(BandLabel, 8, top + 5, Colors.Gray);
         DrawBand(ds, waveform.Low, width, top, height, Colors.MediumSeaGreen);
         DrawBand(ds, waveform.Mid, width, top, height, Colors.Goldenrod);
         DrawBand(ds, waveform.High, width, top, height, Colors.OrangeRed);
@@ -170,7 +180,7 @@ public sealed class TimelineControl : UserControl
 
     private void DrawLyrics(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        ds.DrawText("LYRICS / TIMESTAMPS", 8, top + 5, Colors.Gray);
+        ds.DrawText(LyricsLaneLabel, 8, top + 5, Colors.Gray);
         var timed = TimedSegments();
         for (var index = 0; index < timed.Count; index++) {
             var (segment, start) = timed[index]; var end = index + 1 < timed.Count ? timed[index + 1].Time : Viewport.DurationMs;
