@@ -8,8 +8,6 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Windows.Foundation;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -49,7 +47,7 @@ public sealed class TimelineControl : UserControl
         canvas.Draw += Draw;
         canvas.PointerPressed += OnPointerPressed; canvas.PointerMoved += OnPointerMoved;
         canvas.PointerReleased += OnPointerReleased; canvas.PointerCaptureLost += OnPointerCaptureLost;
-        canvas.PointerWheelChanged += PointerWheel; canvas.DoubleTapped += OnDoubleTapped;
+        canvas.PointerWheelChanged += PointerWheel;
         canvas.ManipulationMode = ManipulationModes.Scale;
         canvas.ManipulationStarted += (_, _) => Viewport.GestureActive = true;
         canvas.ManipulationDelta += OnManipulationDelta;
@@ -229,8 +227,6 @@ public sealed class TimelineControl : UserControl
         Viewport.ZoomAt(e.Delta.Scale, Viewport.TimeAt(e.Position.X, canvas.ActualWidth)); CommitViewport(); e.Handled = true;
     }
 
-    private void OnDoubleTapped(object sender, DoubleTappedRoutedEventArgs e) => Select(SegmentAt(Viewport.TimeAt(e.GetPosition(canvas).X, canvas.ActualWidth))?.Id);
-
     private void HandleKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key is VirtualKey.Number1 or VirtualKey.Number2 or VirtualKey.Number3) { heldStep = e.Key == VirtualKey.Number1 ? 1 : e.Key == VirtualKey.Number2 ? 10 : 50; return; }
@@ -247,8 +243,21 @@ public sealed class TimelineControl : UserControl
         }
         if (e.Key == VirtualKey.Home) { SeekRequested?.Invoke(0); e.Handled = true; return; }
         if (e.Key == VirtualKey.End) { SeekRequested?.Invoke(Viewport.DurationMs); e.Handled = true; return; }
-        if (e.Key == VirtualKey.OemComma) { NudgeRequested?.Invoke(-1); e.Handled = true; return; }
-        if (e.Key == VirtualKey.OemPeriod) { NudgeRequested?.Invoke(1); e.Handled = true; return; }
+        if ((int)e.Key is 188) { NudgeRequested?.Invoke(-1); e.Handled = true; return; }
+        if ((int)e.Key is 190) { NudgeRequested?.Invoke(1); e.Handled = true; return; }
+        var control = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+        var plus = e.Key is VirtualKey.Add || (int)e.Key == 187;
+        var minus = e.Key is VirtualKey.Subtract || (int)e.Key == 189;
+        if (plus || minus)
+        {
+            if (control)
+            {
+                Viewport.SetZoom(Viewport.Zoom * (plus ? 1.25 : .8), PlayheadMs);
+                CommitViewport();
+            }
+            else CommandRequested?.Invoke(plus ? "rate_up" : "rate_down");
+            e.Handled = true; return;
+        }
         var command = e.Key switch {
             VirtualKey.Enter => "select_current", VirtualKey.Space => "play",
             VirtualKey.A => "loop_a", VirtualKey.B => "loop_b", VirtualKey.Escape => "loop_clear",
@@ -256,10 +265,7 @@ public sealed class TimelineControl : UserControl
             VirtualKey.M => "mark", VirtualKey.Delete or VirtualKey.Back => "clear_final",
             _ => null
         };
-        if (command is not null) { CommandRequested?.Invoke(command); e.Handled = true; return; }
-        var control = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
-        if (control && (e.Key == VirtualKey.Add || (int)e.Key == 187)) { Viewport.SetZoom(Viewport.Zoom * 1.25, PlayheadMs); CommitViewport(); e.Handled = true; }
-        if (control && (e.Key == VirtualKey.Subtract || (int)e.Key == 189)) { Viewport.SetZoom(Viewport.Zoom * .8, PlayheadMs); CommitViewport(); e.Handled = true; }
+        if (command is not null) { CommandRequested?.Invoke(command); e.Handled = true; }
     }
 
     private void HandleKeyUp(object sender, KeyRoutedEventArgs e)

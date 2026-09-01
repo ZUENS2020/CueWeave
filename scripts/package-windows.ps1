@@ -1,7 +1,22 @@
 $ErrorActionPreference = "Stop"
 $Repo = Split-Path -Parent $PSScriptRoot
-$Cargo = Join-Path $env:USERPROFILE ".rustup\toolchains\stable-x86_64-pc-windows-msvc\bin\cargo.exe"
-if (-not (Test-Path $Cargo)) { $Cargo = "cargo" }
+$Toolchain = Join-Path $env:USERPROFILE ".rustup\toolchains\stable-x86_64-pc-windows-msvc\bin"
+$Cargo = Join-Path $Toolchain "cargo.exe"
+if (-not (Test-Path $Cargo)) { $Cargo = "cargo" } else {
+    $env:RUSTC = Join-Path $Toolchain "rustc.exe"
+    $env:CARGO = $Cargo
+}
+
+# SSH/network logons cannot traverse .cargo\bin rustup shims (WinError 448).
+$dotnetCmd = Get-Command dotnet -ErrorAction SilentlyContinue
+$dotnetDir = if ($dotnetCmd) { Split-Path $dotnetCmd.Source } else { Join-Path ${env:ProgramFiles} "dotnet" }
+$env:Path = @(
+    $Toolchain
+    $dotnetDir
+    "C:\Windows\System32"
+    "C:\Windows"
+    "C:\Windows\System32\WindowsPowerShell\v1.0"
+) -join ";"
 
 Set-Location $Repo
 & $Cargo test --workspace --all-targets

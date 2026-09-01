@@ -69,6 +69,35 @@ public sealed class TimelineViewport
     public static double ApplyLoop(double positionMs, bool isPlaying, double? start, double? end) =>
         isPlaying && start is double a && end is double b && b > a && positionMs >= b ? a : positionMs;
 
+    public static readonly double[] PlaybackRates = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+    public static double SteppedRate(double current, int direction)
+    {
+        var index = 0;
+        var best = double.MaxValue;
+        for (var i = 0; i < PlaybackRates.Length; i++)
+        {
+            var distance = Math.Abs(PlaybackRates[i] - current);
+            if (distance < best) { best = distance; index = i; }
+        }
+        return PlaybackRates[Math.Clamp(index + direction, 0, PlaybackRates.Length - 1)];
+    }
+
+    public static ulong? FollowingSegmentId(ulong? activeId, IReadOnlyList<ulong> ordered)
+    {
+        if (ordered.Count == 0) return null;
+        if (activeId is ulong id)
+        {
+            for (var i = 0; i < ordered.Count; i++)
+            {
+                if (ordered[i] == id) return ordered[Math.Min(i + 1, ordered.Count - 1)];
+            }
+        }
+        return ordered[0];
+    }
+
+    public static bool KeepsFollowSelection(int relativeOffset) => relativeOffset == 1;
+
     public static bool IsSelection(double startX, double currentX) => Math.Abs(currentX - startX) > DragThreshold;
     public static long NudgeDelta(int heldStep, bool right) => (right ? 1L : -1L) * heldStep;
     public static (double Ruler, double Waveform, double Bands, double Lyrics) Layout(double height)

@@ -54,14 +54,34 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
     public async Task RunProjectCommandAsync(string command, JsonObject? extra, CancellationToken token)
     {
         if (ProjectPath is null) return;
+        await SaveAsync(token);
         var payload = extra ?? new JsonObject();
         payload["project_path"] = ProjectPath;
         await core.CallAsync(command, payload, token);
         await LoadAsync(ProjectPath, token, keepUndo: true);
     }
 
-    public async Task<JsonElement> ExportAsync(string outputPath, CancellationToken token) =>
-        await core.CallAsync("export", new JsonObject { ["project_path"] = ProjectPath, ["output_path"] = outputPath }, token);
+    public async Task<JsonElement> ExportAsync(string outputPath, CancellationToken token)
+    {
+        await SaveAsync(token);
+        return await core.CallAsync("export", new JsonObject { ["project_path"] = ProjectPath, ["output_path"] = outputPath }, token);
+    }
+
+    public async Task ExportCueSheetAsync(string outputPath, CancellationToken token)
+    {
+        await SaveAsync(token);
+        await core.CallAsync("export_cuesheet", new JsonObject { ["project_path"] = ProjectPath, ["output_path"] = outputPath }, token);
+    }
+
+    public void SetLineTranslation(ulong lineId, string? text) => Mutate(document => {
+        var line = document.Lyrics.Lines.FirstOrDefault(value => value.Id == lineId);
+        if (line is null) return;
+        line.Translation = string.IsNullOrWhiteSpace(text) ? null : text.Trim();
+    });
+
+    public void ClearTranslations() => Mutate(document => {
+        foreach (var line in document.Lyrics.Lines) line.Translation = null;
+    });
 
     public void Mutate(Action<ProjectDocument> action)
     {

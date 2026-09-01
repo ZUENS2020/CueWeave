@@ -52,6 +52,7 @@
                 <NavigationViewItem Content="Source" Tag="source"><NavigationViewItem.Icon><SymbolIcon Symbol="Import" /></NavigationViewItem.Icon></NavigationViewItem>
                 <NavigationViewItem Content="Metadata" Tag="metadata"><NavigationViewItem.Icon><SymbolIcon Symbol="Tag" /></NavigationViewItem.Icon></NavigationViewItem>
                 <NavigationViewItem Content="Lyrics" Tag="lyrics"><NavigationViewItem.Icon><SymbolIcon Symbol="Document" /></NavigationViewItem.Icon></NavigationViewItem>
+                <NavigationViewItem Content="Translation" Tag="translation"><NavigationViewItem.Icon><SymbolIcon Symbol="Character" /></NavigationViewItem.Icon></NavigationViewItem>
                 <NavigationViewItem Content="Alignment" Tag="alignment"><NavigationViewItem.Icon><SymbolIcon Symbol="Audio" /></NavigationViewItem.Icon></NavigationViewItem>
                 <NavigationViewItem Content="Export" Tag="export"><NavigationViewItem.Icon><SymbolIcon Symbol="SaveLocal" /></NavigationViewItem.Icon></NavigationViewItem>
             </NavigationView.MenuItems>
@@ -116,6 +117,30 @@
                     </ListView>
                 </Grid>
 
+                <Grid x:Name="TranslationPanel" Visibility="Collapsed" Padding="24">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Grid>
+                        <StackPanel Spacing="3"><TextBlock FontSize="24" FontWeight="SemiBold" Text="Translation" /><TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Line-level only. Originals and timing stay untouched. Gemini uses the Align key, text only." /></StackPanel>
+                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                            <TextBox x:Name="TargetLanguageBox" Width="180" Text="Simplified Chinese" PlaceholderText="Target language" />
+                            <Button Content="Import Text…" Click="ImportTranslations_Click" />
+                            <Button Content="Clear All" Click="ClearTranslations_Click" />
+                            <Button Style="{StaticResource AccentButtonStyle}" Content="Translate with Gemini" Click="Translate_Click" />
+                        </StackPanel>
+                    </Grid>
+                    <ListView x:Name="TranslationList" Grid.Row="1" Margin="0,16,0,0">
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="8,6" ColumnSpacing="16">
+                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                    <TextBlock FontSize="15" TextWrapping="Wrap" Text="{Binding Original}" />
+                                    <TextBox Grid.Column="1" Text="{Binding Translation}" LostFocus="Translation_LostFocus" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
+
                 <Grid x:Name="AlignmentPanel" Visibility="Collapsed">
                     <Grid.RowDefinitions><RowDefinition Height="44" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <CommandBar DefaultLabelPosition="Collapsed" IsOpen="False">
@@ -128,20 +153,21 @@
                                 <Button Content="A" Click="LoopA_Click" ToolTipService.ToolTip="Set loop start (A)" />
                                 <Button Content="B" Click="LoopB_Click" ToolTipService.ToolTip="Set loop end (B)" />
                                 <Button Content="Clear" Click="LoopClear_Click" />
-                                <ToggleButton x:Name="FollowButton" Content="Follow" IsChecked="True" Checked="Follow_Changed" Unchecked="Follow_Changed" />
+                                <ToggleButton x:Name="FollowButton" Content="Follow" IsChecked="True" Checked="Follow_Changed" Unchecked="Follow_Changed" ToolTipService.ToolTip="Keep the playhead in view" />
+                                <ToggleButton x:Name="NextButton" Content="Next" IsChecked="False" Checked="Next_Changed" Unchecked="Next_Changed" ToolTipService.ToolTip="Keep selection on the lyric after the playhead" />
                                 <Button Content="Mark" Click="Mark_Click" />
                                 <Button Style="{StaticResource AccentButtonStyle}" Content="Run Gemini" Click="Align_Click" />
                                 <Button Content="Restore AI" Click="RestoreGemini_Click" />
                             </StackPanel>
                         </CommandBar.Content>
                         <CommandBar.SecondaryCommands>
-                            <AppBarButton Label="Timeline: Space play; Return select playing lyric; Tab next playing lyric; arrows seek/navigate; A/B loop; Esc clear loop; M mark; Delete clear Final." />
+                            <AppBarButton Label="Space play; Return select playing lyric; Tab next lyric; arrows seek/navigate; Esc clear A-B; =/− rate; Ctrl+=/− zoom." />
                         </CommandBar.SecondaryCommands>
                     </CommandBar>
                     <Grid Grid.Row="1">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="320" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,1,0">
-                            <ListView x:Name="AlignmentList" SelectionMode="None" DoubleTapped="AlignmentList_DoubleTapped">
+                            <ListView x:Name="AlignmentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="AlignmentList_ItemClick">
                                 <ListView.ItemTemplate><DataTemplate><Grid Padding="10,8"><Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding Id}" /><StackPanel Grid.Column="1" Spacing="2"><TextBlock FontSize="15" Text="{Binding Text}" TextWrapping="Wrap" /><TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Timing.Final.TimeMs}" /></StackPanel></Grid></DataTemplate></ListView.ItemTemplate>
                             </ListView>
                         </Border>
@@ -151,7 +177,7 @@
                             <Border Grid.Row="1" Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                                 <Grid>
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                    <StackPanel><TextBlock x:Name="InspectorLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="NO SEGMENT SELECTED" /><TextBlock x:Name="InspectorText" FontSize="19" FontWeight="SemiBold" Text="Press Enter to select the playing lyric, or Tab for the next one." /></StackPanel>
+                                    <StackPanel><TextBlock x:Name="InspectorLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="NO SEGMENT SELECTED" /><TextBlock x:Name="InspectorText" FontSize="19" FontWeight="SemiBold" Text="Press Enter to select the playing lyric, or Tab for the next one." /><TextBlock x:Name="InspectorTranslation" Margin="0,4,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Translation is edited on the Translation page." /></StackPanel>
                                     <StackPanel Grid.Row="1" Margin="0,9,0,0" Orientation="Horizontal" Spacing="12"><TextBlock x:Name="GeminiTime" FontFamily="Consolas" Text="GEMINI —" /><TextBlock x:Name="FinalTime" FontFamily="Consolas" Text="FINAL —" /></StackPanel>
                                     <StackPanel Grid.Row="2" Margin="0,9,0,0" Orientation="Horizontal" Spacing="6"><Button Content="Mark at Playhead" Click="Mark_Click" /><Button Content="−50" Click="Nudge_Click" Tag="-50" /><Button Content="−10" Click="Nudge_Click" Tag="-10" /><Button Content="−1" Click="Nudge_Click" Tag="-1" /><Button Content="+1" Click="Nudge_Click" Tag="1" /><Button Content="+10" Click="Nudge_Click" Tag="10" /><Button Content="+50" Click="Nudge_Click" Tag="50" /><Button Content="Play −2s" Click="PlayAround_Click" /><Button Content="Use Gemini" Click="UseGemini_Click" /><Button Content="Clear Final" Click="ClearFinal_Click" /></StackPanel>
                                 </Grid>
@@ -162,7 +188,30 @@
                 </Grid>
 
                 <Grid x:Name="ExportPanel" Visibility="Collapsed" Padding="24">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="12"><TextBlock FontSize="24" FontWeight="SemiBold" Text="Final Export" /><TextBlock x:Name="ExportSummary" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Open a project to inspect export readiness." /><Button Style="{StaticResource AccentButtonStyle}" Content="Export Final…" Click="Export_Click" /></StackPanel>
+                    <Grid ColumnSpacing="24">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="320" /></Grid.ColumnDefinitions>
+                        <StackPanel Spacing="12" VerticalAlignment="Center">
+                            <TextBlock FontSize="24" FontWeight="SemiBold" Text="Final Export" />
+                            <TextBlock x:Name="ExportSummary" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Open a project to inspect export readiness." />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Export Final writes a new MP3 without re-encoding. Save Cue Sheet writes player-agnostic JSON later plugins consume." />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="Save Cue Sheet…" Click="ExportCueSheet_Click" />
+                                <Button Style="{StaticResource AccentButtonStyle}" Content="Export Final…" Click="Export_Click" />
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Spacing="10">
+                            <TextBlock FontFamily="Consolas" FontSize="10" Text="PLAYER ADAPTERS" />
+                            <CheckBox x:Name="LrcCheck" Content="LRC sidecar" Tag="lrc" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed" />
+                            <CheckBox x:Name="UsltCheck" Content="USLT embedded lyrics" Tag="uslt" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed" />
+                            <CheckBox x:Name="SyltCheck" Content="SYLT synced tags" Tag="sylt" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed" />
+                            <TextBlock Margin="0,8,0,0" FontFamily="Consolas" FontSize="10" Text="BILINGUAL" />
+                            <ComboBox x:Name="BilingualPicker" SelectionChanged="Bilingual_Changed">
+                                <ComboBoxItem Content="Original only" Tag="original_only" />
+                                <ComboBoxItem Content="Original / translation" Tag="combined" />
+                            </ComboBox>
+                            <NumberBox x:Name="OffsetBox" Header="Export offset (ms)" Minimum="-2000" Maximum="2000" SmallChange="10" SpinButtonPlacementMode="Compact" ValueChanged="Offset_Changed" />
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </Grid>
         </NavigationView>

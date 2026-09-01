@@ -34,7 +34,12 @@ public sealed partial class MainPage : Page
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };
         Timeline.NudgeRequested += NudgeSelected;
         Timeline.CommandRequested += HandleTimelineCommand;
-        Timeline.ActiveSegmentChanged += id => { UpdateQueueVisuals(id); if (id is ulong value) ScrollToSegment(value); };
+        Timeline.ActiveSegmentChanged += id =>
+        {
+            UpdateQueueVisuals(id);
+            if (id is ulong value) ScrollToSegment(value);
+            FollowNextIfNeeded(id);
+        };
         Timeline.SelectedSegmentChanged += _ => { RefreshInspector(); UpdateQueueVisuals(Timeline.ActiveSegmentId); };
         Timeline.ZoomChanged += zoom => { changingZoom = true; ZoomSlider.Value = zoom; ZoomText.Text = $"{zoom:0.0}×"; changingZoom = false; };
         Unloaded += (_, _) => { StopRendering(); waveformCancellation?.Cancel(); };
@@ -98,6 +103,61 @@ public sealed partial class MainPage : Page
     private async void RestoreGemini_Click(object sender, RoutedEventArgs e) =>
         await RunAsync("Restoring Gemini alignment", token => session.RunProjectCommandAsync("restore_gemini", null, token));
 
+    private async void Translate_Click(object sender, RoutedEventArgs e)
+    {
+        var provider = settings.AlignmentProvider;
+        var key = provider == "openrouter" ? settings.OpenRouterApiKey : settings.AiStudioApiKey;
+        var model = provider == "openrouter" ? settings.OpenRouterModel : settings.AiStudioModel;
+        if (string.IsNullOrWhiteSpace(key)) { await ShowErrorAsync("Add the selected provider API key in Settings first."); return; }
+        await RunAsync("Translating through Gemini", token => session.RunProjectCommandAsync("translate", new JsonObject {
+            ["provider"] = provider, ["api_key"] = key, ["model"] = model, ["target_language"] = TargetLanguageBox.Text
+        }, token));
+    }
+
+    private async void ImportTranslations_Click(object sender, RoutedEventArgs e)
+    {
+        var file = await PickOpenAsync("Import translation text", ".txt", ".lrc");
+        if (file is null) return;
+        var text = await FileIO.ReadTextAsync(file);
+        await RunAsync("Applying translations", token => session.RunProjectCommandAsync("replace_translations", new JsonObject { ["translation"] = text }, token));
+    }
+
+    private void ClearTranslations_Click(object sender, RoutedEventArgs e) => session.ClearTranslations();
+
+    private void Translation_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (refreshing || sender is not TextBox { DataContext: LyricLine line } box) return;
+        session.SetLineTranslation(line.Id, box.Text);
+    }
+
+    private async void ExportCueSheet_Click(object sender, RoutedEventArgs e)
+    {
+        var output = await PickSaveAsync("Cue Sheet JSON", ".json", $"{session.Title}.cuesheet");
+        if (output is not null) await RunAsync("Writing cue sheet", token => session.ExportCueSheetAsync(output.Path, token));
+    }
+
+    private void ExportOption_Changed(object sender, RoutedEventArgs e) => ApplyExportOptions();
+    private void Bilingual_Changed(object sender, SelectionChangedEventArgs e) => ApplyExportOptions();
+
+    private void ApplyExportOptions()
+    {
+        if (refreshing || session.Project is null) return;
+        session.Mutate(project => {
+            project.ExportProfile.Formats = new[] {
+                LrcCheck.IsChecked == true ? "lrc" : null,
+                UsltCheck.IsChecked == true ? "uslt" : null,
+                SyltCheck.IsChecked == true ? "sylt" : null
+            }.OfType<string>().ToList();
+            if (BilingualPicker.SelectedItem is ComboBoxItem { Tag: string bilingual }) project.ExportProfile.Bilingual = bilingual;
+        });
+    }
+
+    private void Offset_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (refreshing || session.Project is null || double.IsNaN(sender.Value)) return;
+        session.Mutate(project => project.ExportProfile.OffsetMs = (long)Math.Round(sender.Value));
+    }
+
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
         var output = await PickSaveAsync("Export final MP3", ".mp3", $"{session.Title} [CueWeave]");
@@ -146,6 +206,7 @@ public sealed partial class MainPage : Page
         SourcePanel.Visibility = tag == "source" ? Visibility.Visible : Visibility.Collapsed;
         MetadataPanel.Visibility = tag == "metadata" ? Visibility.Visible : Visibility.Collapsed;
         LyricsPanel.Visibility = tag == "lyrics" ? Visibility.Visible : Visibility.Collapsed;
+        TranslationPanel.Visibility = tag == "translation" ? Visibility.Visible : Visibility.Collapsed;
         AlignmentPanel.Visibility = tag == "alignment" ? Visibility.Visible : Visibility.Collapsed;
         ExportPanel.Visibility = tag == "export" ? Visibility.Visible : Visibility.Collapsed;
         if (tag == "alignment") Timeline.Focus(FocusState.Programmatic);
@@ -202,10 +263,17 @@ public sealed partial class MainPage : Page
         SourceAlbumArtist.Text = source.AlbumArtist ?? "—"; TargetAlbumArtist.Text = target.AlbumArtist ?? "—"; DraftAlbumArtist.Text = draft.AlbumArtist ?? "";
         SourceDate.Text = source.Date ?? "—"; TargetDate.Text = target.Date ?? "—"; DraftDate.Text = draft.Date ?? "";
         LyricsList.ItemsSource = project.Lyrics.Lines;
+        TranslationList.ItemsSource = project.Lyrics.Lines;
         AlignmentList.ItemsSource = project.Segments;
         ConfigureTimeline(project);
         var aligned = project.Segments.Count(s => s.Timing.Final is not null);
-        ExportSummary.Text = $"{project.Lyrics.Lines.Count} lines · {aligned}/{project.Segments.Count} final";
+        var translated = project.Lyrics.Lines.Count(line => !string.IsNullOrWhiteSpace(line.Translation));
+        ExportSummary.Text = $"{project.Lyrics.Lines.Count} lines · {translated} translated · {aligned}/{project.Segments.Count} final";
+        LrcCheck.IsChecked = project.ExportProfile.Formats.Contains("lrc");
+        UsltCheck.IsChecked = project.ExportProfile.Formats.Contains("uslt");
+        SyltCheck.IsChecked = project.ExportProfile.Formats.Contains("sylt");
+        BilingualPicker.SelectedIndex = project.ExportProfile.Bilingual == "combined" ? 1 : 0;
+        OffsetBox.Value = project.ExportProfile.OffsetMs;
         RefreshInspector(); UpdateQueueVisuals(Timeline.ActiveSegmentId);
     }
 
@@ -245,6 +313,10 @@ public sealed partial class MainPage : Page
     private void LoopB_Click(object sender, RoutedEventArgs e) { playback.MarkB(); SyncLoop(); }
     private void LoopClear_Click(object sender, RoutedEventArgs e) { playback.ClearLoop(); SyncLoop(); }
     private void Follow_Changed(object sender, RoutedEventArgs e) => Timeline.SetFollow(FollowButton.IsChecked == true);
+    private void Next_Changed(object sender, RoutedEventArgs e)
+    {
+        if (NextButton.IsChecked == true) FollowNextIfNeeded(Timeline.ActiveSegmentId);
+    }
     private void Zoom_Changed(object sender, RangeBaseValueChangedEventArgs e) { if (!changingZoom) Timeline.SetZoom(e.NewValue); }
 
     private void Mark_Click(object sender, RoutedEventArgs e)
@@ -278,29 +350,33 @@ public sealed partial class MainPage : Page
     private void UseGemini_Click(object sender, RoutedEventArgs e) { if (Timeline.SelectedSegmentId is ulong id) session.UseGemini(id); }
     private void ClearFinal_Click(object sender, RoutedEventArgs e) { if (Timeline.SelectedSegmentId is ulong id) session.ClearFinal(id); }
 
-    private void AlignmentList_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    private void AlignmentList_ItemClick(object sender, ItemClickEventArgs e)
     {
-        DependencyObject? current = e.OriginalSource as DependencyObject;
-        while (current is not null) {
-            if (current is FrameworkElement { DataContext: LyricSegment segment }) { Timeline.Select(segment.Id); return; }
-            current = VisualTreeHelper.GetParent(current);
+        if (e.ClickedItem is LyricSegment segment)
+        {
+            SetFollowSelection(false);
+            Timeline.Select(segment.Id);
         }
     }
 
     private void HandleTimelineCommand(string command)
     {
         switch (command) {
-        case "select_current": Timeline.SelectCurrent(); break;
-        case "select_next_playing": Timeline.SelectRelativeToPlayhead(1); break;
-        case "select_previous_playing": Timeline.SelectRelativeToPlayhead(-1); break;
+        case "select_current": SetFollowSelection(false); Timeline.SelectCurrent(); break;
+        case "select_next_playing":
+            if (!TimelineViewport.KeepsFollowSelection(1)) SetFollowSelection(false);
+            Timeline.SelectRelativeToPlayhead(1); break;
+        case "select_previous_playing": SetFollowSelection(false); Timeline.SelectRelativeToPlayhead(-1); break;
         case "play": Play_Click(this, new RoutedEventArgs()); break;
         case "loop_a": playback.MarkA(); SyncLoop(); break;
         case "loop_b": playback.MarkB(); SyncLoop(); break;
         case "loop_clear": playback.ClearLoop(); SyncLoop(); break;
-        case "next": NavigateSegment(1); break;
-        case "previous": NavigateSegment(-1); break;
+        case "next": SetFollowSelection(false); NavigateSegment(1); break;
+        case "previous": SetFollowSelection(false); NavigateSegment(-1); break;
         case "mark": Mark_Click(this, new RoutedEventArgs()); break;
         case "clear_final": ClearFinal_Click(this, new RoutedEventArgs()); break;
+        case "rate_up": AdjustRate(1); break;
+        case "rate_down": AdjustRate(-1); break;
         }
     }
 
@@ -345,6 +421,10 @@ public sealed partial class MainPage : Page
         var segment = SelectedSegment();
         InspectorLabel.Text = segment is null ? "NO SEGMENT SELECTED" : $"SEGMENT {segment.Id:0000}";
         InspectorText.Text = segment?.Text ?? "Press Enter to select the lyric at the playhead.";
+        var line = segment is null ? null : session.Project?.Lyrics.Lines.FirstOrDefault(value => value.Segments.Any(item => item.Id == segment.Id));
+        InspectorTranslation.Text = string.IsNullOrWhiteSpace(line?.Translation)
+            ? "Translation is edited on the Translation page."
+            : line!.Translation;
         GeminiTime.Text = "GEMINI " + FormatTime(segment?.Timing.Gemini?.TimeMs);
         FinalTime.Text = "FINAL " + FormatTime(segment?.Timing.Final?.TimeMs);
     }
@@ -365,6 +445,34 @@ public sealed partial class MainPage : Page
                     : Microsoft.UI.Colors.Transparent);
             }
         });
+    }
+
+    private void AdjustRate(int direction)
+    {
+        var rate = TimelineViewport.SteppedRate(playback.Rate, direction);
+        playback.SetRate(rate);
+        for (var index = 0; index < SpeedPicker.Items.Count; index++)
+        {
+            if (SpeedPicker.Items[index] is ComboBoxItem item &&
+                double.TryParse(item.Tag?.ToString(), out var value) &&
+                Math.Abs(value - rate) < 0.01)
+            {
+                SpeedPicker.SelectedIndex = index;
+                return;
+            }
+        }
+    }
+
+    private void FollowNextIfNeeded(ulong? activeId)
+    {
+        if (NextButton.IsChecked != true || session.Project is null) return;
+        var follow = TimelineViewport.FollowingSegmentId(activeId, session.Project.Segments.Select(segment => segment.Id).ToList());
+        if (follow is ulong next && Timeline.SelectedSegmentId != next) Timeline.Select(next);
+    }
+
+    private void SetFollowSelection(bool on)
+    {
+        if (NextButton.IsChecked != on) NextButton.IsChecked = on;
     }
 
     private void ScrollToSegment(ulong id)

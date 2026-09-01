@@ -99,7 +99,27 @@ public sealed class TimelineViewportTests
     public void PlainArrowStepTracksOnePercentOfVisibleDuration()
     {
         var viewport = NewViewport(); Assert.AreEqual(1_490.91, viewport.SeekStep, .001);
-        viewport.SetZoom(100, 74_545.5); Assert.AreEqual(14.9091, viewport.SeekStep, .001);
+        viewport.SetZoom(100, 74_545.5);         Assert.AreEqual(14.9091, viewport.SeekStep, .001);
+    }
+
+    [TestMethod]
+    public void PlaybackRateStepsAlongSupportedPresets()
+    {
+        Assert.AreEqual(1.25, TimelineViewport.SteppedRate(1.0, 1), .0001);
+        Assert.AreEqual(0.75, TimelineViewport.SteppedRate(1.0, -1), .0001);
+        Assert.AreEqual(2.0, TimelineViewport.SteppedRate(2.0, 1), .0001);
+        Assert.AreEqual(0.5, TimelineViewport.SteppedRate(0.5, -1), .0001);
+    }
+
+    [TestMethod]
+    public void NextFollowsTheLyricAfterThePlayhead()
+    {
+        ulong[] ids = [1, 2, 3];
+        Assert.AreEqual(2UL, TimelineViewport.FollowingSegmentId(1, ids));
+        Assert.AreEqual(3UL, TimelineViewport.FollowingSegmentId(3, ids));
+        Assert.AreEqual(1UL, TimelineViewport.FollowingSegmentId(null, ids));
+        Assert.IsTrue(TimelineViewport.KeepsFollowSelection(1));
+        Assert.IsFalse(TimelineViewport.KeepsFollowSelection(-1));
     }
 
     [TestMethod]
