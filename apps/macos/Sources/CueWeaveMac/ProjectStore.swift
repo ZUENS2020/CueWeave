@@ -439,117 +439,6 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         }
     }
 
-    func applyRawLyrics(original: String, translation: String) async {
-        guard let projectURL else { return }
-        await operation("Applying lyrics") {
-            try await CoreBridge.call("replace_lyrics", payload: [
-                "project_path": projectURL.path,
-                "original": original,
-                "translation": translation,
-            ])
-            try self.openProject(projectURL, preservingCurrentForUndo: true)
-            self.selection = .lyrics
-        }
-    }
-
-    func applyRawTranslations(_ translation: String) async {
-        guard let projectURL else { return }
-        save()
-        await operation("Applying translations") {
-            try await CoreBridge.call("replace_translations", payload: [
-                "project_path": projectURL.path,
-                "translation": translation,
-            ])
-            try self.openProject(projectURL, preservingCurrentForUndo: true)
-            self.selection = .translation
-            let count = self.project?.lyrics.lines.filter { $0.translation?.isEmpty == false }.count ?? 0
-            self.activity = "Imported \(count) translation line(s)"
-        }
-    }
-
-    func translateLyrics(targetLanguage: String) async {
-        guard let projectURL else { return }
-        save()
-        let provider = alignmentProvider
-        await operation("Translating through \(provider.title)") {
-            try await CoreBridge.call("translate", payload: [
-                "project_path": projectURL.path,
-                "provider": provider.rawValue,
-                "api_key": self.alignmentAPIKey,
-                "model": provider == .openRouter ? self.openRouterModel : self.aiStudioModel,
-                "target_language": targetLanguage,
-            ])
-            try self.openProject(projectURL, preservingCurrentForUndo: true)
-            self.selection = .translation
-            self.activity = "Gemini translation ready for review"
-        }
-    }
-
-    func clearTranslations() {
-        mutate { document in
-            for index in document.lyrics.lines.indices {
-                document.lyrics.lines[index].translation = nil
-            }
-        }
-    }
-
-    func fetchLyrics() async {
-        guard let projectURL else { return }
-        save()
-        await operation("Fetching NetEase lyrics") {
-            try await CoreBridge.call("fetch_lyrics", payload: ["project_path": projectURL.path])
-            try self.openProject(projectURL, preservingCurrentForUndo: true)
-            self.selection = .lyrics
-        }
-    }
-
-    func align(segmentIDs: Set<UInt64> = []) async {
-        guard let projectURL else { return }
-        save()
-        let provider = alignmentProvider
-        let label = segmentIDs.isEmpty ? "Aligning through \(provider.title)" : "Re-aligning selection"
-        await operation(label) {
-            try await CoreBridge.call("align", payload: [
-                "project_path": projectURL.path,
-                "provider": provider.rawValue,
-                "api_key": self.alignmentAPIKey,
-                "model": provider == .openRouter ? self.openRouterModel : self.aiStudioModel,
-                "segment_ids": segmentIDs.sorted(),
-            ])
-            try self.openProject(projectURL, preservingCurrentForUndo: true)
-            self.selection = .alignment
-            self.activity = segmentIDs.isEmpty
-                ? "Gemini alignment ready for review"
-                : "Re-aligned \(segmentIDs.count) selected segment(s)"
-        }
-    }
-
-    @MainActor
-    func exportInteractive() async {
-        guard let projectURL, let output = chooseMP3Destination() else { return }
-        save()
-        await operation("Exporting without re-encoding") {
-            try await CoreBridge.call("export", payload: [
-                "project_path": projectURL.path,
-                "output_path": output.path,
-            ])
-            self.activity = "Exported \(output.lastPathComponent)"
-        }
-    }
-
-    @MainActor
-    func exportCueSheetInteractive() async {
-        guard let projectURL, let output = chooseCueSheetDestination() else { return }
-        save()
-        await operation("Writing cue sheet") {
-            try await CoreBridge.call("export_cuesheet", payload: [
-                "project_path": projectURL.path,
-                "output_path": output.path,
-            ])
-            self.activity = "Wrote \(output.lastPathComponent)"
-        }
-    }
-
     func persistSettings() {
         do {
             try LocalSettingsStore.save(LocalSettings(
@@ -680,7 +569,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     }
 
     @MainActor
-    private func chooseMP3Destination() -> URL? {
+    func chooseMP3Destination() -> URL? {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "\(title) [CueWeave].mp3"
         panel.allowedContentTypes = [.mp3]
@@ -688,7 +577,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     }
 
     @MainActor
-    private func chooseCueSheetDestination() -> URL? {
+    func chooseCueSheetDestination() -> URL? {
         let panel = NSSavePanel()
         panel.nameFieldStringValue = "\(title).cuesheet.json"
         if let type = UTType(filenameExtension: "json") { panel.allowedContentTypes = [type] }

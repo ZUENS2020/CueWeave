@@ -13,6 +13,7 @@
 - 本地只解码音频用于播放和三轨视觉展示，不产生或改写任何时间点。
 - 项目只保存 Gemini 建议和 Final；Final 由用户采用建议或手工编辑。
 - API Key 以明文保存在本地权限受限配置文件，不访问 Keychain，不写入项目文件。
+- 播放器插件吃 Cue Sheet JSON（`schema_version` 1），不读 `.cueweave`。契约见 [CUE_SHEET.md](CUE_SHEET.md)。
 
 ## 2. 当前完成度
 
