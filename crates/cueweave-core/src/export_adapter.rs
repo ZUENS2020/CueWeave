@@ -112,8 +112,15 @@ impl PlayerExportAdapter for LrcAdapter {
                     push_lrc_line(&mut output, *time_ms, text);
                 }
                 ExportCueEvent::Spacer { time_ms } => push_lrc_line(&mut output, *time_ms, ""),
-                ExportCueEvent::Lyric { time_ms, text, .. } => {
+                ExportCueEvent::Lyric {
+                    line_id,
+                    time_ms,
+                    text,
+                } => {
                     push_lrc_line(&mut output, *time_ms, text);
+                    if let Some(translation) = bilingual_translation(sheet, *line_id) {
+                        push_lrc_line(&mut output, *time_ms, translation);
+                    }
                 }
             }
         }
@@ -133,17 +140,20 @@ impl PlayerExportAdapter for UsltAdapter {
     }
 
     fn embed(&self, tag: &mut Tag, sheet: &ExportCueSheet) -> Result<(), ExportError> {
-        let text = sheet
-            .lines
-            .iter()
-            .map(|line| line.text.as_str())
-            .collect::<Vec<_>>()
-            .join("\n");
-        tag.add_frame(Lyrics {
-            lang: "und".into(),
-            description: "CueWeave".into(),
-            text,
-        });
+        add_uslt(
+            tag,
+            ORIGINAL_LANG,
+            "CueWeave",
+            &join_line_texts(sheet, false),
+        );
+        if sheet.bilingual == BilingualMode::Bilingual && has_translation(sheet) {
+            add_uslt(
+                tag,
+                TRANSLATION_LANG,
+                "translation",
+                &join_line_texts(sheet, true),
+            );
+        }
         Ok(())
     }
 }
@@ -160,24 +170,10 @@ impl PlayerExportAdapter for SyltAdapter {
     }
 
     fn embed(&self, tag: &mut Tag, sheet: &ExportCueSheet) -> Result<(), ExportError> {
-        let mut content = Vec::new();
-        for line in &sheet.lines {
-            let Some(time_ms) = line.start_ms else {
-                continue;
-            };
-            content.push((
-                u32::try_from(time_ms)
-                    .map_err(|_| ExportError::Invalid("SYLT timestamp exceeds u32".into()))?,
-                line.text.clone(),
-            ));
+        embed_sylt(tag, sheet, false, ORIGINAL_LANG, "CueWeave")?;
+        if sheet.bilingual == BilingualMode::Bilingual && has_translation(sheet) {
+            embed_sylt(tag, sheet, true, TRANSLATION_LANG, "translation")?;
         }
-        tag.add_frame(SynchronisedLyrics {
-            lang: "und".into(),
-            timestamp_format: TimestampFormat::Ms,
-            content_type: SynchronisedLyricsType::Lyrics,
-            content,
-            description: "CueWeave".into(),
-        });
         Ok(())
     }
 }
@@ -236,18 +232,26 @@ pub fn build_export_cue_sheet(project: &SongProject) -> Result<ExportCueSheet, E
                 id: line.id.0,
                 original: line.original.clone(),
                 translation: line.translation.clone(),
-                text: resolved_line_text(&line.original, line.translation.as_deref(), bilingual),
+                text: line.original.clone(),
                 start_ms,
             }
         })
         .collect::<Vec<_>>();
     let mut events = Vec::new();
+    for credit in &project.lyrics.credits {
+        let label = credit.label.trim();
+        let value = credit.value.trim();
+        if label.is_empty() || value.is_empty() {
+            continue;
+        }
+        events.push(ExportCueEvent::Credit {
+            time_ms: offset_time(0, offset_ms),
+            text: format!("{label}：{value}"),
+        });
+    }
     for cue in &project.timeline {
         match cue {
-            Cue::Credit { time_ms, text } => events.push(ExportCueEvent::Credit {
-                time_ms: offset_time(*time_ms, offset_ms),
-                text: text.clone(),
-            }),
+            Cue::Credit { .. } => {}
             Cue::Spacer { time_ms } => events.push(ExportCueEvent::Spacer {
                 time_ms: offset_time(*time_ms, offset_ms),
             }),
@@ -288,15 +292,95 @@ pub fn render_cuesheet_json(project: &SongProject) -> Result<String, ExportError
         .map_err(|error| ExportError::Invalid(format!("cue sheet JSON failed: {error}")))
 }
 
-pub(crate) fn resolved_line_text(
-    original: &str,
-    translation: Option<&str>,
-    mode: BilingualMode,
-) -> String {
-    match (mode, translation.filter(|text| !text.trim().is_empty())) {
-        (BilingualMode::Combined, Some(translation)) => format!("{original} / {translation}"),
-        _ => original.to_owned(),
+const ORIGINAL_LANG: &str = "und";
+const TRANSLATION_LANG: &str = "zho";
+
+fn bilingual_translation(sheet: &ExportCueSheet, line_id: u64) -> Option<&str> {
+    (sheet.bilingual == BilingualMode::Bilingual)
+        .then(|| {
+            sheet
+                .lines
+                .iter()
+                .find(|line| line.id == line_id)?
+                .translation
+                .as_deref()
+                .filter(|text| !text.trim().is_empty())
+        })
+        .flatten()
+}
+
+fn has_translation(sheet: &ExportCueSheet) -> bool {
+    sheet.lines.iter().any(|line| {
+        line.translation
+            .as_deref()
+            .is_some_and(|text| !text.trim().is_empty())
+    })
+}
+
+fn join_line_texts(sheet: &ExportCueSheet, translation: bool) -> String {
+    sheet
+        .lines
+        .iter()
+        .map(|line| {
+            if translation {
+                line.translation.as_deref().unwrap_or("")
+            } else {
+                line.original.as_str()
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn add_uslt(tag: &mut Tag, lang: &str, description: &str, text: &str) {
+    tag.add_frame(Lyrics {
+        lang: lang.into(),
+        description: description.into(),
+        text: text.to_owned(),
+    });
+}
+
+fn embed_sylt(
+    tag: &mut Tag,
+    sheet: &ExportCueSheet,
+    translation: bool,
+    lang: &str,
+    description: &str,
+) -> Result<(), ExportError> {
+    let mut content = Vec::new();
+    for line in &sheet.lines {
+        let text = if translation {
+            let Some(text) = line
+                .translation
+                .as_deref()
+                .filter(|text| !text.trim().is_empty())
+            else {
+                continue;
+            };
+            text.to_owned()
+        } else {
+            line.original.clone()
+        };
+        let Some(time_ms) = line.start_ms else {
+            continue;
+        };
+        content.push((
+            u32::try_from(time_ms)
+                .map_err(|_| ExportError::Invalid("SYLT timestamp exceeds u32".into()))?,
+            text,
+        ));
     }
+    if content.is_empty() {
+        return Ok(());
+    }
+    tag.add_frame(SynchronisedLyrics {
+        lang: lang.into(),
+        timestamp_format: TimestampFormat::Ms,
+        content_type: SynchronisedLyricsType::Lyrics,
+        content,
+        description: description.into(),
+    });
+    Ok(())
 }
 
 pub(crate) fn offset_time(time_ms: u64, offset_ms: i64) -> u64 {

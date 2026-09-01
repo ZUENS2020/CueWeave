@@ -16,7 +16,7 @@
 | W0 | 完成 | RPC、portable schema、NTFS/Unicode fixture、Windows Core 24/24。 |
 | W1 | 完成 | WinUI 3 Workspace Shell、五页、LocalSettings、CoreProcess；远程零警告编译。 |
 | W2 | 完成 | 单一 `TimelineViewport` 管理缩放/Follow/框选；滚轮与滚动条冻结 Follow；`MediaPlaybackSession.Position` 唯一时钟；Win2D 只画可见范围。149.091s 坐标、手势锚点、4 DIP 框选与 A/B 越界测试在验收机 10/10 通过。 |
-| W3 | 完成 | Source/Metadata/Lyrics/Alignment/Export 走同一 Core RPC；Review 队列、六档调轴（无 Final 时回退 Gemini/播放头）、Restore Gemini。 |
+| W3 | 完成 | Source/Metadata/Lyrics/Translation/Alignment/Export 走同一 Core RPC；六档调轴（无 Final 时回退 Gemini/播放头）、Restore Gemini。已有 Final 不被重跑覆盖。 |
 | W4 | 部分完成 | 验收机自包含 `win-x64` publish + 内置 `cueweave-cli.exe`、`.cueweave` 文件关联清单、CI 增加 Windows 测试任务。尚未做受信任签名 MSIX；当前 Insider 机不能作为唯一发行验收机。防变调仍需 WASAPI loopback 人工确认。 |
 
 macOS 当前验收包：`dist/CueWeave-macOS.zip`，2,836,109 bytes，SHA-256 `73812d99df6db0e4157bbe2eabd5634a442de352cf2d3a1e7a9a101b45b706a0`。签名为本地 ad-hoc，适合当前机器验收，不等同于 Developer ID 公证发行。
@@ -123,7 +123,7 @@ CueWeave 不需要换成 Electron、Tauri、Qt，也不存在一个可以整套�
 | AI Studio / OpenRouter 两套手写 envelope | [rust-genai](https://github.com/jeremychone/rust-genai) | **0.6.5 原型后拒绝** | 音频 binary 可用，但 Gemini adapter 仍生成旧 `responseMimeType/responseJsonSchema`，不支持 Gemini 3.7 当前 `responseFormat.text.mimeType`；OpenRouter adapter 也无法表达 `provider.require_parameters`。现有 adapters 已有 golden contract，且真实 OpenRouter Beyond 请求通过。 |
 | Google 官方 Gemini SDK | [官方库列表](https://ai.google.dev/gemini-api/docs/libraries) | **Rust 无可用官方 SDK** | 官方当前提供 Python/JS/Go/Java/C#，没有 Rust。不能为了官方 SDK 引入 Python/Node sidecar。 |
 | OpenRouter audio 与结构化输出 | [Audio 输入文档](https://openrouter.ai/docs/guides/overview/multimodal/audio)、[Structured Outputs](https://openrouter.ai/docs/guides/features/structured-outputs) | **继续做契约测试** | 即使用 rust-genai，CueWeave 仍需测试 `input_audio`、`require_parameters`、schema、模型能力与错误映射。 |
-| Gemini 输出 Validator | serde typed response + CueWeave invariant checks | **保留手写** | 通用 SDK只能保证协议，不会保证 Segment ID 全集、顺序、单调、时长范围、Unmatched 与 UserConfirmed 保护。 |
+| Gemini 输出 Validator | serde typed response + CueWeave invariant checks | **保留手写** | 通用 SDK只能保证协议，不会保证 Segment ID 全集、顺序、单调、时长范围、Unmatched，以及已有 `final_point` 不被重跑覆盖。 |
 | JSON Schema 手写 | [`schemars`](https://docs.rs/schemars/latest/schemars/) | **暂不直接替换** | Gemini/OpenRouter 只支持 JSON Schema 子集，生成 schema 的形状也会随版本变化。若 Provider 库已经负责 normalization，再考虑从类型生成并用 golden snapshot 锁定。 |
 
 ### 3.6 Project、Export 与文件安全
@@ -225,7 +225,7 @@ Windows 版不是 macOS View 的机械翻译，也不为了共享 UI 改用跨�
 1. UI 使用 C#、.NET 10、WinUI 3 和 Windows App SDK 的正式稳定版；版本在 Windows 开工时精确锁定，不跟随 Preview/Experimental channel。
 2. 第一台开发与验证设备以 Windows 11 x64 为基线；是否承诺 Windows 10、ARM64 运行支持，在 W0 实测后单独冻结，不能因为 WinUI 理论支持就自动扩大测试矩阵。
 3. Rust Core 继续唯一拥有 Project、NCM、歌词去轴、Provider、Gemini Validator、Final 规则和 Export；Windows 只拥有 View、播放、输入、波形显示和系统集成。
-4. UI 页面保持 Source、Metadata、Lyrics、Alignment、Export 五个 Workspace；Alignment 保持单一 Inspector，不恢复 Review/Timing/Lyrics 分页。
+4. UI 页面保持 Source、Metadata、Lyrics、Translation、Alignment、Export 六个 Workspace；Alignment 保持单一 Inspector，不恢复 Review/Timing/Lyrics 分页，也不再维护 Review 队列。
 5. Windows 也不做本地自动检测和自动修轴。波形与频带只用于视觉参考，不产生、移动或建议任何 Final。
 6. API Key 保存在 `%LOCALAPPDATA%\CueWeave\settings.json`，使用本地 JSON 原样保留；不使用 Credential Manager、DPAPI、Windows Hello 或云同步，也不写入 `.cueweave` 项目。
 7. 第一版桥接仍是随 App 打包的 `cueweave-cli.exe`。只有性能测量证明进程/JSON 是瓶颈，才允许增加 C ABI。
@@ -237,7 +237,7 @@ Microsoft 当前仍将 [WinUI 3 / Windows App SDK](https://learn.microsoft.com/e
 
 | Windows 边界 | 成熟方案 / 现有项目 | 决策 | 代码量与风险约束 |
 | --- | --- | --- | --- |
-| App Shell、侧栏、页面切换 | WinUI 3 `NavigationView`、`Grid`、系统 TitleBar | **直接采用** | 只做一个 Workspace Window；不建内部路由框架。五页 View 复用同一 Project Session 和底部播放器。 |
+| App Shell、侧栏、页面切换 | WinUI 3 `NavigationView`、`Grid`、系统 TitleBar | **直接采用** | 只做一个 Workspace Window；不建内部路由框架。六页 View 复用同一 Project Session 和底部播放器。 |
 | ViewModel、属性通知、异步命令 | Microsoft [`CommunityToolkit.Mvvm`](https://learn.microsoft.com/en-us/dotnet/communitytoolkit/mvvm/) source generators | **直接采用** | 只使用 `ObservableObject`、`ObservableProperty`、`RelayCommand`、`AsyncRelayCommand`。不使用它的 Messenger/IoC；依赖必须净删 C# 样板。 |
 | 文件与目录选择 | Windows App SDK 1.8+ [`Microsoft.Windows.Storage.Pickers`](https://learn.microsoft.com/en-us/windows/windows-app-sdk/api/winrt/microsoft.windows.storage.pickers) | **直接采用** | 返回普通路径并绑定当前 WindowId，避免旧 picker 的 HWND 互操作样板；Source/Target/Project/Export 全用系统 picker。 |
 | `.cueweave` 文件激活与单实例 | Windows App SDK [App Lifecycle](https://learn.microsoft.com/en-us/windows/apps/develop/launch/app-lifecycle) / `AppInstance` | **采用，W3** | 第一版单实例、单项目窗口；文件关联激活转给现有实例。多文档窗口延期，避免先写跨窗口状态框架。 |
@@ -316,7 +316,7 @@ ScottPlot、LiveCharts2 和金融 K 线库只适合独立数值图。它们不�
 
 #### D. Core 不允许出现平台业务分叉
 
-Windows CI 和 macOS CI 运行同一组 Rust fixture。`#[cfg(target_os)]` 只允许出现在文件系统/桥接的窄适配层；歌词、Gemini Validator、Final、Project status 和 Export policy 中出现平台条件直接阻止合并。
+Windows CI 和 macOS CI 运行同一组 Rust fixture。`#[cfg(target_os)]` 只允许出现在文件系统/桥接的窄适配层；歌词、Gemini Validator、Final 和 Export policy 中出现平台条件直接阻止合并。
 
 ### 7.4 Windows App 最小结构
 
@@ -449,10 +449,10 @@ Windows 生产代码仍执行主计划的 3,400 SLOC 上限，进一步分配：
 
 退出门禁：60 Hz、无缩放抖动、149.091 秒坐标测试和快捷键矩阵全部通过；生产累计不超过 2,250 SLOC。
 
-#### W3 — 五页闭环
+#### W3 — 工作区闭环
 
-- Source、Metadata、Lyrics、Alignment、Export 接入真实 Core。
-- Alignment 单一 Inspector、Review Queue、六档调轴、Tap、Restore Gemini。
+- Source、Metadata、Lyrics、Translation、Alignment、Export 接入真实 Core。
+- Alignment 单一 Inspector、六档调轴、Restore Gemini。已有 Final 不被 Gemini 重跑覆盖。
 - AI Studio/OpenRouter 使用同一 Core；Windows 不复制任何 HTTP envelope。
 
 退出门禁：Beyond 项目从创建到 MP3/LRC 导出完整走通，macOS 与 Windows 输出业务等价；生产累计不超过 3,150 SLOC。

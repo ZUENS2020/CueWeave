@@ -3,9 +3,10 @@ import SwiftUI
 struct LyricsPage: View {
     @ObservedObject var store: ProjectStore
     @ObservedObject private var l10n = L10n.shared
-    @State private var provider: LyricsProviderMode = .auto
     @State private var showingImport = false
+    @State private var showingInsert = false
     @State private var showingPreview = false
+    @State private var insertAnchor: InsertAnchor?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,10 +15,12 @@ struct LyricsPage: View {
                 Spacer()
                 Button(l10n.t("lyrics.requestPreview")) { showingPreview = true }
                     .disabled(store.allSegments.isEmpty)
+                Button(l10n.t("lyrics.addLines")) { showingInsert = true }
+                    .disabled(store.isBusy)
                 Button(l10n.t("lyrics.import")) { showingImport = true }
-                Button(fetchTitle) { Task { await store.fetchLyrics() } }
+                Button(l10n.t("lyrics.fetchNetease")) { Task { await store.fetchLyrics() } }
                     .buttonStyle(.borderedProminent)
-                    .disabled(provider == .manual || store.project?.source?.musicID == nil || store.isBusy)
+                    .disabled(store.project?.source?.musicID == nil || store.isBusy)
             }
             .padding(.horizontal, 20)
             .frame(height: 72)
@@ -32,14 +35,19 @@ struct LyricsPage: View {
             }
         }
         .sheet(isPresented: $showingImport) {
-            ImportLyricsSheet(store: store, isPresented: $showingImport)
+            LyricsTextSheet(store: store, isPresented: $showingImport, mode: .replace)
+        }
+        .sheet(isPresented: $showingInsert) {
+            LyricsTextSheet(
+                store: store,
+                isPresented: $showingInsert,
+                mode: .insert(after: store.project?.lyrics.lines.last?.id)
+            )
         }
         .sheet(isPresented: $showingPreview) {
             AlignmentRequestPreview(store: store, isPresented: $showingPreview)
         }
     }
-
-    private var fetchTitle: String { provider == .auto ? l10n.t("lyrics.resolve") : l10n.t("lyrics.fetchNetease") }
 
     private var emptyState: some View {
         VStack(spacing: 20) {
@@ -48,12 +56,13 @@ struct LyricsPage: View {
                 detail: l10n.t("lyrics.emptyDetail"),
                 icon: "text.quote"
             )
-            providerControls.frame(maxWidth: 520)
             HStack {
+                Button(l10n.t("lyrics.addLines")) { showingInsert = true }
+                    .disabled(store.isBusy)
                 Button(l10n.t("lyrics.import")) { showingImport = true }
-                Button(fetchTitle) { Task { await store.fetchLyrics() } }
+                Button(l10n.t("lyrics.fetchNetease")) { Task { await store.fetchLyrics() } }
                     .buttonStyle(.borderedProminent)
-                    .disabled(provider == .manual || store.project?.source?.musicID == nil)
+                    .disabled(store.project?.source?.musicID == nil)
             }
             Spacer()
         }
@@ -63,7 +72,6 @@ struct LyricsPage: View {
     private var sourceAndCredits: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                providerControls
                 Panel {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
@@ -126,26 +134,6 @@ struct LyricsPage: View {
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
-    private var providerControls: some View {
-        Panel {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(l10n.t("lyrics.source")).font(.system(size: 10, weight: .semibold, design: .monospaced))
-                Picker(l10n.t("lyrics.provider"), selection: $provider) {
-                    ForEach(LyricsProviderMode.allCases) { mode in Text(mode.title).tag(mode) }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                Text(provider.detail).font(.caption).foregroundStyle(.secondary)
-                if provider == .auto {
-                    HStack {
-                        StatusPill(text: l10n.t("lyrics.stepNetease"), tone: CueWeaveStyle.ready)
-                        StatusPill(text: l10n.t("lyrics.stepManual"), tone: .secondary)
-                    }
-                }
-            }
-        }
-    }
-
     private var lyricEditor: some View {
         VStack(spacing: 0) {
             HStack {
@@ -160,9 +148,22 @@ struct LyricsPage: View {
             Divider()
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    LyricInsertGap(
+                        store: store,
+                        afterLineID: nil,
+                        isActive: insertAnchor == .start,
+                        onBegin: { insertAnchor = .start },
+                        onCancel: { insertAnchor = nil }
+                    )
                     ForEach(store.project?.lyrics.lines ?? []) { line in
                         LyricLineEditor(store: store, line: line)
-                        Divider()
+                        LyricInsertGap(
+                            store: store,
+                            afterLineID: line.id,
+                            isActive: insertAnchor == .after(line.id),
+                            onBegin: { insertAnchor = .after(line.id) },
+                            onCancel: { insertAnchor = nil }
+                        )
                     }
                 }
             }
@@ -174,23 +175,9 @@ struct LyricsPage: View {
     }
 }
 
-private enum LyricsProviderMode: String, CaseIterable, Identifiable {
-    case auto, netease, manual
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .auto: L10n.shared.t("lyrics.provider.auto")
-        case .netease: L10n.shared.t("lyrics.provider.netease")
-        case .manual: L10n.shared.t("lyrics.provider.manual")
-        }
-    }
-    var detail: String {
-        switch self {
-        case .auto: L10n.shared.t("lyrics.provider.auto.detail")
-        case .netease: L10n.shared.t("lyrics.provider.netease.detail")
-        case .manual: L10n.shared.t("lyrics.provider.manual.detail")
-        }
-    }
+private enum InsertAnchor: Equatable {
+    case start
+    case after(UInt64)
 }
 
 private struct LyricLineEditor: View {
@@ -224,32 +211,123 @@ private struct LyricLineEditor: View {
     }
 }
 
-private struct ImportLyricsSheet: View {
+private struct LyricInsertGap: View {
+    @ObservedObject var store: ProjectStore
+    @ObservedObject private var l10n = L10n.shared
+    let afterLineID: UInt64?
+    let isActive: Bool
+    let onBegin: () -> Void
+    let onCancel: () -> Void
+    @State private var draft = ""
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        Group {
+            if isActive {
+                HStack(spacing: 8) {
+                    TextField(l10n.t("lyrics.insertPlaceholder"), text: $draft)
+                        .font(.body)
+                        .focused($focused)
+                        .onSubmit { Task { await commit() } }
+                    Button(l10n.t("lyrics.insertCommit")) { Task { await commit() } }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(store.isBusy || draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    Button(l10n.t("action.cancel")) { onCancel() }
+                        .buttonStyle(.plain)
+                }
+                .textFieldStyle(.squareBorder)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .onAppear {
+                    draft = ""
+                    focused = true
+                }
+            } else {
+                Button(action: onBegin) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text(l10n.t("lyrics.insertHere"))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(store.isBusy)
+                .help(l10n.t("lyrics.insertHere"))
+            }
+        }
+        Divider()
+    }
+
+    private func commit() async {
+        guard await store.insertLyrics(after: afterLineID, text: draft) else { return }
+        onCancel()
+    }
+}
+
+private struct LyricsTextSheet: View {
+    enum Mode {
+        case replace
+        case insert(after: UInt64?)
+    }
+
     @ObservedObject var store: ProjectStore
     @ObservedObject private var l10n = L10n.shared
     @Binding var isPresented: Bool
+    let mode: Mode
     @State private var original = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeading(l10n.t("lyrics.importTitle"), subtitle: l10n.t("lyrics.importSubtitle"))
+            SectionHeading(title, subtitle: subtitle)
             editor(l10n.t("lyrics.original"), text: $original)
             HStack {
                 StatusPill(text: l10n.t("lyrics.timingRejected"), tone: CueWeaveStyle.accent)
                 Spacer()
                 Button(l10n.t("action.cancel")) { isPresented = false }
-                Button(l10n.t("lyrics.normalize")) {
+                Button(commitTitle) {
                     Task {
-                        await store.applyRawLyrics(original: original, translation: "")
-                        isPresented = false
+                        switch mode {
+                        case .replace:
+                            await store.applyRawLyrics(original: original, translation: "")
+                            isPresented = false
+                        case .insert(let after):
+                            if await store.insertLyrics(after: after, text: original) {
+                                isPresented = false
+                            }
+                        }
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(store.isBusy || original.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
         .padding(22)
         .frame(width: 820, height: 520)
+    }
+
+    private var title: String {
+        switch mode {
+        case .replace: l10n.t("lyrics.importTitle")
+        case .insert: l10n.t("lyrics.insertTitle")
+        }
+    }
+
+    private var subtitle: String {
+        switch mode {
+        case .replace: l10n.t("lyrics.importSubtitle")
+        case .insert: l10n.t("lyrics.insertSubtitle")
+        }
+    }
+
+    private var commitTitle: String {
+        switch mode {
+        case .replace: l10n.t("lyrics.normalize")
+        case .insert: l10n.t("lyrics.insertCommit")
+        }
     }
 
     private func editor(_ title: String, text: Binding<String>) -> some View {

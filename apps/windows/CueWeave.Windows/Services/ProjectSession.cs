@@ -18,7 +18,6 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
     public bool CanUndo => undo.Count > 0;
     public bool CanRedo => redo.Count > 0;
     public string Title => Project?.Metadata.Draft.Title ?? "CueWeave";
-    public int ReviewCount => Project?.Segments.Count(s => s.Timing.Review is "pending" or "needs_review" or "unmatched") ?? 0;
 
     public async Task CreateAsync(string path, string source, string target, CancellationToken token)
     {
@@ -126,29 +125,19 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
                 : segments[index + 1].Timing.Final?.TimeMs ?? document.Target?.DurationMs ?? ulong.MaxValue;
             var clamped = (ulong)Math.Clamp(milliseconds, (long)Math.Min(lower, long.MaxValue), (long)Math.Min(upper, long.MaxValue));
             segments[index].Timing.Final = new AlignmentPoint { TimeMs = clamped };
-            segments[index].Timing.Review = "user_confirmed";
         });
     }
-
-    public void SetReview(ulong id, string review) => Mutate(document => {
-        var segment = document.Segments.FirstOrDefault(s => s.Id == id);
-        if (segment is null || review == "user_confirmed" && segment.Timing.Final is null) return;
-        if (review == "ignored") segment.Timing.Final = null;
-        segment.Timing.Review = review;
-    });
 
     public void UseGemini(ulong id) => Mutate(document => {
         var segment = document.Segments.FirstOrDefault(s => s.Id == id);
         if (segment?.Timing.Gemini is null) return;
         segment.Timing.Final = new AlignmentPoint { TimeMs = segment.Timing.Gemini.TimeMs };
-        segment.Timing.Review = "user_confirmed";
     });
 
     public void ClearFinal(ulong id) => Mutate(document => {
         var segment = document.Segments.FirstOrDefault(s => s.Id == id);
         if (segment is null) return;
         segment.Timing.Final = null;
-        if (segment.Timing.Review != "ignored") segment.Timing.Review = "needs_review";
     });
 
     private static byte[] Snapshot(ProjectDocument value) =>
@@ -162,6 +151,5 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
         OnPropertyChanged(nameof(CanUndo));
         OnPropertyChanged(nameof(CanRedo));
         OnPropertyChanged(nameof(Title));
-        OnPropertyChanged(nameof(ReviewCount));
     }
 }

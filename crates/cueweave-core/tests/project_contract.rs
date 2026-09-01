@@ -1,6 +1,7 @@
 use cueweave_core::{
-    AlignmentPoint, CURRENT_SCHEMA_VERSION, MetadataValues, ReviewState, SegmentId, SongProject,
-    SourceInfo, TargetAudio,
+    AlignmentPoint, BilingualMode, CURRENT_SCHEMA_VERSION, Cue, LineId, LyricsError,
+    MetadataValues, ProjectError, SegmentId, SongProject, SourceInfo, TargetAudio,
+    insert_project_lyrics, replace_project_lyrics,
 };
 use std::path::PathBuf;
 
@@ -92,7 +93,7 @@ fn duplicate_segment_ids_are_rejected() {
 }
 
 #[test]
-fn user_confirmed_final_is_not_overwritten() {
+fn existing_final_is_not_overwritten_by_gemini() {
     let mut project = ready_project();
     let segment_id = project.lyrics.lines[0].segments[0].id;
     project.set_user_final(segment_id, 8_430).unwrap();
@@ -103,7 +104,6 @@ fn user_confirmed_final_is_not_overwritten() {
                 time_ms: 8_390,
                 confidence: Some(0.98),
             },
-            ReviewState::AutoAccepted,
         )
         .unwrap();
 
@@ -111,64 +111,16 @@ fn user_confirmed_final_is_not_overwritten() {
     assert!(!changed);
     assert_eq!(timing.gemini.unwrap().time_ms, 8_390);
     assert_eq!(timing.final_point.unwrap().time_ms, 8_430);
-    assert_eq!(timing.review, ReviewState::UserConfirmed);
 }
 
 #[test]
-fn split_and_merge_preserve_the_surviving_id_and_clear_timing() {
-    let mut project = ready_project();
-    let first = project.lyrics.lines[0].segments[0].id;
-    project.set_user_final(first, 8_430).unwrap();
-    let split_at = "朝".len();
-    let new_id = project.split_segment(first, split_at).unwrap();
-    assert_ne!(new_id, first);
-    assert_eq!(project.lyrics.lines[0].segments[0].id, first);
-    assert!(
-        project.lyrics.lines[0].segments[0]
-            .timing
-            .final_point
-            .is_none()
-    );
-
-    let merged = project.merge_with_next(first, "").unwrap();
-    assert_eq!(merged, first);
-    assert_eq!(project.lyrics.lines[0].segments[0].text, "朝焼けに");
-}
-
-#[test]
-fn status_is_derived_from_project_content() {
-    let mut project = ready_project();
-    let ids: Vec<_> = project.lyrics.lines[0]
-        .segments
-        .iter()
-        .map(|segment| segment.id)
-        .collect();
-    project.set_user_final(ids[0], 8_430).unwrap();
-    project.set_user_final(ids[1], 10_750).unwrap();
-
-    let status = project.status();
-    assert!(status.source_loaded);
-    assert!(status.target_loaded);
-    assert!(status.metadata_ready);
-    assert!(status.lyrics_ready);
-    assert!(status.alignment_ready);
-    assert!(status.export_ready);
-    assert_eq!(status.review_count, 0);
-}
-
-#[test]
-fn export_is_not_ready_until_target_duration_is_known() {
-    let mut project = ready_project();
-    let ids: Vec<_> = project.lyrics.lines[0]
-        .segments
-        .iter()
-        .map(|segment| segment.id)
-        .collect();
-    project.set_user_final(ids[0], 8_430).unwrap();
-    project.set_user_final(ids[1], 10_750).unwrap();
-    project.target.as_mut().unwrap().duration_ms = None;
-
-    assert!(!project.status().export_ready);
+fn legacy_review_field_is_ignored_and_not_rewritten() {
+    let mut value = serde_json::to_value(ready_project()).unwrap();
+    value["lyrics"]["lines"][0]["segments"][0]["timing"]["review"] =
+        serde_json::json!("needs_review");
+    let project = SongProject::from_json(&value.to_string()).unwrap();
+    let json = project.to_json_pretty().unwrap();
+    assert!(!json.contains("\"review\""));
 }
 
 #[test]
@@ -197,4 +149,85 @@ fn out_of_order_or_out_of_range_final_points_are_rejected() {
             .to_string()
             .contains("past target duration")
     );
+}
+
+#[test]
+fn insert_lyrics_keeps_neighbor_ids_finals_and_timeline_order() {
+    let mut project = SongProject::default();
+    replace_project_lyrics(&mut project, "first\nthird", None).unwrap();
+    let first_id = project.lyrics.lines[0].id;
+    let third_id = project.lyrics.lines[1].id;
+    let first_segment = project.lyrics.lines[0].segments[0].id;
+    project.set_user_final(first_segment, 1_200).unwrap();
+    project.lyrics.lines[0].translation = Some("第一句".into());
+
+    let inserted =
+        insert_project_lyrics(&mut project, Some(first_id), "[00:08.45]second\nsecond b").unwrap();
+    assert_eq!(inserted.len(), 2);
+    assert_eq!(
+        project
+            .lyrics
+            .lines
+            .iter()
+            .map(|line| line.original.as_str())
+            .collect::<Vec<_>>(),
+        ["first", "second", "second b", "third"]
+    );
+    assert_eq!(project.lyrics.lines[0].id, first_id);
+    assert_eq!(project.lyrics.lines[3].id, third_id);
+    assert_eq!(
+        project.lyrics.lines[0].translation.as_deref(),
+        Some("第一句")
+    );
+    assert_eq!(
+        project.lyrics.lines[0].segments[0]
+            .timing
+            .final_point
+            .unwrap()
+            .time_ms,
+        1_200
+    );
+    assert!(
+        project.lyrics.lines[1].segments[0]
+            .timing
+            .final_point
+            .is_none()
+    );
+    let lyric_ids: Vec<_> = project
+        .timeline
+        .iter()
+        .filter_map(|cue| match cue {
+            Cue::Lyric { line_id } => Some(*line_id),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        lyric_ids,
+        vec![first_id, inserted[0], inserted[1], third_id]
+    );
+    project.validate().unwrap();
+}
+
+#[test]
+fn insert_lyrics_at_start_and_rejects_empty_or_unknown_anchor() {
+    let mut project = SongProject::default();
+    replace_project_lyrics(&mut project, "only", None).unwrap();
+    assert!(matches!(
+        insert_project_lyrics(&mut project, None, " \n[ar:skip]\n"),
+        Err(LyricsError::Empty)
+    ));
+    assert!(matches!(
+        insert_project_lyrics(&mut project, Some(LineId(999)), "x"),
+        Err(LyricsError::Project(ProjectError::NotFound("line", 999)))
+    ));
+    insert_project_lyrics(&mut project, None, "intro").unwrap();
+    assert_eq!(project.lyrics.lines[0].original, "intro");
+    assert_eq!(project.lyrics.lines[1].original, "only");
+}
+
+#[test]
+fn bilingual_mode_accepts_legacy_combined_alias() {
+    let mode: BilingualMode = serde_json::from_str("\"combined\"").unwrap();
+    assert_eq!(mode, BilingualMode::Bilingual);
+    assert_eq!(serde_json::to_string(&mode).unwrap(), "\"bilingual\"");
 }

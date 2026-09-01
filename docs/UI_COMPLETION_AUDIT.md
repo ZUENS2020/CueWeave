@@ -1,7 +1,7 @@
 # CueWeave UI 与成品闭环记录
 
 状态：MVP 完工基线  
-更新：2026-08-31  
+更新：2026-09-01  
 依据：`LyricSync_Design_Architecture_v2.docx`、后续交互修订与当前实现
 
 ## 1. 最终决策
@@ -19,17 +19,17 @@
 
 | 模块 | 状态 | 可见结果 |
 | --- | --- | --- |
-| Project Workspace | 完成 | Source、Metadata、Lyrics、Alignment、Export 五页可随时切换，顶部保存状态和底部播放状态持续存在 |
+| Project Workspace | 完成 | Source、Metadata、Lyrics、Translation、Alignment、Export 六页可随时切换，顶部保存状态和底部播放状态持续存在 |
 | Source | 完成 | Source NCM 和 Target MP3 并列展示；Target 是唯一时间基准，替换后旧轴失效 |
 | Metadata | 完成 | Source / Target / Draft 三态对照、采用来源值、自定义字段和封面 |
-| Lyrics | 完成 | NetEase 和手动导入、源时间戳销毁、Credits、行级原文/翻译编辑和整块 Gemini 发送预览 |
+| Lyrics | 完成 | NetEase 和手动导入、任意行间插入、源时间戳销毁、Credits、行级原文编辑和整块 Gemini 发送预览 |
 | AI Provider | 完成 | AI Studio / OpenRouter 可切换，两套 Key 和模型独立本地保留 |
 | Alignment | 完成 | 整首对齐、选区重跑、Gemini/Final 分层、歌词列表、手工打轴与恢复 Gemini 基线 |
 | Timeline | 完成 | 统一 AppKit 输入面，可缩放横向时间线，Waveform / Band Energy / Lyrics 三轨，播放头、A-B 区域和当前句同步高亮 |
 | Playback | 完成 | 60 Hz 播放头、按视野比例 Seek、A/B/X 循环快捷键、0.50×–2.00× 防变调播放 |
 | Manual timing | 完成 | 六档按钮、三组组合键、Mark、Use Gemini、Clear Final |
 | Undo / Redo | 完成 | 快照撤销/重做，包括整体恢复 Gemini 基线后的反悔 |
-| Export | 完成 | 导出前总览、阻塞原因、LRC/USLT/SYLT、双语策略、Offset 和无重编码音频哈希校验 |
+| Export | 完成 | LRC/USLT/SYLT、双语按标准分轨存储、Offset 和无重编码音频哈希校验。导出页不显示就绪检查，按钮也不因缺 Final 禁用。 |
 | Packaging | 完成 | macOS 14+ 自包含 `.app`，内置 Rust Core CLI |
 
 Windows 原生前端不在本轮 macOS 成品范围。版本化项目 JSON 和 Rust Core 保持可移植边界。
@@ -45,7 +45,7 @@ Windows 原生前端不在本轮 macOS 成品范围。版本化项目 JSON 和 R
 - `Follow` 以 60 Hz Common RunLoop 更新，并用实际 ScrollView 可见范围把播放头精确居中；歌词列表跟随当前句。手工 Seek 不会被 A-B Loop 立即吸回，只有播放真正越过 B 点才回到 A 点。
 - 触控板捏合、`Ctrl + 滚轮`、工具条 Slider、`⌘+` / `⌘−` 和框选倍率都以当前播放时间戳为固定中心；Timeline 使用原生 `NSScrollView` 管理 document view，在同一次更新中设置文档宽度和滚动原点，不再运行异步二次校正。靠近歌曲首尾时按文档边界钳制。
 - 普通 `←`/`→` 每次移动当前可见时长的 1%，因此缩放越深，播放头移动越精细。A/B 设置循环两端，X 清除；即使先设置右端，内部也会自动整理左右顺序。
-- 播放速度支持 0.50×、0.75×、1.00×、1.25×、1.50×、2.00×。使用 `AVAudioUnitTimePitch` 独立改变 rate，并保持 pitch 为 0。
+- 播放速度支持 0.50×、0.75×、1.00×、1.25×、1.50×、2.00×。使用 `AVAudioPlayer.enableRate` 改变 rate；系统在 0.5–2.0 保持音高。
 
 ### 键盘
 
@@ -71,7 +71,7 @@ Windows 原生前端不在本轮 macOS 成品范围。版本化项目 JSON 和 R
 
 ### 统一 Inspector
 
-Review、Timing、Lyrics 不再分页。单一 Inspector 同时显示 Gemini/Final 读数、`−50/−10/−1/+1/+10/+50` 六档微调、Mark/Use Gemini/Clear，以及歌词与翻译字段。不按 Review / Confirm / Ignore 分检查状态。
+Review、Timing、Lyrics 不再分页。单一 Inspector 同时显示 Gemini/Final 读数、`−50/−10/−1/+1/+10/+50` 六档微调、Mark/Use Gemini/Clear，以及歌词原文。翻译只读显示。不按 Review / Confirm / Ignore 分检查状态。
 
 ## 4. Gemini 请求与回写
 
@@ -79,7 +79,7 @@ Review、Timing、Lyrics 不再分页。单一 Inspector 同时显示 Gemini/Fin
 2. 完整目标 MP3 与完整原始歌词块一次性发送，不按空格或词切碎。
 3. 模型返回带小数秒的结构化 JSON，本地转为毫秒并校验 ID 集合、唯一性、顺序、范围和单调性。
 4. 整首对齐更新全部 Gemini 建议；选区重跑仍传入整首上下文，但只回写选中 ID。
-5. `UserConfirmed` Final 不被重跑覆盖。`Restore Gemini` 是明确的全局操作，它将 Final 恢复为当前 Gemini 基线并进入 Review，可用 Undo 反悔。
+5. 已有 `final_point` 的 segment 不会被 Gemini 重跑覆盖（只更新 Gemini 建议）。`Restore Gemini` 是明确的全局操作，它把 Final 拉回当前 Gemini 基线，可用 Undo 反悔。
 
 ## 5. 三轨可视化边界
 
@@ -87,7 +87,7 @@ Review、Timing、Lyrics 不再分页。单一 Inspector 同时显示 Gemini/Fin
 | --- | --- | --- |
 | Waveform | 单声道混合后的正/负峰值包络 | 低饱和蓝灰，用于观察结构和空白 |
 | Band Energy | Low（<220 Hz）、Mid（220–3800 Hz）、High（>3800 Hz）三条独立归一化 RMS 能量带 | 低/中/高频分别使用蓝、琼、紫，同时依靠固定上下位置区分 |
-| Lyrics / Timestamps | 句子区段、Gemini 点、内部 Final 区间和 Review 状态 | 已确认为强调色，Review/Unmatched 为警告色，Ignored 为中性色；不绘制 Final 标记 |
+| Lyrics / Timestamps | 句子区段、Gemini 点、内部 Final 区间 | 已有 Final 为强调色，未打轴为中性色；不按检查状态着色；不绘制可拖动 Final 标记 |
 
 三轨数据只在内存中用于绘制。频段能量只是听辨参考；它不进入 Gemini 提示词、不写入项目、不参与 Final 计算。
 

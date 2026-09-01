@@ -118,10 +118,9 @@ struct LyricSegment: Codable, Equatable, Identifiable {
 struct SegmentTiming: Codable, Equatable {
     var gemini: AlignmentPoint?
     var finalPoint: AlignmentPoint?
-    var review: ReviewState
 
     enum CodingKeys: String, CodingKey {
-        case gemini, review
+        case gemini
         case finalPoint = "final"
     }
 }
@@ -133,26 +132,6 @@ struct AlignmentPoint: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case timeMS = "time_ms"
         case confidence
-    }
-}
-
-enum ReviewState: String, Codable, CaseIterable {
-    case pending
-    case autoAccepted = "auto_accepted"
-    case needsReview = "needs_review"
-    case userConfirmed = "user_confirmed"
-    case ignored
-    case unmatched
-
-    var title: String {
-        switch self {
-        case .pending: L10n.shared.t("review.pending")
-        case .autoAccepted: L10n.shared.t("review.auto")
-        case .needsReview: L10n.shared.t("review.review")
-        case .userConfirmed: L10n.shared.t("review.confirmed")
-        case .ignored: L10n.shared.t("review.ignored")
-        case .unmatched: L10n.shared.t("review.unmatched")
-        }
     }
 }
 
@@ -195,9 +174,21 @@ enum ExportFormat: String, Codable, CaseIterable, Identifiable {
 
 enum BilingualMode: String, Codable, CaseIterable, Identifiable {
     case originalOnly = "original_only"
-    case combined
+    case bilingual
     var id: String { rawValue }
-    var title: String { self == .originalOnly ? L10n.shared.t("export.originalOnly") : L10n.shared.t("export.combined") }
+    var title: String {
+        self == .originalOnly ? L10n.shared.t("export.originalOnly") : L10n.shared.t("export.combined")
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        switch try container.decode(String.self) {
+        case "original_only": self = .originalOnly
+        case "bilingual", "combined": self = .bilingual
+        default:
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "unknown bilingual mode")
+        }
+    }
 }
 
 enum WorkspacePage: String, CaseIterable, Identifiable {
@@ -248,20 +239,6 @@ enum AlignmentProvider: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
     var title: String { self == .openRouter ? "OpenRouter" : "AI Studio" }
-}
-
-enum WorkspaceStageState: Equatable {
-    case ready
-    case review(Int)
-    case pending
-
-    var label: String {
-        switch self {
-        case .ready: L10n.shared.t("stage.ready")
-        case let .review(count): L10n.shared.t("stage.review", String(count))
-        case .pending: L10n.shared.t("stage.pending")
-        }
-    }
 }
 
 enum MetadataOrigin {

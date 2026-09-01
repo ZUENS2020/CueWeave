@@ -3,14 +3,14 @@ use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 use base64::Engine;
 use cueweave_core::{
     AlignmentItem, AlignmentResponse, BilingualMode, CUESHEET_SCHEMA_VERSION, ExportFormat,
-    LrcAdapter, MatchStatus, MetadataValues, PlayerExportAdapter, ReviewState, SegmentId,
-    SongProject, SourceInfo, TargetAudio, apply_alignment_response,
-    apply_alignment_response_selected, apply_line_translations, apply_translation_response,
-    audio_payload_sha256, build_ai_studio_request, build_export_cue_sheet,
-    build_openrouter_request, build_openrouter_translation_request, decode_netease_payload,
-    download_cover, export_mp3, inspect_ncm, list_export_adapters, normalize_lyrics,
-    parse_ai_studio_envelope, parse_alignment_response, parse_openrouter_envelope,
-    parse_translation_response, render_cuesheet_json, replace_project_lyrics, replace_target_audio,
+    LrcAdapter, MatchStatus, MetadataValues, PlayerExportAdapter, SegmentId, SongProject,
+    SourceInfo, TargetAudio, apply_alignment_response, apply_alignment_response_selected,
+    apply_line_translations, apply_translation_response, audio_payload_sha256,
+    build_ai_studio_request, build_export_cue_sheet, build_openrouter_request,
+    build_openrouter_translation_request, decode_netease_payload, download_cover, export_mp3,
+    inspect_ncm, list_export_adapters, normalize_lyrics, parse_ai_studio_envelope,
+    parse_alignment_response, parse_openrouter_envelope, parse_translation_response,
+    render_cuesheet_json, replace_project_lyrics, replace_target_audio,
 };
 use id3::{Tag, TagLike, Version};
 use std::fs;
@@ -57,6 +57,16 @@ fn timed_project(target: PathBuf) -> SongProject {
     };
     project
         .add_line("朝焼けに ほどける", ["朝焼けに".into(), "ほどける".into()])
+        .unwrap();
+    project
+}
+
+fn sung_line_project(target: PathBuf) -> SongProject {
+    let mut project = timed_project(target);
+    project.lyrics.lines.clear();
+    project.timeline.clear();
+    project
+        .add_line("朝焼けに ほどける", ["朝焼けに ほどける".into()])
         .unwrap();
     project
 }
@@ -233,9 +243,14 @@ fn alignment_validator_requires_every_id_once_and_in_order() {
     let project = timed_project(PathBuf::from("target.mp3"));
     let valid = r#"{"segments":[
         {"id":1,"status":"matched","start_seconds":8.450,"confidence":0.98},
-        {"id":2,"status":"uncertain","start_seconds":10.750,"confidence":0.7}
+        {"id":2,"status":"matched","start_seconds":10.750,"confidence":0.7}
     ]}"#;
     assert!(parse_alignment_response(valid, &project).is_ok());
+    let uncertain = r#"{"segments":[
+        {"id":1,"status":"matched","start_seconds":8.450,"confidence":0.98},
+        {"id":2,"status":"uncertain","start_seconds":10.750,"confidence":0.7}
+    ]}"#;
+    assert!(parse_alignment_response(uncertain, &project).is_err());
 
     let missing = r#"{"segments":[{"id":1,"status":"matched","start_seconds":8.450}]}"#;
     assert!(parse_alignment_response(missing, &project).is_err());
@@ -253,8 +268,7 @@ fn alignment_validator_requires_every_id_once_and_in_order() {
 
 #[test]
 fn openrouter_contract_carries_mp3_and_strict_schema_without_source_timing() {
-    let mut project = timed_project(PathBuf::from("target.mp3"));
-    project.merge_with_next(SegmentId(1), " ").unwrap();
+    let project = sung_line_project(PathBuf::from("target.mp3"));
     let request =
         build_openrouter_request(&project, "base64-audio".into(), "google/gemini-3.7-flash")
             .unwrap();
@@ -301,8 +315,7 @@ fn openrouter_contract_carries_mp3_and_strict_schema_without_source_timing() {
 
 #[test]
 fn ai_studio_contract_uses_live_mime_enum_and_shared_validator() {
-    let mut project = timed_project(PathBuf::from("target.mp3"));
-    project.merge_with_next(SegmentId(1), " ").unwrap();
+    let project = sung_line_project(PathBuf::from("target.mp3"));
     let request = build_ai_studio_request(&project, "base64-audio".into()).unwrap();
     assert_eq!(
         request.pointer("/contents/0/parts/1/inlineData/mimeType"),
@@ -349,13 +362,22 @@ fn alignment_application_marks_confidence_and_unmatched_without_guessing() {
     };
     apply_alignment_response(&mut project, &response).unwrap();
     assert_eq!(
-        project.lyrics.lines[0].segments[0].timing.review,
-        ReviewState::NeedsReview
+        project.lyrics.lines[0].segments[0]
+            .timing
+            .gemini
+            .unwrap()
+            .time_ms,
+        8_450
     );
     assert_eq!(
-        project.lyrics.lines[0].segments[1].timing.review,
-        ReviewState::Unmatched
+        project.lyrics.lines[0].segments[0]
+            .timing
+            .final_point
+            .unwrap()
+            .time_ms,
+        8_450
     );
+    assert!(project.lyrics.lines[0].segments[1].timing.gemini.is_none());
     assert!(
         project.lyrics.lines[0].segments[1]
             .timing
@@ -433,7 +455,7 @@ fn mp3_export_preserves_audio_payload_and_writes_lyrics() {
     let before = audio_payload_sha256(&input).unwrap();
     let mut project = timed_project(input.clone());
     project.export.formats = vec![ExportFormat::Lrc, ExportFormat::Uslt, ExportFormat::Sylt];
-    project.export.bilingual = BilingualMode::Combined;
+    project.export.bilingual = BilingualMode::Bilingual;
     project.lyrics.lines[0].translation = Some("在朝霞中舒展".into());
     project.set_user_final(SegmentId(1), 8_450).unwrap();
     project.set_user_final(SegmentId(2), 10_750).unwrap();
@@ -444,13 +466,21 @@ fn mp3_export_preserves_audio_payload_and_writes_lyrics() {
     let tag = Tag::read_from_path(&output).unwrap();
     assert_eq!(tag.title(), Some("Beyond"));
     assert!(tag.get("TCOM").is_none());
-    assert_eq!(tag.lyrics().count(), 1);
-    assert_eq!(tag.synchronised_lyrics().count(), 1);
-    assert!(
-        fs::read_to_string(&lrc)
-            .unwrap()
-            .contains("朝焼けに ほどける / 在朝霞中舒展")
-    );
+    let lyrics: Vec<_> = tag.lyrics().collect();
+    assert_eq!(lyrics.len(), 2);
+    assert_eq!(lyrics[0].lang, "und");
+    assert_eq!(lyrics[0].description, "CueWeave");
+    assert_eq!(lyrics[0].text, "朝焼けに ほどける");
+    assert_eq!(lyrics[1].lang, "zho");
+    assert_eq!(lyrics[1].description, "translation");
+    assert_eq!(lyrics[1].text, "在朝霞中舒展");
+    let synced: Vec<_> = tag.synchronised_lyrics().collect();
+    assert_eq!(synced.len(), 2);
+    assert_eq!(synced[0].lang, "und");
+    assert_eq!(synced[1].lang, "zho");
+    let lrc_text = fs::read_to_string(&lrc).unwrap();
+    assert!(lrc_text.contains("[00:08.450]朝焼けに ほどける\n[00:08.450]在朝霞中舒展"));
+    assert!(!lrc_text.contains(" / "));
 
     fs::remove_file(input).unwrap();
     fs::remove_file(output).unwrap();
@@ -462,21 +492,33 @@ fn export_cue_sheet_is_the_player_adapter_contract() {
     let input = temp_path("mp3");
     write_fake_mp3(&input);
     let mut project = timed_project(input.clone());
-    project.export.bilingual = BilingualMode::Combined;
+    project.export.bilingual = BilingualMode::Bilingual;
+    project.lyrics.credits.push(cueweave_core::Credit {
+        label: "作词".into(),
+        value: "MOMIKEN".into(),
+    });
     project.lyrics.lines[0].translation = Some("在朝霞中舒展".into());
     project.set_user_final(SegmentId(1), 8_450).unwrap();
     project.set_user_final(SegmentId(2), 10_750).unwrap();
 
     let sheet = build_export_cue_sheet(&project).unwrap();
     assert_eq!(sheet.schema_version, CUESHEET_SCHEMA_VERSION);
+    assert_eq!(sheet.bilingual, BilingualMode::Bilingual);
     assert_eq!(sheet.metadata.title.as_deref(), Some("Beyond"));
     assert_eq!(sheet.lines.len(), 1);
     assert_eq!(sheet.lines[0].start_ms, Some(8_450));
-    assert!(sheet.lines[0].text.contains("在朝霞中舒展"));
+    assert_eq!(sheet.lines[0].text, "朝焼けに ほどける");
+    assert_eq!(sheet.lines[0].translation.as_deref(), Some("在朝霞中舒展"));
+    assert!(matches!(
+        &sheet.events[0],
+        cueweave_core::ExportCueEvent::Credit { text, .. } if text == "作词：MOMIKEN"
+    ));
     let json = render_cuesheet_json(&project).unwrap();
     assert!(json.contains("\"schema_version\": 1"));
+    assert!(json.contains("\"bilingual\": \"bilingual\""));
+    assert!(!json.contains("朝焼けに ほどける / 在朝霞中舒展"));
     let lrc = String::from_utf8(LrcAdapter.write_sidecar(&sheet).unwrap()).unwrap();
-    assert!(lrc.contains("[00:08.450]"));
+    assert!(lrc.contains("[00:08.450]朝焼けに ほどける\n[00:08.450]在朝霞中舒展"));
     let adapters = list_export_adapters();
     assert_eq!(
         adapters
@@ -486,6 +528,32 @@ fn export_cue_sheet_is_the_player_adapter_contract() {
         ["lrc", "uslt", "sylt"]
     );
     fs::remove_file(input).unwrap();
+}
+
+#[test]
+fn cue_sheet_omits_lyric_events_without_final() {
+    let input = temp_path("mp3");
+    let output = temp_path("partial.mp3");
+    write_fake_mp3(&input);
+    let mut project = timed_project(input.clone());
+    project.export.formats = vec![ExportFormat::Lrc, ExportFormat::Uslt, ExportFormat::Sylt];
+
+    let sheet = build_export_cue_sheet(&project).unwrap();
+    assert!(sheet.lines.iter().all(|line| line.start_ms.is_none()));
+    assert!(
+        sheet
+            .events
+            .iter()
+            .all(|event| !matches!(event, cueweave_core::ExportCueEvent::Lyric { .. }))
+    );
+    export_mp3(&project, &output).unwrap();
+
+    let lrc = output.with_extension("lrc");
+    fs::remove_file(&input).unwrap();
+    fs::remove_file(&output).unwrap();
+    if lrc.exists() {
+        fs::remove_file(lrc).unwrap();
+    }
 }
 
 fn encrypt_ncm_metadata(json: &str) -> Vec<u8> {

@@ -48,6 +48,7 @@ public sealed partial class MainPage
         LyricsHeading.Text = L10n.T("page.lyrics");
         LyricsSubtitle.Text = L10n.T("page.lyrics.subtitle.win");
         ImportLyricsButton.Content = L10n.T("lyrics.import");
+        AddLyricsButton.Content = L10n.T("lyrics.addLines");
         FetchLyricsButton.Content = L10n.T("lyrics.fetchNetease");
         TranslationHeading.Text = L10n.T("page.translation");
         TranslationSubtitle.Text = L10n.T("page.translation.subtitle.win");

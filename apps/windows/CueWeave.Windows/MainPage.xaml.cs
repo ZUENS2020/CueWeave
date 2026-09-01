@@ -89,6 +89,47 @@ public sealed partial class MainPage : Page
         await RunAsync(L10n.T("activity.applyingLyrics"), token => session.RunProjectCommandAsync("replace_lyrics", new JsonObject { ["original"] = text, ["translation"] = "" }, token));
     }
 
+    private async void AddLyrics_Click(object sender, RoutedEventArgs e) =>
+        await PromptInsertLyricsAsync(session.Project?.Lyrics.Lines.LastOrDefault()?.Id);
+
+    private async void InsertAfter_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement element && element.DataContext is LyricLine line)
+            await PromptInsertLyricsAsync(line.Id);
+    }
+
+    private async Task PromptInsertLyricsAsync(ulong? preferredAfter)
+    {
+        var lines = session.Project?.Lyrics.Lines ?? [];
+        var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 140, PlaceholderText = L10n.T("lyrics.insertPlaceholder") };
+        var positions = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        positions.Items.Add(L10n.T("lyrics.insertAtStart"));
+        foreach (var line in lines)
+        {
+            var preview = line.Original.Length > 40 ? line.Original[..40] + "…" : line.Original;
+            positions.Items.Add(L10n.T("lyrics.insertAfter", preview));
+        }
+        var preferredIndex = preferredAfter is ulong id ? lines.FindIndex(line => line.Id == id) + 1 : 0;
+        positions.SelectedIndex = preferredIndex > 0 ? preferredIndex : lines.Count;
+        var panel = new StackPanel { Spacing = 8 };
+        panel.Children.Add(positions);
+        panel.Children.Add(box);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = XamlRoot,
+            Title = L10n.T("lyrics.insertTitle"),
+            Content = panel,
+            PrimaryButtonText = L10n.T("lyrics.insertCommit"),
+            CloseButtonText = L10n.T("action.cancel")
+        };
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
+        if (string.IsNullOrWhiteSpace(box.Text)) return;
+        var extra = new JsonObject { ["text"] = box.Text };
+        if (positions.SelectedIndex > 0)
+            extra["after_line_id"] = JsonValue.Create(lines[positions.SelectedIndex - 1].Id);
+        await RunAsync(L10n.T("activity.insertingLyrics"), token => session.RunProjectCommandAsync("insert_lyrics", extra, token));
+    }
+
     private async void FetchLyrics_Click(object sender, RoutedEventArgs e) =>
         await RunAsync(L10n.T("activity.fetchingLyrics"), token => session.RunProjectCommandAsync("fetch_lyrics", null, token));
 
@@ -135,6 +176,7 @@ public sealed partial class MainPage : Page
 
     private async void ExportCueSheet_Click(object sender, RoutedEventArgs e)
     {
+        if (session.Project is null) return;
         var output = await PickSaveAsync(L10n.T("pick.cueSheet"), ".json", $"{session.Title}.cuesheet");
         if (output is not null) await RunAsync(L10n.T("activity.writingCueSheet"), token => session.ExportCueSheetAsync(output.Path, token));
     }
@@ -163,6 +205,7 @@ public sealed partial class MainPage : Page
 
     private async void Export_Click(object sender, RoutedEventArgs e)
     {
+        if (session.Project is null) return;
         var output = await PickSaveAsync(L10n.T("pick.exportMp3"), ".mp3", $"{session.Title} [CueWeave]");
         if (output is not null) await RunAsync(L10n.T("activity.exporting"), token => session.ExportAsync(output.Path, token));
     }
@@ -254,12 +297,15 @@ public sealed partial class MainPage : Page
         SaveButton.IsEnabled = project is not null;
         RevertButton.IsEnabled = project is not null && session.ProjectPath is not null;
         UndoButton.IsEnabled = session.CanUndo; RedoButton.IsEnabled = session.CanRedo;
-        FinalState.Text = project is null ? L10n.T("status.finalCount", "0") : L10n.T("status.finalRatio", project.Segments.Count(s => s.Timing.Final is not null).ToString(), project.Segments.Count.ToString());
         var activeKey = settings.AlignmentProvider == "openrouter" ? settings.OpenRouterApiKey : settings.AiStudioApiKey;
         var providerName = settings.AlignmentProvider == "openrouter" ? "OpenRouter" : "AI Studio";
         ProviderState.Text = activeKey.Length == 0 ? L10n.T("chrome.providerMissing", providerName) : L10n.T("chrome.providerReady", providerName);
         if (project is not null) PopulateProject(project);
-        else if (BusyBar.Visibility != Visibility.Visible) ActivityText.Text = L10n.T("activity.none");
+        else {
+            ExportFinalButton.IsEnabled = false;
+            SaveCueSheetButton.IsEnabled = false;
+            if (BusyBar.Visibility != Visibility.Visible) ActivityText.Text = L10n.T("activity.none");
+        }
         refreshing = false;
     }
 
@@ -279,13 +325,12 @@ public sealed partial class MainPage : Page
         TranslationList.ItemsSource = project.Lyrics.Lines;
         AlignmentList.ItemsSource = project.Segments;
         ConfigureTimeline(project);
-        var aligned = project.Segments.Count(s => s.Timing.Final is not null);
-        var translated = project.Lyrics.Lines.Count(line => !string.IsNullOrWhiteSpace(line.Translation));
-        ExportSummary.Text = L10n.T("export.summary", project.Lyrics.Lines.Count.ToString(), translated.ToString(), aligned.ToString(), project.Segments.Count.ToString());
+        SaveCueSheetButton.IsEnabled = true;
+        ExportFinalButton.IsEnabled = true;
         LrcCheck.IsChecked = project.ExportProfile.Formats.Contains("lrc");
         UsltCheck.IsChecked = project.ExportProfile.Formats.Contains("uslt");
         SyltCheck.IsChecked = project.ExportProfile.Formats.Contains("sylt");
-        BilingualPicker.SelectedIndex = project.ExportProfile.Bilingual == "combined" ? 1 : 0;
+        BilingualPicker.SelectedIndex = project.ExportProfile.Bilingual is "bilingual" or "combined" ? 1 : 0;
         OffsetBox.Value = project.ExportProfile.OffsetMs;
         RefreshInspector(); UpdateQueueVisuals(Timeline.ActiveSegmentId);
     }

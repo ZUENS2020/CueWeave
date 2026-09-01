@@ -1,10 +1,10 @@
 use cueweave_core::{
-    AiStudioConfig, OpenRouterConfig, SegmentId, SongProject, align_with_ai_studio,
+    AiStudioConfig, LineId, OpenRouterConfig, SegmentId, SongProject, align_with_ai_studio,
     align_with_openrouter, apply_alignment_response, apply_alignment_response_selected,
     apply_line_translations, apply_translation_response, download_cover, export_mp3,
-    fetch_netease_lyrics, inspect_ncm, list_export_adapters, project_from_files,
-    render_cuesheet_json, render_lrc, replace_project_lyrics, replace_target_audio,
-    translate_with_ai_studio, translate_with_openrouter,
+    fetch_netease_lyrics, insert_project_lyrics, inspect_ncm, list_export_adapters,
+    project_from_files, render_cuesheet_json, render_lrc, replace_project_lyrics,
+    replace_target_audio, translate_with_ai_studio, translate_with_openrouter,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -75,8 +75,8 @@ fn run() -> Result<(), Box<dyn Error>> {
             );
         }
         ("validate", [input]) => {
-            let project = SongProject::load(input)?;
-            println!("{}", serde_json::to_string_pretty(&project.status())?);
+            SongProject::load(input)?;
+            println!("{}", json!({"valid": true}));
         }
         ("round-trip", [input, output]) => SongProject::load(input)?.save(output)?,
         ("lyrics", [project_path, original_path]) => {
@@ -389,18 +389,38 @@ fn dispatch_rpc(request: RpcRequest) -> Result<Value, (&'static str, String)> {
                 "project_path",
             )?)?)?),
             "save_project" => {
-                let project = SongProject::from_json(
-                    &payload
-                        .get("project")
-                        .ok_or("payload.project is required")?
-                        .to_string(),
-                )?;
-                project.save(payload_path(payload, "project_path")?)?;
+                let json = payload
+                    .get("project")
+                    .ok_or("payload.project is required")?;
+                let project = SongProject::from_json(&json.to_string())?;
+                if payload.get("project_path").is_some() {
+                    project.save(payload_path(payload, "project_path")?)?;
+                }
                 Ok(Value::Null)
             }
-            "validate" => Ok(serde_json::to_value(
-                SongProject::load(payload_path(payload, "project_path")?)?.status(),
-            )?),
+            "set_final" => {
+                let path = payload_path(payload, "project_path")?;
+                let mut project = SongProject::load(path)?;
+                let id = SegmentId(
+                    payload
+                        .get("segment_id")
+                        .and_then(Value::as_u64)
+                        .ok_or("payload.segment_id is required")?,
+                );
+                match payload.get("time_ms") {
+                    None | Some(Value::Null) => project.clear_user_final(id)?,
+                    Some(value) => project.set_user_final(
+                        id,
+                        value.as_u64().ok_or("payload.time_ms must be a number")?,
+                    )?,
+                }
+                project.save(path)?;
+                Ok(Value::Null)
+            }
+            "validate" => {
+                SongProject::load(payload_path(payload, "project_path")?)?;
+                Ok(json!({"valid": true}))
+            }
             "retarget" => {
                 let path = payload_path(payload, "project_path")?;
                 let mut project = SongProject::load(path)?;
@@ -418,6 +438,24 @@ fn dispatch_rpc(request: RpcRequest) -> Result<Value, (&'static str, String)> {
                 )?;
                 project.save(path)?;
                 Ok(Value::Null)
+            }
+            "insert_lyrics" => {
+                let path = payload_path(payload, "project_path")?;
+                let mut project = SongProject::load(path)?;
+                let after = match payload.get("after_line_id") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(LineId(
+                        value
+                            .as_u64()
+                            .ok_or("payload.after_line_id must be a number")?,
+                    )),
+                };
+                let inserted =
+                    insert_project_lyrics(&mut project, after, payload_text(payload, "text")?)?;
+                project.save(path)?;
+                Ok(json!({
+                    "inserted": inserted.iter().map(|id| id.0).collect::<Vec<_>>()
+                }))
             }
             "fetch_lyrics" => {
                 let path = payload_path(payload, "project_path")?;

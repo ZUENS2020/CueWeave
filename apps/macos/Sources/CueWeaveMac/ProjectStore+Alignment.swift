@@ -29,6 +29,24 @@ extension ProjectStore {
         }
     }
 
+    func insertLyrics(after lineID: UInt64?, text: String) async -> Bool {
+        guard let projectURL else { return false }
+        save()
+        var ok = false
+        await operation(L10n.shared.t("activity.insertingLyrics")) {
+            var payload: [String: Any] = [
+                "project_path": projectURL.path,
+                "text": text,
+            ]
+            if let lineID { payload["after_line_id"] = lineID }
+            try await CoreBridge.call("insert_lyrics", payload: payload)
+            try self.openProject(projectURL, preservingCurrentForUndo: true)
+            self.selection = .lyrics
+            ok = true
+        }
+        return ok
+    }
+
     func fetchLyrics() async {
         guard let projectURL else { return }
         save()

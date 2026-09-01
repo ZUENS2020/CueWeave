@@ -181,26 +181,12 @@ pub struct AlignmentPoint {
     pub confidence: Option<f32>,
 }
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ReviewState {
-    #[default]
-    Pending,
-    AutoAccepted,
-    NeedsReview,
-    UserConfirmed,
-    Ignored,
-    Unmatched,
-}
-
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct SegmentTiming {
     #[serde(default)]
     pub gemini: Option<AlignmentPoint>,
     #[serde(default, rename = "final")]
     pub final_point: Option<AlignmentPoint>,
-    #[serde(default)]
-    pub review: ReviewState,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -248,16 +234,6 @@ pub enum ExportFormat {
 pub enum BilingualMode {
     #[default]
     OriginalOnly,
-    Combined,
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
-pub struct ProjectStatus {
-    pub source_loaded: bool,
-    pub target_loaded: bool,
-    pub metadata_ready: bool,
-    pub lyrics_ready: bool,
-    pub alignment_ready: bool,
-    pub review_count: usize,
-    pub export_ready: bool,
+    #[serde(alias = "combined")]
+    Bilingual,
 }

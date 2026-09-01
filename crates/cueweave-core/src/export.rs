@@ -40,9 +40,6 @@ pub fn export_mp3(
     project
         .validate()
         .map_err(|error| ExportError::Invalid(error.to_string()))?;
-    if !project.status().export_ready {
-        return invalid("project is not export-ready");
-    }
     let target = project
         .target
         .as_ref()

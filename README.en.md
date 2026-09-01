@@ -37,7 +37,7 @@ Invariants:
 1. **New project** from the original `.ncm` and target `.mp3`; save a `.cueweave` file.
 2. **Source**: inspect the information source and timing authority. Replacing the target invalidates Gemini and Final while keeping lyrics and the metadata draft.
 3. **Metadata**: Source / Target are read-only; only Draft is exported.
-4. **Lyrics**: fetch by NetEase music ID or import text / LRC / YRC. Timestamps are stripped.
+4. **Lyrics**: fetch by NetEase music ID, import text / LRC / YRC, or insert lines between existing ones. Timestamps are stripped.
 5. **Translation** (optional): Gemini via the same Align key, import text, or edit per line. No audio upload.
 6. **Alignment**: Run Gemini, then edit Finals on the timeline.
 7. **Export**: choose LRC / USLT / SYLT and bilingual mode. **Export Final** writes a new MP3. **Save Cue Sheet** writes player-plugin JSON.
@@ -81,7 +81,7 @@ The Alignment inspector shows translation read-only. Defaults: AI Studio `gemini
 | `uslt` | Embedded ID3 | Static lyrics |
 | `sylt` | Embedded ID3 | Synced lyrics |
 
-Bilingual: `original_only`, or `original / translation`. `offset_ms` applies only at export.
+Bilingual: `original_only`, or `bilingual` (a second LRC line at the same timestamp; a second USLT/SYLT frame — never `original / translation` on one line). `offset_ms` applies only at export.
 
 Future player plugins must consume Cue Sheet JSON (`schema_version: 1`), not the `.cueweave` project file. See [docs/CUE_SHEET.md](docs/CUE_SHEET.md).
 

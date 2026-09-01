@@ -1,4 +1,4 @@
-use crate::{AlignmentPoint, ReviewState, SegmentId, SongProject};
+use crate::{AlignmentPoint, SegmentId, SongProject};
 use base64::Engine;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -64,7 +64,6 @@ pub enum AlignmentError {
 #[serde(rename_all = "snake_case")]
 pub enum MatchStatus {
     Matched,
-    Uncertain,
     Unmatched,
 }
 
@@ -397,13 +396,8 @@ fn apply_alignment_items(
                 .find(|segment| segment.id == item.id)
                 .expect("validated segment must exist");
             segment.timing.gemini = None;
-            if segment.timing.review != ReviewState::UserConfirmed {
-                segment.timing.final_point = None;
-                segment.timing.review = ReviewState::Unmatched;
-            }
             continue;
         }
-        let review = ReviewState::NeedsReview;
         project
             .apply_gemini_suggestion(
                 item.id,
@@ -411,7 +405,6 @@ fn apply_alignment_items(
                     time_ms: item.start_ms.expect("validated time must exist"),
                     confidence: item.confidence,
                 },
-                review,
             )
             .map_err(|error| AlignmentError::Invalid(error.to_string()))?;
     }
@@ -481,7 +474,7 @@ fn alignment_schema() -> Value {
                     "additionalProperties": false,
                     "properties": {
                         "id": {"type": "integer"},
-                        "status": {"type": "string", "enum": ["matched", "uncertain", "unmatched"]},
+                        "status": {"type": "string", "enum": ["matched", "unmatched"]},
                         "start_seconds": {
                             "type": ["number", "null"],
                             "description": "Precise onset of the first clearly audible sung syllable, in seconds from the start of the attached audio. Use decimals rather than rounding."

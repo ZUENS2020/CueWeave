@@ -19,7 +19,7 @@ CueWeave 给播放器插件的稳定输入是 **Cue Sheet JSON**，不是 `.cuew
 {
   "schema_version": 1,
   "offset_ms": 0,
-  "bilingual": "combined",
+  "bilingual": "bilingual",
   "metadata": {
     "title": "Beyond",
     "artists": ["Example"],
@@ -32,12 +32,12 @@ CueWeave 给播放器插件的稳定输入是 **Cue Sheet JSON**，不是 `.cuew
       "id": 1,
       "original": "朝焼けに ほどける",
       "translation": "在朝霞中舒展",
-      "text": "朝焼けに ほどける / 在朝霞中舒展",
+      "text": "朝焼けに ほどける",
       "start_ms": 8450
     }
   ],
   "events": [
-    { "type": "lyric", "line_id": 1, "time_ms": 8450, "text": "朝焼けに ほどける / 在朝霞中舒展" }
+    { "type": "lyric", "line_id": 1, "time_ms": 8450, "text": "朝焼けに ほどける" }
   ]
 }
 ```
@@ -46,11 +46,11 @@ CueWeave 给播放器插件的稳定输入是 **Cue Sheet JSON**，不是 `.cuew
 
 | 字段 | 含义 |
 | --- | --- |
-| `bilingual` | `original_only` 或 `combined`。`lines[].text` / `events[].text` 已经按此解析。 |
-| `lines` | 一行一条。`start_ms` 是该行第一个 Final（已含 offset）；没有 Final 则为省略 / null。 |
-| `events` | 时间线事件，按工程时间线顺序。`type` 为 `credit`、`spacer` 或 `lyric`。 |
+| `bilingual` | `original_only` 或 `bilingual`（旧项目里的 `combined` 仍能读入，按 `bilingual` 处理）。`lines[].text` / `events[].text` 始终是原文。译文只在 `lines[].translation`。LRC 在同一时间戳再写一行译文；USLT / SYLT 再写一帧（原文 `lang=und`，译文 `lang=zho`，描述符 `translation`）。 |
+| `lines` | 一行一条。`start_ms` 是该行第一个 Final（已含 offset）；没有 Final 则为 `null`。 |
+| `events` | 时间线事件，按工程时间线顺序。`type` 为 `credit`、`spacer` 或 `lyric`。`credit` 来自 `lyrics.credits`（时间 0，文案 `{label}：{value}`），不是 timeline 里的 `Cue::Credit`。 |
 
-`lyric` 事件带 `line_id`，与 `lines[].id` 对应。没有 Final 的行不会出现在 `events` 里。
+`lyric` 事件带 `line_id`，与 `lines[].id` 对应。缺少 Final 的行仍出现在 `lines`，但不生成对应 `lyric` 事件。
 
 ## 适配器职责
 

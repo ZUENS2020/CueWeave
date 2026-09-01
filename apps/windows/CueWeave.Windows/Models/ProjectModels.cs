@@ -92,7 +92,6 @@ public sealed class SegmentTiming
 {
     public AlignmentPoint? Gemini { get; set; }
     [JsonPropertyName("final")] public AlignmentPoint? Final { get; set; }
-    public string Review { get; set; } = "pending";
 }
 
 public sealed class AlignmentPoint

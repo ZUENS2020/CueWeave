@@ -40,7 +40,6 @@ struct SourcePage: View {
                                 details: [
                                     (l10n.t("source.format"), "MP3"),
                                     (l10n.t("source.duration"), cueTime(project.target?.durationMS)),
-                                    (l10n.t("source.alignment"), store.stageState(.alignment).label),
                                 ],
                                 actionTitle: l10n.t("source.replace"),
                                 action: { Task { await store.replaceTargetInteractive() } },
@@ -89,11 +88,7 @@ struct MetadataPage: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                HStack {
-                    SectionHeading(l10n.t("page.metadata"), subtitle: l10n.t("page.metadata.subtitle"))
-                    Spacer()
-                    StatusPill(text: store.stageState(.metadata).label, tone: CueWeaveStyle.ready)
-                }
+                SectionHeading(l10n.t("page.metadata"), subtitle: l10n.t("page.metadata.subtitle"))
                 if let metadata = store.project?.metadata {
                     HStack(alignment: .top, spacing: 18) {
                         coverEditor.frame(width: 230)

@@ -111,9 +111,23 @@
 
                 <Grid x:Name="LyricsPanel" Visibility="Collapsed" Padding="24">
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <Grid ColumnSpacing="12"><StackPanel Spacing="3"><TextBlock x:Name="LyricsHeading" FontSize="24" FontWeight="SemiBold" Text="Lyrics" /><TextBlock x:Name="LyricsSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Provider timestamps are discarded before this project sees them" /></StackPanel><StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8"><Button x:Name="ImportLyricsButton" Content="Import Text…" Click="ImportLyrics_Click" /><Button x:Name="FetchLyricsButton" Content="Fetch NetEase" Click="FetchLyrics_Click" /></StackPanel></Grid>
+                    <Grid ColumnSpacing="12"><StackPanel Spacing="3"><TextBlock x:Name="LyricsHeading" FontSize="24" FontWeight="SemiBold" Text="Lyrics" /><TextBlock x:Name="LyricsSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Provider timestamps are discarded before this project sees them" /></StackPanel><StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8"><Button x:Name="AddLyricsButton" Content="Add Lines…" Click="AddLyrics_Click" /><Button x:Name="ImportLyricsButton" Content="Import Text…" Click="ImportLyrics_Click" /><Button x:Name="FetchLyricsButton" Content="Fetch NetEase" Click="FetchLyrics_Click" /></StackPanel></Grid>
                     <ListView x:Name="LyricsList" Grid.Row="1" Margin="0,16,0,0">
-                        <ListView.ItemTemplate><DataTemplate><StackPanel Padding="8,5" Spacing="3"><TextBlock FontSize="16" Text="{Binding Original}" /><TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Translation}" /></StackPanel></DataTemplate></ListView.ItemTemplate>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Padding="8,5" ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3">
+                                        <TextBlock FontSize="16" Text="{Binding Original}" />
+                                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Translation}" />
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Content="+" Click="InsertAfter_Click" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
                     </ListView>
                 </Grid>
 
@@ -192,7 +206,6 @@
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="320" /></Grid.ColumnDefinitions>
                         <StackPanel Spacing="12" VerticalAlignment="Center">
                             <TextBlock x:Name="ExportHeading" FontSize="24" FontWeight="SemiBold" Text="Final Export" />
-                            <TextBlock x:Name="ExportSummary" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Open a project to inspect export readiness." />
                             <TextBlock x:Name="ExportHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Export Final writes a new MP3 without re-encoding. Save Cue Sheet writes player-agnostic JSON later plugins consume." />
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <Button x:Name="SaveCueSheetButton" Content="Save Cue Sheet…" Click="ExportCueSheet_Click" />
@@ -207,7 +220,7 @@
                             <TextBlock x:Name="BilingualLabel" Margin="0,8,0,0" FontFamily="Consolas" FontSize="10" Text="BILINGUAL" />
                             <ComboBox x:Name="BilingualPicker" SelectionChanged="Bilingual_Changed">
                                 <ComboBoxItem x:Name="BilingualOriginal" Content="Original only" Tag="original_only" />
-                                <ComboBoxItem x:Name="BilingualCombined" Content="Original / translation" Tag="combined" />
+                                <ComboBoxItem x:Name="BilingualCombined" Content="Separate translation" Tag="bilingual" />
                             </ComboBox>
                             <NumberBox x:Name="OffsetBox" Header="Export offset (ms)" Minimum="-2000" Maximum="2000" SmallChange="10" SpinButtonPlacementMode="Compact" ValueChanged="Offset_Changed" />
                         </StackPanel>
@@ -220,7 +233,7 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <TextBlock x:Name="ActivityText" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Text="No project" />
             <ProgressBar x:Name="BusyBar" Grid.Column="1" Margin="16,0" VerticalAlignment="Center" IsIndeterminate="True" Visibility="Collapsed" />
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12"><Button x:Name="CancelButton" Padding="6,0" Content="Cancel" Visibility="Collapsed" Click="Cancel_Click" /><TextBlock x:Name="FinalState" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Text="FINAL 0" /></StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12"><Button x:Name="CancelButton" Padding="6,0" Content="Cancel" Visibility="Collapsed" Click="Cancel_Click" /></StackPanel>
         </Grid>
     </Grid>
 </Page>

@@ -40,7 +40,7 @@ CueWeave 只服务这一条工作流：
 1. **新建项目**：选原版 `.ncm` 和目标 `.mp3`，保存为 `.cueweave`。
 2. **Source**：确认信息源和目标音轨。换目标会作废所有 Gemini / Final，歌词和元数据草稿保留。
 3. **Metadata**：Source / Target 只读对照，只导出 Draft。
-4. **Lyrics**：按网易云音乐 ID 拉取，或导入纯文本 / LRC / YRC。时间戳会被剥掉。
+4. **Lyrics**：按网易云音乐 ID 拉取，导入纯文本 / LRC / YRC，或在任意两句之间手动插入。时间戳会被剥掉。
 5. **Translation**（可选）：用与 Align 相同的密钥做 Gemini 全文翻译、导入译文，或逐行手改。不上传音频，不改原文和轴。
 6. **Alignment**：Run Gemini，再在时间线上改 Final。
 7. **Export**：勾选 LRC / USLT / SYLT 和双语方式，**Export Final** 写出新 MP3；**Save Cue Sheet** 写出给播放器插件用的 JSON。
@@ -86,7 +86,7 @@ Alignment 检查器里的译文只读。默认模型：AI Studio `gemini-3.7-fla
 | `uslt` | ID3 嵌入 | 静态歌词 |
 | `sylt` | ID3 嵌入 | 同步歌词 |
 
-双语：`original_only`，或 `原文 / 译文`。`offset_ms` 只作用于导出时间。
+双语：`original_only`，或 `bilingual`（LRC 同一时间戳两行；USLT/SYLT 各两帧，不把原文和译文拼成一行）。`offset_ms` 只作用于导出时间。
 
 后续要适配各播放器时，**不要读 `.cueweave`**。稳定输入是 Cue Sheet JSON（`schema_version: 1`）。详见 [docs/CUE_SHEET.md](docs/CUE_SHEET.md)。
 

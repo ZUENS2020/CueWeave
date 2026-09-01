@@ -77,16 +77,21 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
 
     nonisolated func fileWrapper(snapshot: ProjectDocument?, configuration: WriteConfiguration) throws -> FileWrapper {
         guard let snapshot else { return FileWrapper(regularFileWithContents: Data()) }
-        return FileWrapper(regularFileWithContents: try encode(snapshot))
+        let data = try encode(snapshot)
+        let object = try JSONSerialization.jsonObject(with: data)
+        var payload: [String: Any] = ["project": object]
+        if let url = projectURL { payload["project_path"] = url.path }
+        try CoreBridge.callBlocking("save_project", payload: payload)
+        if let url = projectURL {
+            return FileWrapper(regularFileWithContents: try Data(contentsOf: url))
+        }
+        return FileWrapper(regularFileWithContents: data)
     }
 
     var title: String { project?.metadata.draft.title ?? "CueWeave" }
     var projectPath: String { projectURL?.path ?? L10n.shared.t("project.noFile") }
     var saveState: String {
         L10n.shared.t(hasUnsavedChanges ? "status.edited" : "status.saved")
-    }
-    var reviewCount: Int {
-        allSegments.filter { [.pending, .needsReview, .unmatched].contains($0.timing.review) }.count
     }
     var canUndo: Bool { resolvedUndoManager?.canUndo == true }
     var canRedo: Bool { resolvedUndoManager?.canRedo == true }
@@ -95,30 +100,6 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         alignmentProvider == .openRouter ? openRouterAPIKey : aiStudioAPIKey
     }
     var settingsPath: String { LocalSettingsStore.configURL.path }
-
-    func stageState(_ page: WorkspacePage) -> WorkspaceStageState {
-        guard let project else { return .pending }
-        switch page {
-        case .source:
-            return project.source != nil && project.target != nil ? .ready : .pending
-        case .metadata:
-            let valid = project.metadata.draft.title?.isEmpty == false
-                && project.metadata.draft.artists.contains { !$0.isEmpty }
-            return valid ? .ready : .pending
-        case .lyrics:
-            return project.lyrics.lines.isEmpty ? .pending : .ready
-        case .translation:
-            let translated = project.lyrics.lines.filter { $0.translation?.isEmpty == false }.count
-            if project.lyrics.lines.isEmpty { return .pending }
-            return translated == project.lyrics.lines.count ? .ready : .pending
-        case .alignment:
-            return allSegments.isEmpty || allSegments.contains { $0.timing.finalPoint == nil }
-                ? .pending : .ready
-        case .export:
-            return allSegments.isEmpty || allSegments.contains { $0.timing.finalPoint == nil }
-                ? .pending : .ready
-        }
-    }
 
     @MainActor
     func createInteractive() async {
@@ -237,7 +218,12 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     func save() {
         guard let project, let projectURL else { return }
         do {
-            try encode(project).write(to: projectURL, options: .atomic)
+            let data = try encode(project)
+            let object = try JSONSerialization.jsonObject(with: data)
+            try CoreBridge.callBlocking("save_project", payload: [
+                "project_path": projectURL.path,
+                "project": object,
+            ])
             hasUnsavedChanges = false
             activity = L10n.shared.t("activity.saved")
         } catch { errorMessage = error.localizedDescription }
@@ -382,7 +368,6 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
             for lineIndex in document.lyrics.lines.indices {
                 guard let segmentIndex = document.lyrics.lines[lineIndex].segments.firstIndex(where: { $0.id == segmentID }) else { continue }
                 document.lyrics.lines[lineIndex].segments[segmentIndex].timing.finalPoint = AlignmentPoint(timeMS: clamped, confidence: nil)
-                document.lyrics.lines[lineIndex].segments[segmentIndex].timing.review = .userConfirmed
                 break
             }
         }
@@ -400,7 +385,6 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
                     where segmentIDs.contains(document.lyrics.lines[lineIndex].segments[segmentIndex].id)
                 {
                     document.lyrics.lines[lineIndex].segments[segmentIndex].timing.finalPoint = nil
-                    document.lyrics.lines[lineIndex].segments[segmentIndex].timing.review = .pending
                 }
             }
         }
@@ -415,33 +399,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
                 let point = document.lyrics.lines[lineIndex].segments[index].timing.gemini
                 guard let point else { return }
                 document.lyrics.lines[lineIndex].segments[index].timing.finalPoint = point
-                document.lyrics.lines[lineIndex].segments[index].timing.review = .userConfirmed
                 return
-            }
-        }
-    }
-
-    func setReview(segmentID: UInt64, state: ReviewState) {
-        setReviews(segmentIDs: Set([segmentID]), state: state)
-    }
-
-    func setReviews(segmentIDs: Set<UInt64>, state: ReviewState) {
-        guard !segmentIDs.isEmpty else { return }
-        mutate { document in
-            for lineIndex in document.lyrics.lines.indices {
-                for segmentIndex in document.lyrics.lines[lineIndex].segments.indices
-                    where segmentIDs.contains(document.lyrics.lines[lineIndex].segments[segmentIndex].id)
-                {
-                    if state == .ignored {
-                        document.lyrics.lines[lineIndex].segments[segmentIndex].timing.finalPoint = nil
-                    }
-                    if state == .userConfirmed,
-                       document.lyrics.lines[lineIndex].segments[segmentIndex].timing.finalPoint == nil
-                    {
-                        continue
-                    }
-                    document.lyrics.lines[lineIndex].segments[segmentIndex].timing.review = state
-                }
             }
         }
     }
@@ -538,9 +496,40 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     }
 
     nonisolated private func encode(_ project: ProjectDocument) throws -> Data {
+        var portable = project
+        if let folder = projectURL?.deletingLastPathComponent() {
+            portable = Self.withRelativePaths(portable, folder: folder)
+        }
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        return try encoder.encode(project)
+        return try encoder.encode(portable)
+    }
+
+    nonisolated private static func withRelativePaths(_ project: ProjectDocument, folder: URL) -> ProjectDocument {
+        var portable = project
+        if var source = portable.source {
+            source.path = relativeMediaPath(source.path, to: folder)
+            portable.source = source
+        }
+        if var target = portable.target {
+            target.path = relativeMediaPath(target.path, to: folder)
+            portable.target = target
+        }
+        portable.metadata.source.coverPath = portable.metadata.source.coverPath.map { relativeMediaPath($0, to: folder) }
+        portable.metadata.target.coverPath = portable.metadata.target.coverPath.map { relativeMediaPath($0, to: folder) }
+        portable.metadata.draft.coverPath = portable.metadata.draft.coverPath.map { relativeMediaPath($0, to: folder) }
+        return portable
+    }
+
+    nonisolated private static func relativeMediaPath(_ path: String, to folder: URL) -> String {
+        let portable = path.replacingOccurrences(of: "\\", with: "/")
+        let folderPath = folder.standardizedFileURL.path
+        let filePath = URL(fileURLWithPath: portable).standardizedFileURL.path
+        let prefix = folderPath.hasSuffix("/") ? folderPath : folderPath + "/"
+        if filePath.hasPrefix(prefix) {
+            return String(filePath.dropFirst(prefix.count))
+        }
+        return portable
     }
 
     @MainActor

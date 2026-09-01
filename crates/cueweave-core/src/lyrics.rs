@@ -1,4 +1,4 @@
-use crate::{Credit, ProjectError, SongProject};
+use crate::{Credit, LineId, ProjectError, SongProject};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -61,6 +61,35 @@ pub fn replace_project_lyrics(
         }
     }
     Ok(())
+}
+
+pub fn insert_project_lyrics(
+    project: &mut SongProject,
+    after_line_id: Option<LineId>,
+    raw: &str,
+) -> Result<Vec<LineId>, LyricsError> {
+    let texts: Vec<String> = raw.lines().filter_map(normalize_line).collect();
+    if texts.is_empty() {
+        return Err(LyricsError::Empty);
+    }
+    let start = match after_line_id {
+        None => 0,
+        Some(id) => {
+            project
+                .lyrics
+                .lines
+                .iter()
+                .position(|line| line.id == id)
+                .ok_or(ProjectError::NotFound("line", id.0))?
+                + 1
+        }
+    };
+    let mut inserted = Vec::with_capacity(texts.len());
+    for (offset, text) in texts.into_iter().enumerate() {
+        let segments = segment_text(&text);
+        inserted.push(project.insert_line_at(start + offset, text, segments)?);
+    }
+    Ok(inserted)
 }
 
 pub fn apply_line_translations(

@@ -1,6 +1,6 @@
 use crate::{
-    AlignmentPoint, CURRENT_SCHEMA_VERSION, Cue, LineId, LyricLine, LyricSegment, ProjectStatus,
-    ReviewState, SegmentId, SegmentTiming, SongProject,
+    AlignmentPoint, CURRENT_SCHEMA_VERSION, Cue, LineId, LyricLine, LyricSegment, SegmentId,
+    SegmentTiming, SongProject,
 };
 use std::collections::HashSet;
 use std::fs;
@@ -95,65 +95,6 @@ impl SongProject {
         }
     }
 
-    pub fn status(&self) -> ProjectStatus {
-        let segments: Vec<_> = self
-            .lyrics
-            .lines
-            .iter()
-            .flat_map(|line| &line.segments)
-            .collect();
-        let metadata_ready = self
-            .metadata
-            .draft
-            .title
-            .as_ref()
-            .is_some_and(|title| !title.trim().is_empty())
-            && self
-                .metadata
-                .draft
-                .artists
-                .iter()
-                .any(|artist| !artist.trim().is_empty());
-        let lyrics_ready = !self.lyrics.lines.is_empty()
-            && self.lyrics.lines.iter().all(|line| {
-                !line.original.trim().is_empty()
-                    && !line.segments.is_empty()
-                    && line
-                        .segments
-                        .iter()
-                        .all(|segment| !segment.text.trim().is_empty())
-            });
-        let alignment_ready = !segments.is_empty()
-            && segments.iter().all(|segment| {
-                segment.timing.final_point.is_some()
-                    || segment.timing.review == ReviewState::Ignored
-            });
-        let review_count = segments
-            .iter()
-            .filter(|segment| {
-                matches!(
-                    segment.timing.review,
-                    ReviewState::Pending | ReviewState::NeedsReview | ReviewState::Unmatched
-                )
-            })
-            .count();
-        let target_has_duration = self
-            .target
-            .as_ref()
-            .and_then(|target| target.duration_ms)
-            .is_some_and(|duration| duration > 0);
-
-        ProjectStatus {
-            source_loaded: self.source.is_some(),
-            target_loaded: self.target.is_some(),
-            metadata_ready,
-            lyrics_ready,
-            alignment_ready,
-            review_count,
-            export_ready: target_has_duration && metadata_ready && lyrics_ready && alignment_ready,
-        }
-    }
-
     pub fn validate(&self) -> Result<(), ProjectError> {
         if self.schema_version != CURRENT_SCHEMA_VERSION {
             return Err(ProjectError::UnsupportedSchema(self.schema_version));
@@ -198,10 +139,22 @@ impl SongProject {
         original: impl Into<String>,
         segments: impl IntoIterator<Item = String>,
     ) -> Result<LineId, ProjectError> {
+        self.insert_line_at(self.lyrics.lines.len(), original, segments)
+    }
+
+    pub fn insert_line_at(
+        &mut self,
+        index: usize,
+        original: impl Into<String>,
+        segments: impl IntoIterator<Item = String>,
+    ) -> Result<LineId, ProjectError> {
         let original = original.into();
         let segment_texts: Vec<_> = segments.into_iter().collect();
         if original.trim().is_empty() || segment_texts.is_empty() {
             return invariant("a lyric line requires text and at least one segment");
+        }
+        if index > self.lyrics.lines.len() {
+            return invariant("lyric insert index is out of range");
         }
 
         let line_id = LineId(next_id(self.lyrics.lines.iter().map(|line| line.id.0))?);
@@ -225,63 +178,32 @@ impl SongProject {
                 .checked_add(1)
                 .ok_or_else(|| ProjectError::Invariant("segment id space exhausted".into()))?;
         }
-        self.lyrics.lines.push(LyricLine {
-            id: line_id,
-            original,
-            translation: None,
-            segments: new_segments,
-        });
-        self.timeline.push(Cue::Lyric { line_id });
-        Ok(line_id)
-    }
-
-    pub fn split_segment(
-        &mut self,
-        segment_id: SegmentId,
-        byte_index: usize,
-    ) -> Result<SegmentId, ProjectError> {
-        let new_id = SegmentId(next_id(self.segment_ids())?);
-        let (line_index, segment_index) = self.segment_position(segment_id)?;
-        let segment = &self.lyrics.lines[line_index].segments[segment_index];
-        if !segment.text.is_char_boundary(byte_index) {
-            return invariant("split point is not a UTF-8 character boundary");
-        }
-        let left = segment.text[..byte_index].trim_end().to_owned();
-        let right = segment.text[byte_index..].trim_start().to_owned();
-        if left.is_empty() || right.is_empty() {
-            return invariant("split must leave text on both sides");
-        }
-
-        let line = &mut self.lyrics.lines[line_index];
-        line.segments[segment_index].text = left;
-        line.segments[segment_index].timing = SegmentTiming::default();
-        line.segments.insert(
-            segment_index + 1,
-            LyricSegment {
-                id: new_id,
-                text: right,
-                timing: SegmentTiming::default(),
+        let after_id = index
+            .checked_sub(1)
+            .and_then(|previous| self.lyrics.lines.get(previous).map(|line| line.id));
+        self.lyrics.lines.insert(
+            index,
+            LyricLine {
+                id: line_id,
+                original,
+                translation: None,
+                segments: new_segments,
             },
         );
-        Ok(new_id)
-    }
-
-    pub fn merge_with_next(
-        &mut self,
-        segment_id: SegmentId,
-        joiner: &str,
-    ) -> Result<SegmentId, ProjectError> {
-        let (line_index, segment_index) = self.segment_position(segment_id)?;
-        let line = &mut self.lyrics.lines[line_index];
-        if segment_index + 1 >= line.segments.len() {
-            return invariant("segment has no next sibling to merge");
-        }
-        let right = line.segments.remove(segment_index + 1);
-        let left = &mut line.segments[segment_index];
-        left.text.push_str(joiner);
-        left.text.push_str(&right.text);
-        left.timing = SegmentTiming::default();
-        Ok(left.id)
+        let insert_at = match after_id {
+            None => self
+                .timeline
+                .iter()
+                .position(|cue| matches!(cue, Cue::Lyric { .. }))
+                .unwrap_or(self.timeline.len()),
+            Some(id) => self
+                .timeline
+                .iter()
+                .position(|cue| matches!(cue, Cue::Lyric { line_id } if *line_id == id))
+                .map_or(self.timeline.len(), |position| position + 1),
+        };
+        self.timeline.insert(insert_at, Cue::Lyric { line_id });
+        Ok(line_id)
     }
 
     pub fn set_user_final(
@@ -294,7 +216,11 @@ impl SongProject {
             time_ms,
             confidence: None,
         });
-        segment.timing.review = ReviewState::UserConfirmed;
+        Ok(())
+    }
+
+    pub fn clear_user_final(&mut self, segment_id: SegmentId) -> Result<(), ProjectError> {
+        self.segment_mut(segment_id)?.timing.final_point = None;
         Ok(())
     }
 
@@ -302,18 +228,13 @@ impl SongProject {
         &mut self,
         segment_id: SegmentId,
         point: AlignmentPoint,
-        review: ReviewState,
     ) -> Result<bool, ProjectError> {
-        if matches!(review, ReviewState::UserConfirmed | ReviewState::Pending) {
-            return invariant("automatic suggestions require an automatic review state");
-        }
         let segment = self.segment_mut(segment_id)?;
         segment.timing.gemini = Some(point);
-        if segment.timing.review == ReviewState::UserConfirmed {
+        if segment.timing.final_point.is_some() {
             return Ok(false);
         }
         segment.timing.final_point = Some(point);
-        segment.timing.review = review;
         Ok(true)
     }
 
@@ -325,33 +246,7 @@ impl SongProject {
             .flat_map(|line| &mut line.segments)
         {
             segment.timing.final_point = segment.timing.gemini;
-            segment.timing.review = if segment.timing.final_point.is_some() {
-                ReviewState::NeedsReview
-            } else {
-                ReviewState::Unmatched
-            };
         }
-    }
-
-    fn segment_ids(&self) -> impl Iterator<Item = u64> + '_ {
-        self.lyrics
-            .lines
-            .iter()
-            .flat_map(|line| line.segments.iter().map(|segment| segment.id.0))
-    }
-
-    fn segment_position(&self, id: SegmentId) -> Result<(usize, usize), ProjectError> {
-        self.lyrics
-            .lines
-            .iter()
-            .enumerate()
-            .find_map(|(line_index, line)| {
-                line.segments
-                    .iter()
-                    .position(|segment| segment.id == id)
-                    .map(|segment_index| (line_index, segment_index))
-            })
-            .ok_or(ProjectError::NotFound("segment", id.0))
     }
 
     fn segment_mut(&mut self, id: SegmentId) -> Result<&mut LyricSegment, ProjectError> {
@@ -404,12 +299,6 @@ fn validate_timing(
         }
     }
 
-    if segment.timing.review == ReviewState::UserConfirmed && segment.timing.final_point.is_none() {
-        return invariant(format!(
-            "user-confirmed segment {} has no final point",
-            segment.id.0
-        ));
-    }
     if let Some(point) = segment.timing.final_point {
         if previous_final.is_some_and(|previous| point.time_ms < previous) {
             return invariant(format!("segment {} is out of order", segment.id.0));

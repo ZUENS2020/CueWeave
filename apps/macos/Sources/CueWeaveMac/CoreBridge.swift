@@ -24,6 +24,20 @@ enum CoreBridge {
     private static let processes = ProcessRegistry()
 
     static func call(_ command: String, payload: [String: Any] = [:]) async throws {
+        try await Task.detached(priority: .userInitiated) {
+            try run(command, payload: payload)
+        }.value
+    }
+
+    static func callBlocking(_ command: String, payload: [String: Any] = [:]) throws {
+        try run(command, payload: payload)
+    }
+
+    static func cancelActive() {
+        processes.cancel()
+    }
+
+    private static func run(_ command: String, payload: [String: Any]) throws {
         let requestID = UUID().uuidString
         let request = try JSONSerialization.data(withJSONObject: [
             "protocol_version": 1,
@@ -31,44 +45,38 @@ enum CoreBridge {
             "command": command,
             "payload": payload,
         ])
-        try await Task.detached(priority: .userInitiated) {
-            let process = Process()
-            process.executableURL = try executableURL()
-            process.arguments = ["rpc"]
-            let input = Pipe()
-            let output = Pipe()
-            let errors = Pipe()
-            process.standardInput = input
-            process.standardOutput = output
-            process.standardError = errors
-            try process.run()
-            processes.attach(process)
-            defer { processes.detach(process) }
-            try input.fileHandleForWriting.write(contentsOf: request)
-            try input.fileHandleForWriting.close()
-            let stdout = output.fileHandleForReading.readDataToEndOfFile()
-            let stderr = errors.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else {
-                let message = String(data: stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Unknown error"
-                throw CoreBridgeError.failed(process.terminationStatus, message)
-            }
-            guard let envelope = try JSONSerialization.jsonObject(with: stdout) as? [String: Any],
-                  envelope["request_id"] as? String == requestID,
-                  let ok = envelope["ok"] as? Bool
-            else { throw CoreBridgeError.invalidResponse("envelope mismatch") }
-            if !ok {
-                let error = envelope["error"] as? [String: Any]
-                throw CoreBridgeError.core(
-                    error?["code"] as? String ?? "unknown",
-                    error?["message"] as? String ?? "Unknown Core error"
-                )
-            }
-        }.value
-    }
-
-    static func cancelActive() {
-        processes.cancel()
+        let process = Process()
+        process.executableURL = try executableURL()
+        process.arguments = ["rpc"]
+        let input = Pipe()
+        let output = Pipe()
+        let errors = Pipe()
+        process.standardInput = input
+        process.standardOutput = output
+        process.standardError = errors
+        try process.run()
+        processes.attach(process)
+        defer { processes.detach(process) }
+        try input.fileHandleForWriting.write(contentsOf: request)
+        try input.fileHandleForWriting.close()
+        let stdout = output.fileHandleForReading.readDataToEndOfFile()
+        let stderr = errors.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            let message = String(data: stderr, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Unknown error"
+            throw CoreBridgeError.failed(process.terminationStatus, message)
+        }
+        guard let envelope = try JSONSerialization.jsonObject(with: stdout) as? [String: Any],
+              envelope["request_id"] as? String == requestID,
+              let ok = envelope["ok"] as? Bool
+        else { throw CoreBridgeError.invalidResponse("envelope mismatch") }
+        if !ok {
+            let error = envelope["error"] as? [String: Any]
+            throw CoreBridgeError.core(
+                error?["code"] as? String ?? "unknown",
+                error?["message"] as? String ?? "Unknown Core error"
+            )
+        }
     }
 
     private static func executableURL() throws -> URL {

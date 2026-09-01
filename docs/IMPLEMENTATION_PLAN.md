@@ -120,26 +120,20 @@ SongProject
 │   └── Cue: Credit | Lyric | Spacer
 ├── SegmentTiming
 │   ├── gemini: optional point
-│   ├── final: optional point
-│   └── review state
+│   └── final: optional point
 └── ExportProfile
 ```
 
-`SegmentTiming` 只保留 Gemini 建议和 Final 两层。历史项目中的 `dsp` 字段读取时忽略，不再保存或展示。
+`SegmentTiming` 只保留 Gemini 建议和 Final 两层。历史项目中的 `dsp`、`review` 字段读取时忽略，不再保存或展示。
 
-项目状态不持久化一组容易失同步的布尔值。Core 每次从当前项目派生：
-
-```text
-source_loaded | metadata_ready | lyrics_ready | alignment_ready
-review_count | export_ready | dirty
-```
+项目不持久化、也不再派生 `export_ready` / `alignment_ready` 一类就绪布尔。`validate` 只检查数据不变量（重复 ID、乱序或越界 Final）。导出不因缺 Final、缺元数据或空 formats 被拒绝；Cue Sheet 里没有 Final 的行写入 `start_ms: null`，对应 `lyric` 事件跳过。
 
 必须作为单元测试覆盖的模型不变量：
 
 - Provider 输出类型中不存在任何来源时间字段。
 - LineId 和 SegmentId 在行级文本编辑后仍可追踪。
 - 所有锚点单调递增，且位于音频时长范围内。
-- `UserConfirmed` 的 Final 不会被 Gemini 重跑覆盖。
+- 已有 `final_point` 的 segment 不会被 Gemini 重跑覆盖。
 - Translation 通过 LineId 绑定，不通过时间绑定。
 - Spacer 和 Credit 不发送给 Gemini 做歌词匹配。
 
@@ -154,10 +148,11 @@ review_count | export_ready | dirty
 │ Source     │                                         │
 │ Metadata   │            当前工作区                   │
 │ Lyrics     │                                         │
+│ Translation│                                         │
 │ Alignment  │                                         │
 │ Export     │                                         │
 ├────────────┴─────────────────────────────────────────┤
-│ ▶ 01:22 / 02:29       AI Ready       Review 3       │
+│ ▶ 01:22 / 02:29       AI Ready                       │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -182,24 +177,24 @@ review_count | export_ready | dirty
 ### Alignment
 
 - 使用 Waveform、Low/Mid/High 频段能量和歌词时间戳视图，并同步播放头、循环区域与当前歌词。时间刻度固定 24 px，歌词轨固定 72 px，Waveform 与 Band Energy 严格等高平分剩余空间。
-- Anchor 详情中显示 Gemini、Final 和 Review 状态。
+- Anchor 详情中显示 Gemini 和 Final 时间。
 - Timeline 上不绘制 Final 线或把手；Final 只作为区间、Inspector 读数和导出时间存在。Inspector 提供 `−50/−10/−1/+1/+10/+50 ms` 六档按钮。
 - 单击在抬起时按完整文档横坐标精确定位；超过 4 px 的拖动只框选，抬起后按选区宽度计算倍率。歌词区和 Gemini 点不拦截输入，也不直接调用播放器 Seek。
 - 缩放同时支持 Slider、`⌘+`/`⌘−`、触控板捏合和 `Ctrl + 滚轮`；所有缩放都以当前播放时间戳为固定中心，靠近歌曲首尾时按文档边界钳制。Timeline 由原生 `NSScrollView` 直接管理文档尺寸和滚动原点，Follow 使用其实际可见范围并以 60 Hz 更新。
 - Alignment 页面未编辑文本时，按住 `1`/`2`/`3` 再按 `←`/`→`，分别以 `1`/`10`/`50 ms` 向左减、向右加，并支持方向键重复。
 - 普通 `←`/`→` 按当前视口覆盖时长的 1% 移动播放头；A/B/X 分别设置循环左右端和清除循环，反向录入时自动整理边界。
-- 播放速度提供 0.50×–2.00× 预设，使用 AVAudioEngine、AVAudioPlayerNode 与 AVAudioUnitTimePitch 保持音高不变。
-- 播放只更新当前歌词高亮，不覆盖 Inspector 选择。双击列表行建立手工选择且不 Seek；Return 重新选择播放头所在句。Review、Timing、Lyrics 合并为单一 Inspector。
-- Tap Sync 是独立模式：进入后 Space 记录当前段时间并前进，Esc 退出；普通模式下 Space 仍为播放/暂停。
-- Review 只列出低置信度、未匹配或尚未人工处理的段落。
+- 播放速度提供 0.50×–2.00× 预设，使用 `AVAudioPlayer.enableRate` 保持音高不变。
+- 播放只更新当前歌词高亮，不覆盖 Inspector 选择。双击列表行建立手工选择且不 Seek；Return 重新选择播放头所在句。单一 Inspector 显示 Gemini/Final，不维护 Review 队列。
+- Tap Sync 已删除；Space 只用于播放/暂停。
+- 导出不检查是否每段都有 Final；缺时间的行不进入 Cue Sheet 事件，也不因此禁用导出按钮。
 - Undo/Redo 首版采用最多 100 份轻量项目快照，暂不实现复杂 Command 层；性能测量证明有问题后再换。
 
 ### Export
 
-- 展示 Metadata、歌词数、未处理 Review、输出类型、偏移量和输出路径。
+- 展示标题/艺术家、输出类型、偏移量和输出路径。不显示就绪检查，也不因缺 Final 禁用导出按钮。
 - 输出永远是新文件；采用临时文件写完校验后原子改名。
 - Export Offset 只影响生成结果，不修改项目 Final。
-- 首版格式为 LRC、USLT、SYLT；默认保留原文，可选择原文/翻译合并行。
+- 首版格式为 LRC、USLT、SYLT；默认保留原文，可选按标准方式另存译文（LRC 同行时间戳、ID3 第二帧）。
 
 ### 错误与进度
 
@@ -275,9 +270,9 @@ Core 返回稳定错误码，UI 再本地化。至少区分：密钥无效、配
 验收：
 
 - 波形和频段能量显示不得写入、平移或建议任何 Final。
-- 用户确认 Final 后重跑 Gemini，Final 保持不变，只更新建议。
+- 已有 Final 后重跑 Gemini，Final 保持不变，只更新建议。
 - 选区重跑只改变选中 ID，其他 Segment 数据逐字节不变。
-- Review 可以 Accept Gemini、Keep Final、Set Manually、Ignore，Ignore 不阻断导出。
+- 导出不要求每段都有 Final；不再提供 Ignore。
 
 ### P4 — Windows 原生移植
 
@@ -287,7 +282,7 @@ Core 返回稳定错误码，UI 再本地化。至少区分：密钥无效、配
 
 - C# + WinUI 3 外壳，P/Invoke 复用同一 C ABI。
 - Media Foundation 播放与原生 Timeline 控件。
-- 与 macOS 相同的五页 Workspace、快捷键语义、导出和错误码。
+- 与 macOS 相同的六页 Workspace、快捷键语义、导出和错误码。
 - API 密钥存入 Windows Credential Manager。
 
 验收：
@@ -335,7 +330,7 @@ Core 返回稳定错误码，UI 再本地化。至少区分：密钥无效、配
 - NCM 头部解析：正常、截断、错误密钥数据、超大字段。
 - 歌词清洗：LRC、Enhanced LRC、YRC/JSON 风格、Credits、重复行、Unicode。
 - Gemini Validator：非法 JSON、重复/缺失 ID、越界、乱序、未匹配。
-- Timeline：点击/拖动阈值、1×/2×/12×/64× 坐标换算、中心缩放、六档微调边界、Undo/Redo、UserConfirmed 保护。
+- Timeline：点击/拖动阈值、1×/2×/12×/64× 坐标换算、中心缩放、六档微调边界、Undo/Redo、已有 Final 不被 Gemini 覆盖。
 - Project：schema 版本、往返序列化、未知字段容忍、迁移。
 - Export：LRC/USLT/SYLT golden files、双语和 offset。
 - MP3：导出前后 MPEG 音频帧流哈希相同。
@@ -346,7 +341,7 @@ Core 返回稳定错误码，UI 再本地化。至少区分：密钥无效、配
 
 - 解析出的关键元数据与封面；
 - 歌词行/Segment 数；
-- Gemini 未匹配数和人工复核数；
+- Gemini 未匹配句与人工 Final 数；
 - 至少 20 个手工锚点的误差；
 - 导出前后音频帧流哈希；
 - macOS/Windows 页面和播放检查结果。
