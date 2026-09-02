@@ -173,7 +173,7 @@
                                 <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" />
                                 <Button x:Name="AlignButton" Style="{StaticResource AccentButtonStyle}" Content="Run Gemini" Click="Align_Click" />
                                 <Button x:Name="RestoreButton" Content="Restore AI" Click="RestoreGemini_Click" />
-                                <Slider x:Name="ZoomSlider" Width="130" Minimum="1" Maximum="100" Value="1" StepFrequency=".5" VerticalAlignment="Center" ValueChanged="Zoom_Changed" />
+                                <Slider x:Name="ZoomSlider" Width="130" VerticalAlignment="Center" ValueChanged="Zoom_Changed" />
                                 <TextBlock x:Name="ZoomText" Width="40" VerticalAlignment="Center" FontFamily="Consolas" Text="1.0×" />
                                 <TextBlock x:Name="PlaybackTime" VerticalAlignment="Center" FontFamily="Consolas" Text="00:00.000" />
                             </StackPanel>

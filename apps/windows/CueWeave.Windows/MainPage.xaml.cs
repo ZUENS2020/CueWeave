@@ -34,6 +34,10 @@ public sealed partial class MainPage : Page
         FollowButton.IsChecked = true;
         NextButton.IsChecked = false;
         OverwriteCheck.IsChecked = true;
+        ZoomSlider.Minimum = 1;
+        ZoomSlider.Maximum = TimelineViewport.MaximumZoom;
+        ZoomSlider.StepFrequency = .5;
+        ZoomSlider.Value = 1;
         BindChrome();
         session.PropertyChanged += (_, _) => Refresh();
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };
