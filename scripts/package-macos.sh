@@ -16,7 +16,7 @@ trap cleanup EXIT HUP INT TERM
 
 cd "$REPO_DIR"
 cargo build --locked --release -p cueweave-cli
-swift build -c release --package-path apps/macos
+swift build -c release --package-path apps/macos --disable-automatic-resolution
 
 mkdir -p "$MACOS_DIR"
 cp apps/macos/Info.plist "$STAGED_APP/Contents/Info.plist"

@@ -262,11 +262,14 @@ Windows 11 x64（在 Windows 上执行；SSH 会话请用仓库里的脚本，�
 .\scripts\package-windows.ps1
 ```
 
-发布目录：
+发布目录（自包含：内置 .NET 运行时、Windows App SDK、`cueweave-cli.exe`，用户不必再装运行库）：
 
-`apps/windows/CueWeave.Windows/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish\`
+- 文件夹：`dist/CueWeave-windows-x64\`
+- 压缩包：`dist/CueWeave-windows-x64.zip`
 
 其中的 `CueWeave.Windows.exe` 需要在桌面会话打开。SSH 里直接启动会进 Session 0，窗口不可见。
+
+macOS `.app` 同样内置 Swift 可执行文件、`cueweave-cli` 和 `l10n.json`，打开即可，不必再装 Rust / SwiftPM。仓库用 `Cargo.lock`、`apps/macos/Package.resolved`、`apps/windows/**/packages.lock.json` 锁定依赖版本；构建走 `--locked`。
 
 ## 开发
 

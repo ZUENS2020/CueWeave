@@ -17,9 +17,9 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all --check
       - name: Lint
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - name: Test
-        run: cargo test --workspace --all-targets
+        run: cargo test --locked --workspace --all-targets
       - name: Check P4 code budget
         run: ./scripts/check-budget.sh P4
 
@@ -31,7 +31,7 @@ jobs:
       - name: Build Core bridge
         run: cargo build --locked --release -p cueweave-cli
       - name: Test native app
-        run: swift test --package-path apps/macos
+        run: swift test --package-path apps/macos --disable-automatic-resolution
       - name: Check timeline, settings and document boundaries
         run: |
           ./scripts/check-timeline-interaction.sh
@@ -44,11 +44,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Test Core
-        run: cargo test --workspace --all-targets
+        run: cargo test --locked --workspace --all-targets
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "10.0.400"
       - name: Test viewport and settings
         run: |
-          dotnet build apps/windows/CueWeave.Windows.Tests/CueWeave.Windows.Tests.csproj --nologo
+          dotnet restore apps/windows/CueWeave.Windows.Tests/CueWeave.Windows.Tests.csproj --locked-mode --nologo
+          dotnet build apps/windows/CueWeave.Windows.Tests/CueWeave.Windows.Tests.csproj --nologo --no-restore
           ./apps/windows/CueWeave.Windows.Tests/bin/Debug/net10.0/CueWeave.Windows.Tests.exe

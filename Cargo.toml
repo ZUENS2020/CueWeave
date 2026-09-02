@@ -13,17 +13,17 @@ license = "AGPL-3.0-only"
 repository = "https://github.com/ZUENS2020/CueWeave"
 
 [workspace.dependencies]
-aes = "0.8"
-base64 = "0.22"
-id3 = "1.17"
-reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
-rustfft = "6.4"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-sha2 = "0.10"
-symphonia = { version = "0.6", default-features = false, features = ["mp3"] }
-tempfile = "3"
-thiserror = "2"
+aes = "=0.8.4"
+base64 = "=0.22.1"
+id3 = "=1.17.1"
+reqwest = { version = "=0.12.28", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+rustfft = "=6.4.1"
+serde = { version = "=1.0.229", features = ["derive"] }
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+symphonia = { version = "=0.6.1", default-features = false, features = ["mp3"] }
+tempfile = "=3.27.0"
+thiserror = "=2.0.20"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

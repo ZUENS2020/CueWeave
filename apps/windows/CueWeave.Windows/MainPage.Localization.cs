@@ -89,7 +89,7 @@ public sealed partial class MainPage
         OverwriteCheck.Content = L10n.T("export.overwriteExisting");
         ToolTipService.SetToolTip(OverwriteCheck, L10n.T("export.overwriteExistingHint"));
         CancelButton.Content = L10n.T("action.cancel");
-        Timeline.LocalizeLanes(L10n.T);
+        Timeline.LocalizeLanes(key => L10n.T(key));
         if (LyricsCreditsLabel is not null) LyricsCreditsLabel.Text = L10n.T("align.credits");
         if (AddCreditButton is not null) AddCreditButton.Content = L10n.T("lyrics.credits");
         if (MergeCreditsButton is not null) MergeCreditsButton.Content = L10n.T("credit.merge");

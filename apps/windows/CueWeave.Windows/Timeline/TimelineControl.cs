@@ -442,6 +442,11 @@ public sealed partial class TimelineControl : UserControl
 
     private static string? TagOf(ComboBox box) => (box.SelectedItem as ComboBoxItem)?.Tag as string;
     private static string? ScaleOf(string kind) => AudioVizCatalog.Find(kind)?.Scale;
+    private int VisibleBin(int count, double timeMs)
+    {
+        if (count <= 0 || Viewport.DurationMs <= 0) return 0;
+        return (int)Math.Clamp(Math.Floor(timeMs / Viewport.DurationMs * count), 0, count - 1);
+    }
     private ulong? HitCredit(double timeMs)
     {
         if (credits.Count == 0) return null;

@@ -1,8 +1,13 @@
 $ErrorActionPreference = "Stop"
 $Repo = Split-Path -Parent $PSScriptRoot
-$Toolchain = Join-Path $env:USERPROFILE ".rustup\toolchains\stable-x86_64-pc-windows-msvc\bin"
-$Cargo = Join-Path $Toolchain "cargo.exe"
-if (-not (Test-Path $Cargo)) { $Cargo = "cargo" } else {
+$ToolchainRoot = Join-Path $env:USERPROFILE ".rustup\toolchains"
+$Toolchain = $null
+foreach ($name in @("1.98.0-x86_64-pc-windows-msvc", "stable-x86_64-pc-windows-msvc")) {
+    $candidate = Join-Path $ToolchainRoot "$name\bin"
+    if (Test-Path (Join-Path $candidate "cargo.exe")) { $Toolchain = $candidate; break }
+}
+$Cargo = if ($Toolchain) { Join-Path $Toolchain "cargo.exe" } else { "cargo" }
+if ($Toolchain) {
     $env:RUSTC = Join-Path $Toolchain "rustc.exe"
     $env:CARGO = $Cargo
 }
@@ -19,19 +24,27 @@ $env:Path = @(
 ) -join ";"
 
 Set-Location $Repo
-& $Cargo test --workspace --all-targets
+& $Cargo test --locked --workspace --all-targets
 if ($LASTEXITCODE -ne 0) { throw "cargo test failed" }
 
 & $Cargo build --locked --release -p cueweave-cli
 if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
 
-dotnet build "$Repo\apps\windows\CueWeave.Windows.Tests\CueWeave.Windows.Tests.csproj" --nologo
+$AppProj = Join-Path $Repo "apps\windows\CueWeave.Windows\CueWeave.Windows.csproj"
+$TestProj = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\CueWeave.Windows.Tests.csproj"
+$RestoreLock = if ($env:CI -eq "true") { "--locked-mode" } else { "--use-lock-file" }
+dotnet restore $AppProj -r win-x64 $RestoreLock --nologo
+if ($LASTEXITCODE -ne 0) { throw "dotnet restore app failed" }
+dotnet restore $TestProj $RestoreLock --nologo
+if ($LASTEXITCODE -ne 0) { throw "dotnet restore tests failed" }
+
+dotnet build $TestProj --nologo --no-restore
 if ($LASTEXITCODE -ne 0) { throw "dotnet test build failed" }
 $TestExe = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\bin\Debug\net10.0\CueWeave.Windows.Tests.exe"
 & $TestExe
 if ($LASTEXITCODE -ne 0) { throw "dotnet test failed" }
 
-dotnet publish "$Repo\apps\windows\CueWeave.Windows\CueWeave.Windows.csproj" -c Release -r win-x64 --self-contained -p:Platform=x64
+dotnet publish $AppProj -c Release -r win-x64 --self-contained --no-restore -p:Platform=x64 -p:WindowsAppSDKSelfContained=true -p:WindowsPackageType=None -p:PublishTrimmed=false
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 $Publish = Join-Path $Repo "apps\windows\CueWeave.Windows\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
@@ -40,4 +53,12 @@ if (-not (Test-Path $Publish)) {
 }
 $Cli = Join-Path $Repo "target\release\cueweave-cli.exe"
 if (Test-Path $Cli) { Copy-Item $Cli $Publish -Force }
+$Dist = Join-Path $Repo "dist\CueWeave-windows-x64"
+New-Item -ItemType Directory -Force -Path $Dist | Out-Null
+Get-ChildItem $Dist -Force | Remove-Item -Recurse -Force
+Copy-Item (Join-Path $Publish "*") $Dist -Recurse -Force
+$Zip = Join-Path $Repo "dist\CueWeave-windows-x64.zip"
+if (Test-Path $Zip) { Remove-Item $Zip -Force }
+Compress-Archive -Path (Join-Path $Dist "*") -DestinationPath $Zip
 Write-Output $Publish
+Write-Output $Zip

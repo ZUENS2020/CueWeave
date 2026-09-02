@@ -251,11 +251,14 @@ Windows 11 x64 (run on Windows; over SSH use the repo script so rustup shims in 
 .\scripts\package-windows.ps1
 ```
 
-Publish directory:
+Publish output is self-contained (.NET runtime, Windows App SDK, and `cueweave-cli.exe` are inside the folder; users do not install extra runtimes):
 
-`apps/windows/CueWeave.Windows/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish\`
+- Folder: `dist/CueWeave-windows-x64\`
+- Zip: `dist/CueWeave-windows-x64.zip`
 
 Open `CueWeave.Windows.exe` in an interactive desktop session. Starting it over SSH lands in Session 0.
+
+The macOS `.app` likewise bundles the Swift binary, `cueweave-cli`, and `l10n.json`. Versions are locked by `Cargo.lock`, `apps/macos/Package.resolved`, and `apps/windows/**/packages.lock.json`; builds use `--locked`.
 
 ## Development
 
