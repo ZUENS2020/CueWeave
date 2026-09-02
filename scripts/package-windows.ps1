@@ -72,7 +72,10 @@ New-Item -ItemType Directory -Force -Path $Inner | Out-Null
 Copy-Item (Join-Path $Dist "*") $Inner -Recurse -Force
 $Zip = Join-Path $Repo "dist\CueWeave-windows-x64.zip"
 if (Test-Path $Zip) { Remove-Item $Zip -Force }
-Compress-Archive -Path $Inner -DestinationPath $Zip
+Push-Location $ZipDir
+# tar.exe writes ZIP spec forward slashes; Compress-Archive uses backslashes.
+tar.exe -a -c -f $Zip CueWeave
+Pop-Location
 Remove-Item $ZipDir -Recurse -Force
 Write-Output $Publish
 Write-Output $Zip
