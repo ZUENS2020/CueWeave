@@ -328,6 +328,12 @@ mod tests {
         assert!(ping.ok);
         assert_eq!(ping.request_id, "p1");
 
+        let bom = rpc_response(
+            "\u{feff}{\"protocol_version\":1,\"request_id\":\"p1\",\"command\":\"ping\",\"payload\":{}}",
+        );
+        assert!(bom.ok);
+        assert_eq!(bom.request_id, "p1");
+
         let unsupported =
             rpc_response(r#"{"protocol_version":2,"request_id":"p2","command":"ping"}"#);
         assert!(!unsupported.ok);

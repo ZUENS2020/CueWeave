@@ -7,6 +7,7 @@ namespace CueWeave.WinUI.Services;
 
 public sealed class CoreProcess
 {
+    private static readonly Encoding Utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private readonly object sync = new();
     private Process? active;
 
@@ -14,12 +15,12 @@ public sealed class CoreProcess
         CancellationToken cancellationToken = default)
     {
         var requestId = Guid.NewGuid().ToString("N");
-        var request = Encoding.UTF8.GetBytes(new JsonObject {
+        var request = new JsonObject {
             ["protocol_version"] = 1,
             ["request_id"] = requestId,
             ["command"] = command,
             ["payload"] = payload ?? new JsonObject()
-        }.ToJsonString());
+        }.ToJsonString();
         var executable = FindExecutable();
         using var process = new Process {
             StartInfo = new ProcessStartInfo {
@@ -30,9 +31,9 @@ public sealed class CoreProcess
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
-                StandardInputEncoding = Encoding.UTF8,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
+                StandardInputEncoding = Utf8,
+                StandardOutputEncoding = Utf8,
+                StandardErrorEncoding = Utf8
             }
         };
         process.StartInfo.ArgumentList.Add("rpc");
@@ -47,7 +48,8 @@ public sealed class CoreProcess
         try {
             var stdoutTask = ReadAllAsync(process.StandardOutput.BaseStream, cancellationToken);
             var stderrTask = ReadAllAsync(process.StandardError.BaseStream, cancellationToken);
-            await process.StandardInput.BaseStream.WriteAsync(request, cancellationToken);
+            await process.StandardInput.WriteAsync(request.AsMemory(), cancellationToken);
+            await process.StandardInput.FlushAsync(cancellationToken);
             process.StandardInput.Close();
             await process.WaitForExitAsync(cancellationToken);
             var stdout = await stdoutTask;

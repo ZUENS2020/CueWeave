@@ -31,6 +31,26 @@ public sealed class CoreRpcTests
     }
 
     [TestMethod]
+    public void SurfacesCoreErrorWhenRequestIdIsEmpty()
+    {
+        var error = Assert.Throws<CoreException>(() =>
+            CoreRpc.ReadResult(
+                """{"request_id":"","ok":false,"error":{"code":"invalid_request","message":"expected value at line 1 column 1"}}"""u8,
+                "wanted"));
+        Assert.AreEqual("invalid_request", error.Code);
+        StringAssert.Contains(error.Message, "expected value");
+    }
+
+    [TestMethod]
+    public void RejectsSuccessfulEnvelopeWithWrongRequestId()
+    {
+        var error = Assert.Throws<CoreException>(() =>
+            CoreRpc.ReadResult("""{"request_id":"other","ok":true,"result":{}}"""u8, "wanted"));
+        Assert.AreEqual("invalid_response", error.Code);
+        Assert.AreEqual(L10n.T("error.coreMismatch"), error.Message);
+    }
+
+    [TestMethod]
     public void RejectsBrokenJsonTheSameWayTheDesktopDialogDid()
     {
         var error = Assert.Throws<CoreException>(() =>

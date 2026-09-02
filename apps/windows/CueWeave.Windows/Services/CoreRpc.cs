@@ -34,8 +34,6 @@ internal static class CoreRpc
             var root = document.RootElement;
             if (root.ValueKind != JsonValueKind.Object)
                 throw new CoreException("invalid_response", L10n.T("error.invalidResponse", "envelope"));
-            if (!root.TryGetProperty("request_id", out var id) || id.GetString() != requestId)
-                throw new CoreException("invalid_response", L10n.T("error.coreMismatch"));
             if (!root.TryGetProperty("ok", out var ok) || ok.ValueKind != JsonValueKind.True)
             {
                 var error = root.TryGetProperty("error", out var payload) ? payload : default;
@@ -45,6 +43,8 @@ internal static class CoreRpc
                     error.ValueKind == JsonValueKind.Object && error.TryGetProperty("message", out var message)
                         ? message.GetString() ?? L10n.T("error.coreFailed") : L10n.T("error.coreFailed"));
             }
+            if (!root.TryGetProperty("request_id", out var id) || id.GetString() != requestId)
+                throw new CoreException("invalid_response", L10n.T("error.coreMismatch"));
             return root.TryGetProperty("result", out var result) ? result.Clone() : default;
         }
     }

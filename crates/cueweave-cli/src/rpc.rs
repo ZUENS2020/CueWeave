@@ -41,7 +41,7 @@ pub(crate) struct RpcError {
 pub(crate) fn run_rpc() -> Result<(), Box<dyn Error>> {
     let mut input = String::new();
     std::io::stdin().read_to_string(&mut input)?;
-    let response = rpc_response(&input);
+    let response = rpc_response(input.trim_start_matches('\u{feff}'));
     let stdout = std::io::stdout();
     let mut output = stdout.lock();
     serde_json::to_writer(&mut output, &response)?;
@@ -51,6 +51,7 @@ pub(crate) fn run_rpc() -> Result<(), Box<dyn Error>> {
 }
 
 pub(crate) fn rpc_response(input: &str) -> RpcResponse {
+    let input = input.trim_start_matches('\u{feff}').trim();
     let request: RpcRequest = match serde_json::from_str(input) {
         Ok(request) => request,
         Err(error) => return rpc_failure(String::new(), "invalid_request", error.to_string()),
