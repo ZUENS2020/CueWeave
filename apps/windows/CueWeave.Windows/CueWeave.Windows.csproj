@@ -20,7 +20,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Content Include="Assets\**" />
+    <Content Include="Assets\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
     <Content Include="..\..\shared\l10n.json" Link="l10n.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
@@ -44,8 +47,15 @@
 
   <PropertyGroup>
     <HasPackageAndPublishMenu>true</HasPackageAndPublishMenu>
-    <PublishReadyToRun Condition="'$(Configuration)' == 'Debug'">False</PublishReadyToRun>
-    <PublishReadyToRun Condition="'$(Configuration)' != 'Debug'">True</PublishReadyToRun>
+    <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
+    <AppxGenerateProjectPriFile>true</AppxGenerateProjectPriFile>
   </PropertyGroup>
+
+  <Target Name="CopyUnpackagedResourcesPri" AfterTargets="Publish">
+    <Copy
+      SourceFiles="$(PublishDir)CueWeave.Windows.pri"
+      DestinationFiles="$(PublishDir)resources.pri"
+      Condition="Exists('$(PublishDir)CueWeave.Windows.pri')" />
+  </Target>
 </Project>

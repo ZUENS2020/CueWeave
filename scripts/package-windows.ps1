@@ -44,7 +44,7 @@ $TestExe = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\bin\Debug\net10.
 & $TestExe
 if ($LASTEXITCODE -ne 0) { throw "dotnet test failed" }
 
-dotnet publish $AppProj -c Release -r win-x64 --self-contained --no-restore -p:Platform=x64 -p:WindowsAppSDKSelfContained=true -p:WindowsPackageType=None -p:PublishTrimmed=false
+dotnet publish $AppProj -c Release -r win-x64 --self-contained --no-restore -p:Platform=x64 -p:WindowsAppSDKSelfContained=true -p:WindowsPackageType=None -p:PublishTrimmed=false -p:PublishReadyToRun=false -p:PublishSingleFile=false
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 $Publish = Join-Path $Repo "apps\windows\CueWeave.Windows\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
