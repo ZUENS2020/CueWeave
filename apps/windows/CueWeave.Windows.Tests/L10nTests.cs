@@ -23,4 +23,14 @@ public sealed class L10nTests
         Assert.AreEqual("Save", L10n.T("action.save"));
         L10n.Apply("system");
     }
+
+    [TestMethod]
+    public void WrapErrorMapsRawJsonParseFailures()
+    {
+        L10n.Apply("zh");
+        StringAssert.Contains(
+            L10n.WrapError("'i' is invalid after a value. Expected either ',', '}', or ']'."),
+            "无效响应");
+        L10n.Apply("system");
+    }
 }

@@ -1,13 +1,9 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace CueWeave.WinUI.Services;
-
-public sealed class CoreException(string code, string message) : Exception(message)
-{
-    public string Code { get; } = code;
-}
 
 public sealed class CoreProcess
 {
@@ -18,49 +14,59 @@ public sealed class CoreProcess
         CancellationToken cancellationToken = default)
     {
         var requestId = Guid.NewGuid().ToString("N");
-        var request = new JsonObject {
+        var request = Encoding.UTF8.GetBytes(new JsonObject {
             ["protocol_version"] = 1,
             ["request_id"] = requestId,
             ["command"] = command,
             ["payload"] = payload ?? new JsonObject()
-        };
+        }.ToJsonString());
+        var executable = FindExecutable();
         using var process = new Process {
             StartInfo = new ProcessStartInfo {
-                FileName = FindExecutable(),
+                FileName = executable,
+                WorkingDirectory = Path.GetDirectoryName(executable) ?? AppContext.BaseDirectory,
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
-                RedirectStandardError = true
+                RedirectStandardError = true,
+                StandardInputEncoding = Encoding.UTF8,
+                StandardOutputEncoding = Encoding.UTF8,
+                StandardErrorEncoding = Encoding.UTF8
             }
         };
         process.StartInfo.ArgumentList.Add("rpc");
+        process.StartInfo.Environment.Remove("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY");
+        process.StartInfo.Environment.Remove("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY_PID");
+        process.StartInfo.Environment.Remove("RUST_LOG");
         if (!process.Start()) throw new CoreException("launch_failed", L10n.T("error.coreLaunch"));
         lock (sync) active = process;
         using var registration = cancellationToken.Register(() => {
             try { if (!process.HasExited) process.Kill(entireProcessTree: true); } catch { }
         });
         try {
-            await process.StandardInput.WriteAsync(request.ToJsonString());
+            var stdoutTask = ReadAllAsync(process.StandardOutput.BaseStream, cancellationToken);
+            var stderrTask = ReadAllAsync(process.StandardError.BaseStream, cancellationToken);
+            await process.StandardInput.BaseStream.WriteAsync(request, cancellationToken);
             process.StandardInput.Close();
-            var stdoutTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-            var stderrTask = process.StandardError.ReadToEndAsync(cancellationToken);
             await process.WaitForExitAsync(cancellationToken);
             var stdout = await stdoutTask;
             var stderr = await stderrTask;
             cancellationToken.ThrowIfCancellationRequested();
             if (process.ExitCode != 0)
-                throw new CoreException("process_failed", string.IsNullOrWhiteSpace(stderr) ? L10n.T("error.coreFailed") : stderr.Trim());
-            using var document = JsonDocument.Parse(stdout);
-            var root = document.RootElement;
-            if (root.GetProperty("request_id").GetString() != requestId)
-                throw new CoreException("invalid_response", L10n.T("error.coreMismatch"));
-            if (!root.GetProperty("ok").GetBoolean()) {
-                var error = root.GetProperty("error");
-                throw new CoreException(error.GetProperty("code").GetString() ?? "core_error",
-                    error.GetProperty("message").GetString() ?? L10n.T("error.coreFailed"));
+            {
+                var message = Encoding.UTF8.GetString(stderr).Trim();
+                throw new CoreException("process_failed", string.IsNullOrWhiteSpace(message) ? L10n.T("error.coreFailed") : message);
             }
-            return root.TryGetProperty("result", out var result) ? result.Clone() : default;
+            try
+            {
+                return CoreRpc.ReadResult(stdout, requestId);
+            }
+            catch (CoreException exception) when (exception.Code == "invalid_response")
+            {
+                LogBoot($"rpc {command} stdout={stdout.Length} {CoreRpc.Preview(stdout)}");
+                throw;
+            }
         } finally {
             lock (sync) if (ReferenceEquals(active, process)) active = null;
         }
@@ -85,5 +91,23 @@ public sealed class CoreProcess
             if (File.Exists(candidate)) return candidate;
         }
         throw new CoreException("cli_missing", L10n.T("error.cliMissingWin"));
+    }
+
+    private static async Task<byte[]> ReadAllAsync(Stream stream, CancellationToken token)
+    {
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer, token);
+        return buffer.ToArray();
+    }
+
+    private static void LogBoot(string message)
+    {
+        try
+        {
+            File.AppendAllText(
+                Path.Combine(AppContext.BaseDirectory, "boot.log"),
+                $"{DateTime.Now:O} {message}{Environment.NewLine}");
+        }
+        catch { /* boot diagnostics must not throw */ }
     }
 }

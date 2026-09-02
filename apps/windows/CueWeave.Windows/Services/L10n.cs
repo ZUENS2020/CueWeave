@@ -42,6 +42,9 @@ public static class L10n
             return T("error.tooLarge", message);
         if (message.Contains("invalid alignment"))
             return T("error.invalidAlignment", message);
+        if (message.Contains("invalid after a value", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("CueWeave Core"))
+            return T("error.invalidResponse", message);
         return message;
     }
 

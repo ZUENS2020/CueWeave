@@ -46,6 +46,7 @@ pub(crate) fn run_rpc() -> Result<(), Box<dyn Error>> {
     let mut output = stdout.lock();
     serde_json::to_writer(&mut output, &response)?;
     output.write_all(b"\n")?;
+    output.flush()?;
     Ok(())
 }
 
