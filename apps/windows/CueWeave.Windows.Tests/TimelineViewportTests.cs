@@ -16,6 +16,16 @@ public sealed class TimelineViewportTests
     }
 
     [TestMethod]
+    public void DefaultAlignmentZoomIsTwo()
+    {
+        var viewport = NewViewport();
+        viewport.SetZoom(2, 74_545.5);
+        Assert.AreEqual(2, viewport.Zoom, .0001);
+        Assert.AreEqual(74_545.5, viewport.VisibleStartMs + viewport.VisibleDurationMs / 2, .001);
+        Assert.AreEqual(100, TimelineViewport.MaximumZoom);
+    }
+
+    [TestMethod]
     public void SliderAndKeyboardZoomCenterOnPlayhead()
     {
         var viewport = NewViewport();

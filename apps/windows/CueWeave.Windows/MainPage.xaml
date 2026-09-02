@@ -11,7 +11,7 @@
             <RowDefinition Height="34" />
         </Grid.RowDefinitions>
 
-        <CommandBar Grid.Row="0" DefaultLabelPosition="Collapsed">
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Right">
             <AppBarButton x:Name="NewButton" Icon="Add" Label="New" Click="NewProject_Click">
                 <AppBarButton.KeyboardAccelerators>
                     <KeyboardAccelerator Key="N" Modifiers="Control" />
@@ -22,33 +22,37 @@
                     <KeyboardAccelerator Key="O" Modifiers="Control" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
-            <AppBarButton x:Name="SaveButton" Icon="Save" Label="Save" Click="Save_Click" IsEnabled="False">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="S" Modifiers="Control" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarButton x:Name="RevertButton" Icon="Refresh" Label="Revert" Click="Revert_Click" IsEnabled="False" />
-            <AppBarSeparator />
             <AppBarButton x:Name="UndoButton" Icon="Undo" Label="Undo" Click="Undo_Click" IsEnabled="False" />
             <AppBarButton x:Name="RedoButton" Icon="Redo" Label="Redo" Click="Redo_Click" IsEnabled="False" />
+            <AppBarButton x:Name="SettingsButton" Icon="Setting" Label="Settings" Click="Settings_Click" />
             <CommandBar.Content>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="12">
-                    <TextBlock Margin="8,0,0,0" FontFamily="Consolas" FontSize="11" Foreground="{StaticResource CueAccentBrush}" Text="CUEWEAVE" />
-                    <TextBlock x:Name="ProjectTitle" FontSize="16" FontWeight="SemiBold" Text="Lyrics, aligned to your track." />
-                    <Border x:Name="SavePill" Padding="8,3" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                <Grid Margin="16,0,0,0" VerticalAlignment="Center" ColumnSpacing="16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Spacing="1">
+                        <TextBlock x:Name="ChromePageTitle" FontFamily="Consolas" FontSize="12" FontWeight="SemiBold" Text="CUEWEAVE" />
+                        <TextBlock x:Name="ChromePageDetail" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Lyrics, aligned to your track." />
+                    </StackPanel>
+                    <Border x:Name="SavePill" Grid.Column="1" Padding="8,3" CornerRadius="10" VerticalAlignment="Center" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                         <TextBlock x:Name="SaveStateText" FontFamily="Consolas" FontSize="9" Text="NO PROJECT" />
                     </Border>
-                </StackPanel>
+                </Grid>
             </CommandBar.Content>
-            <CommandBar.SecondaryCommands>
-                <AppBarButton x:Name="SettingsButton" Icon="Setting" Label="Provider settings" Click="Settings_Click" />
-            </CommandBar.SecondaryCommands>
         </CommandBar>
 
         <Grid Grid.Row="1">
         <NavigationView x:Name="Navigation" Visibility="Collapsed" IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
-                        IsPaneToggleButtonVisible="False" PaneDisplayMode="Left" OpenPaneLength="225"
+                        IsPaneToggleButtonVisible="False" PaneDisplayMode="Left" OpenPaneLength="230"
                         SelectionChanged="Navigation_SelectionChanged">
+            <NavigationView.PaneHeader>
+                <StackPanel Margin="14,8,14,4" Spacing="3">
+                    <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="CUEWEAVE" />
+                    <TextBlock x:Name="PaneProjectTitle" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" Text="CueWeave" />
+                    <TextBlock x:Name="PaneProjectPath" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="NoWrap" />
+                </StackPanel>
+            </NavigationView.PaneHeader>
             <NavigationView.MenuItems>
                 <NavigationViewItem x:Name="NavSource" Content="Source" Tag="source"><NavigationViewItem.Icon><SymbolIcon Symbol="Import" /></NavigationViewItem.Icon></NavigationViewItem>
                 <NavigationViewItem x:Name="NavMetadata" Content="Metadata" Tag="metadata"><NavigationViewItem.Icon><SymbolIcon Symbol="Tag" /></NavigationViewItem.Icon></NavigationViewItem>
@@ -65,189 +69,673 @@
             </NavigationView.PaneFooter>
 
             <Grid>
-                <Grid x:Name="SourcePanel" Visibility="Collapsed" Padding="24">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <StackPanel Spacing="3"><TextBlock x:Name="SourceHeading" FontSize="24" FontWeight="SemiBold" Text="Source" /><TextBlock x:Name="SourceSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Information source and target timing authority" /></StackPanel>
-                    <Grid Grid.Row="1" Margin="0,20,0,0" ColumnSpacing="18">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <Border Padding="18" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
-                            <StackPanel Spacing="10"><TextBlock x:Name="SourceRole" FontFamily="Consolas" FontSize="10" Text="INFORMATION SOURCE" /><TextBlock x:Name="SourceName" FontSize="18" FontWeight="SemiBold" Text="Missing" /><TextBlock x:Name="SourcePath" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="SourceDetails" FontFamily="Consolas" FontSize="11" /></StackPanel>
-                        </Border>
-                        <Border Grid.Column="1" Padding="18" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
-                            <StackPanel Spacing="10"><TextBlock x:Name="TargetRole" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource CueAccentBrush}" Text="TARGET AUDIO · ONLY TIMING AUTHORITY" /><TextBlock x:Name="TargetName" FontSize="18" FontWeight="SemiBold" Text="Missing" /><TextBlock x:Name="TargetPath" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" /><TextBlock x:Name="TargetDetails" FontFamily="Consolas" FontSize="11" /><Button x:Name="ReplaceTargetButton" HorizontalAlignment="Left" Content="Replace Target…" Click="ReplaceTarget_Click" /></StackPanel>
-                        </Border>
-                    </Grid>
-                </Grid>
-
-                <Grid x:Name="MetadataPanel" Visibility="Collapsed" Padding="24">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <StackPanel Spacing="3"><TextBlock x:Name="MetadataHeading" FontSize="24" FontWeight="SemiBold" Text="Metadata" /><TextBlock x:Name="MetadataSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Source and target stay visible; only Draft is exported" /></StackPanel>
-                    <Grid Grid.Row="1" Margin="0,20,0,0" RowSpacing="8" ColumnSpacing="12">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                        <TextBlock x:Name="MetaColSource" Grid.Column="1" FontFamily="Consolas" Text="SOURCE" /><TextBlock x:Name="MetaColTarget" Grid.Column="2" FontFamily="Consolas" Text="TARGET" /><TextBlock x:Name="MetaColDraft" Grid.Column="3" FontFamily="Consolas" Foreground="{StaticResource CueAccentBrush}" Text="DRAFT / EXPORTED" />
-                        <TextBlock x:Name="MetaLabelTitle" Grid.Row="1" VerticalAlignment="Center" FontFamily="Consolas" Text="TITLE" /><TextBlock x:Name="SourceTitle" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" /><TextBlock x:Name="TargetTitle" Grid.Row="1" Grid.Column="2" VerticalAlignment="Center" /><TextBox x:Name="DraftTitle" Grid.Row="1" Grid.Column="3" LostFocus="Metadata_LostFocus" />
-                        <TextBlock x:Name="MetaLabelArtist" Grid.Row="2" VerticalAlignment="Center" FontFamily="Consolas" Text="ARTIST" /><TextBlock x:Name="SourceArtist" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" /><TextBlock x:Name="TargetArtist" Grid.Row="2" Grid.Column="2" VerticalAlignment="Center" /><TextBox x:Name="DraftArtist" Grid.Row="2" Grid.Column="3" LostFocus="Metadata_LostFocus" />
-                        <TextBlock x:Name="MetaLabelAlbum" Grid.Row="3" VerticalAlignment="Center" FontFamily="Consolas" Text="ALBUM" /><TextBlock x:Name="SourceAlbum" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" /><TextBlock x:Name="TargetAlbum" Grid.Row="3" Grid.Column="2" VerticalAlignment="Center" /><TextBox x:Name="DraftAlbum" Grid.Row="3" Grid.Column="3" LostFocus="Metadata_LostFocus" />
-                        <TextBlock x:Name="MetaLabelAlbumArtist" Grid.Row="4" VerticalAlignment="Center" FontFamily="Consolas" Text="ALBUM ARTIST" /><TextBlock x:Name="SourceAlbumArtist" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" /><TextBlock x:Name="TargetAlbumArtist" Grid.Row="4" Grid.Column="2" VerticalAlignment="Center" /><TextBox x:Name="DraftAlbumArtist" Grid.Row="4" Grid.Column="3" LostFocus="Metadata_LostFocus" />
-                        <TextBlock x:Name="MetaLabelDate" Grid.Row="5" VerticalAlignment="Center" FontFamily="Consolas" Text="DATE" /><TextBlock x:Name="SourceDate" Grid.Row="5" Grid.Column="1" VerticalAlignment="Center" /><TextBlock x:Name="TargetDate" Grid.Row="5" Grid.Column="2" VerticalAlignment="Center" /><TextBox x:Name="DraftDate" Grid.Row="5" Grid.Column="3" LostFocus="Metadata_LostFocus" />
-                    </Grid>
-                </Grid>
-
-                <Grid x:Name="LyricsPanel" Visibility="Collapsed" Padding="24">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <Grid ColumnSpacing="12"><StackPanel Spacing="3"><TextBlock x:Name="LyricsHeading" FontSize="24" FontWeight="SemiBold" Text="Lyrics" /><TextBlock x:Name="LyricsSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Provider timestamps are discarded before this project sees them" /></StackPanel><StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8"><Button x:Name="AddLyricsButton" Content="Add Lines…" Click="AddLyrics_Click" /><Button x:Name="ImportLyricsButton" Content="Import Text…" Click="ImportLyrics_Click" /><Button x:Name="FetchLyricsButton" Content="Fetch NetEase" Click="FetchLyrics_Click" /></StackPanel></Grid>
-                    <StackPanel Grid.Row="1" Margin="0,12,0,0" Spacing="8">
-                        <TextBlock x:Name="LyricsCreditsLabel" FontSize="12" FontWeight="SemiBold" Text="TITLE / CREDITS" />
-                        <ListView x:Name="LyricsCreditsList" MaxHeight="120">
-                            <ListView.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid ColumnSpacing="8" Padding="0,4">
-                                        <Grid.ColumnDefinitions><ColumnDefinition Width="90" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBox Text="{Binding Label}" LostFocus="CreditLabel_LostFocus" />
-                                        <TextBox Grid.Column="1" Text="{Binding Value}" LostFocus="CreditValue_LostFocus" />
-                                        <Button Grid.Column="2" Content="−" Click="RemoveCredit_Click" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListView.ItemTemplate>
-                        </ListView>
-                        <Button x:Name="AddCreditButton" Content="+" Click="AddCredit_Click" HorizontalAlignment="Left" />
-                    </StackPanel>
-                    <ListView x:Name="LyricsList" Grid.Row="2" Margin="0,16,0,0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Padding="8,5" ColumnSpacing="8">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <StackPanel Spacing="3">
-                                        <TextBlock FontSize="16" Text="{Binding Original}" />
-                                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Translation}" />
+                <Grid x:Name="SourcePanel" Visibility="Collapsed">
+                    <ScrollViewer Padding="22">
+                        <StackPanel MaxWidth="1120" Spacing="18">
+                            <Grid>
+                                <StackPanel Spacing="3">
+                                    <TextBlock x:Name="SourceHeading" FontSize="24" FontWeight="SemiBold" Text="Source" />
+                                    <TextBlock x:Name="SourceSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Information source and target timing authority" />
+                                </StackPanel>
+                                <Border x:Name="TimingAuthorityPill" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="8,3" CornerRadius="10" Background="#32327F9F">
+                                    <TextBlock x:Name="TimingAuthorityText" FontFamily="Consolas" FontSize="10" Text="Target = timing authority" />
+                                </Border>
+                            </Grid>
+                            <Grid ColumnSpacing="18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="210" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock x:Name="SourceCoverLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="REFERENCE COVER" />
+                                        <Image x:Name="SourceCover" Width="178" Height="178" Stretch="Uniform" />
+                                        <TextBlock x:Name="SourceCoverCaption" FontFamily="Consolas" FontSize="10" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                     </StackPanel>
-                                    <Button Grid.Column="1" Content="+" Click="InsertAfter_Click" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="12">
+                                    <Border Padding="18" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                        <StackPanel Spacing="10">
+                                            <TextBlock x:Name="SourceRole" FontFamily="Consolas" FontSize="10" Text="INFORMATION SOURCE" />
+                                            <TextBlock x:Name="SourceName" FontSize="18" FontWeight="SemiBold" Text="Missing" />
+                                            <TextBlock x:Name="SourcePath" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock x:Name="SourceDetails" FontFamily="Consolas" FontSize="11" />
+                                            <Button x:Name="SourceFixedButton" HorizontalAlignment="Left" IsEnabled="False" Content="Fixed for this project" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Padding="18" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                        <StackPanel Spacing="10">
+                                            <TextBlock x:Name="TargetRole" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource CueAccentBrush}" Text="TARGET AUDIO · ONLY TIMING AUTHORITY" />
+                                            <TextBlock x:Name="TargetName" FontSize="18" FontWeight="SemiBold" Text="Missing" />
+                                            <TextBlock x:Name="TargetPath" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                            <TextBlock x:Name="TargetDetails" FontFamily="Consolas" FontSize="11" />
+                                            <Button x:Name="ReplaceTargetButton" HorizontalAlignment="Left" Content="Replace Target…" Click="ReplaceTarget_Click" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Grid>
+                            <Border Padding="16" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                <StackPanel Spacing="4">
+                                    <TextBlock x:Name="TimingIsolationTitle" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="TIMING ISOLATION" />
+                                    <TextBlock x:Name="TimingIsolationBody" TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
 
-                <Grid x:Name="TranslationPanel" Visibility="Collapsed" Padding="24">
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <Grid>
-                        <StackPanel Spacing="3"><TextBlock x:Name="TranslationHeading" FontSize="24" FontWeight="SemiBold" Text="Translation" /><TextBlock x:Name="TranslationSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Line-level only. Originals and timing stay untouched. Gemini uses the Align key, text only." /></StackPanel>
-                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
-                            <TextBox x:Name="TargetLanguageBox" Width="180" Text="Simplified Chinese" PlaceholderText="Target language" />
-                            <Button x:Name="ImportTranslationButton" Content="Import Text…" Click="ImportTranslations_Click" />
-                            <Button x:Name="ClearTranslationButton" Content="Clear All" Click="ClearTranslations_Click" />
-                            <Button x:Name="TranslateButton" Style="{StaticResource AccentButtonStyle}" Content="Translate with Gemini" Click="Translate_Click" />
+                <Grid x:Name="MetadataPanel" Visibility="Collapsed">
+                    <ScrollViewer Padding="22">
+                        <StackPanel MaxWidth="1200" Spacing="18">
+                            <StackPanel Spacing="3">
+                                <TextBlock x:Name="MetadataHeading" FontSize="24" FontWeight="SemiBold" Text="Metadata" />
+                                <TextBlock x:Name="MetadataSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Source and target stay visible; only Draft is exported" />
+                            </StackPanel>
+                            <Grid ColumnSpacing="18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="230" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock x:Name="MetaCoverLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="DRAFT COVER" />
+                                        <Image x:Name="MetaCover" Width="198" Height="198" Stretch="Uniform" />
+                                        <Button x:Name="ChooseCoverButton" HorizontalAlignment="Left" Content="Choose Cover…" Click="ChooseCover_Click" />
+                                        <TextBlock x:Name="MetaCoverHint" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                                <StackPanel Grid.Column="1" Spacing="0">
+                                    <Grid Padding="12" ColumnSpacing="12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock x:Name="MetaColField" FontFamily="Consolas" FontSize="10" Text="FIELD" />
+                                        <TextBlock x:Name="MetaColSource" Grid.Column="1" FontFamily="Consolas" FontSize="10" Text="SOURCE" />
+                                        <TextBlock x:Name="MetaColTarget" Grid.Column="2" FontFamily="Consolas" FontSize="10" Text="TARGET" />
+                                        <TextBlock x:Name="MetaColDraft" Grid.Column="3" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource CueAccentBrush}" Text="DRAFT" />
+                                    </Grid>
+                                    <Grid Padding="12" ColumnSpacing="8" RowSpacing="10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock x:Name="MetaLabelTitle" VerticalAlignment="Center" FontFamily="Consolas" Text="TITLE" />
+                                        <TextBlock x:Name="SourceTitle" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Column="2" Content="→" Tag="title|source" Click="AdoptMetadata_Click" />
+                                        <TextBlock x:Name="TargetTitle" Grid.Column="3" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Column="4" Content="→" Tag="title|target" Click="AdoptMetadata_Click" />
+                                        <TextBox x:Name="DraftTitle" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                        <TextBlock x:Name="MetaLabelArtist" Grid.Row="1" VerticalAlignment="Center" FontFamily="Consolas" Text="ARTIST" />
+                                        <TextBlock x:Name="SourceArtist" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Row="1" Grid.Column="2" Content="→" Tag="artists|source" Click="AdoptMetadata_Click" />
+                                        <TextBlock x:Name="TargetArtist" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Row="1" Grid.Column="4" Content="→" Tag="artists|target" Click="AdoptMetadata_Click" />
+                                        <TextBox x:Name="DraftArtist" Grid.Row="1" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                        <TextBlock x:Name="MetaLabelAlbumArtist" Grid.Row="2" VerticalAlignment="Center" FontFamily="Consolas" Text="ALBUM ARTIST" />
+                                        <TextBlock x:Name="SourceAlbumArtist" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Row="2" Grid.Column="2" Content="→" Tag="albumArtist|source" Click="AdoptMetadata_Click" />
+                                        <TextBlock x:Name="TargetAlbumArtist" Grid.Row="2" Grid.Column="3" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Row="2" Grid.Column="4" Content="→" Tag="albumArtist|target" Click="AdoptMetadata_Click" />
+                                        <TextBox x:Name="DraftAlbumArtist" Grid.Row="2" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                        <TextBlock x:Name="MetaLabelAlbum" Grid.Row="3" VerticalAlignment="Center" FontFamily="Consolas" Text="ALBUM" />
+                                        <TextBlock x:Name="SourceAlbum" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Row="3" Grid.Column="2" Content="→" Tag="album|source" Click="AdoptMetadata_Click" />
+                                        <TextBlock x:Name="TargetAlbum" Grid.Row="3" Grid.Column="3" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                        <Button Grid.Row="3" Grid.Column="4" Content="→" Tag="album|target" Click="AdoptMetadata_Click" />
+                                        <TextBox x:Name="DraftAlbum" Grid.Row="3" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                        <TextBlock x:Name="MetaLabelDate" Grid.Row="4" VerticalAlignment="Center" FontFamily="Consolas" Text="DATE" />
+                                        <TextBlock x:Name="SourceDate" Grid.Row="4" Grid.Column="1" VerticalAlignment="Center" />
+                                        <Button Grid.Row="4" Grid.Column="2" Content="→" Tag="date|source" Click="AdoptMetadata_Click" />
+                                        <TextBlock x:Name="TargetDate" Grid.Row="4" Grid.Column="3" VerticalAlignment="Center" />
+                                        <Button Grid.Row="4" Grid.Column="4" Content="→" Tag="date|target" Click="AdoptMetadata_Click" />
+                                        <TextBox x:Name="DraftDate" Grid.Row="4" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+                                    </Grid>
+                                    <Expander x:Name="MetaAdvanced" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                        <Expander.Header>
+                                            <TextBlock x:Name="MetaAdvancedLabel" FontFamily="Consolas" FontSize="10" Text="ADVANCED METADATA" />
+                                        </Expander.Header>
+                                        <Grid Padding="12" ColumnSpacing="8" RowSpacing="10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="100" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock x:Name="MetaLabelTrack" VerticalAlignment="Center" FontFamily="Consolas" Text="TRACK" />
+                                            <TextBlock x:Name="SourceTrack" Grid.Column="1" VerticalAlignment="Center" />
+                                            <Button Grid.Column="2" Content="→" Tag="track|source" Click="AdoptMetadata_Click" />
+                                            <TextBlock x:Name="TargetTrack" Grid.Column="3" VerticalAlignment="Center" />
+                                            <Button Grid.Column="4" Content="→" Tag="track|target" Click="AdoptMetadata_Click" />
+                                            <TextBox x:Name="DraftTrack" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                            <TextBlock x:Name="MetaLabelDisc" Grid.Row="1" VerticalAlignment="Center" FontFamily="Consolas" Text="DISC" />
+                                            <TextBlock x:Name="SourceDisc" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" />
+                                            <Button Grid.Row="1" Grid.Column="2" Content="→" Tag="disc|source" Click="AdoptMetadata_Click" />
+                                            <TextBlock x:Name="TargetDisc" Grid.Row="1" Grid.Column="3" VerticalAlignment="Center" />
+                                            <Button Grid.Row="1" Grid.Column="4" Content="→" Tag="disc|target" Click="AdoptMetadata_Click" />
+                                            <TextBox x:Name="DraftDisc" Grid.Row="1" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                            <TextBlock x:Name="MetaLabelComposer" Grid.Row="2" VerticalAlignment="Center" FontFamily="Consolas" Text="COMPOSER" />
+                                            <TextBlock x:Name="SourceComposer" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <Button Grid.Row="2" Grid.Column="2" Content="→" Tag="composer|source" Click="AdoptMetadata_Click" />
+                                            <TextBlock x:Name="TargetComposer" Grid.Row="2" Grid.Column="3" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <Button Grid.Row="2" Grid.Column="4" Content="→" Tag="composer|target" Click="AdoptMetadata_Click" />
+                                            <TextBox x:Name="DraftComposer" Grid.Row="2" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+
+                                            <TextBlock x:Name="MetaLabelLyricist" Grid.Row="3" VerticalAlignment="Center" FontFamily="Consolas" Text="LYRICIST" />
+                                            <TextBlock x:Name="SourceLyricist" Grid.Row="3" Grid.Column="1" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <Button Grid.Row="3" Grid.Column="2" Content="→" Tag="lyricist|source" Click="AdoptMetadata_Click" />
+                                            <TextBlock x:Name="TargetLyricist" Grid.Row="3" Grid.Column="3" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <Button Grid.Row="3" Grid.Column="4" Content="→" Tag="lyricist|target" Click="AdoptMetadata_Click" />
+                                            <TextBox x:Name="DraftLyricist" Grid.Row="3" Grid.Column="5" LostFocus="Metadata_LostFocus" />
+                                        </Grid>
+                                    </Expander>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <Grid x:Name="LyricsPanel" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="72" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Padding="20,0" ColumnSpacing="12">
+                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                            <TextBlock x:Name="LyricsHeading" FontSize="24" FontWeight="SemiBold" Text="Lyrics" />
+                            <TextBlock x:Name="LyricsSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Source text only · timing is always rebuilt" />
+                        </StackPanel>
+                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="RequestPreviewButton" Content="Request Preview" Click="RequestPreview_Click" />
+                            <Button x:Name="AddLyricsButton" Content="Add Lines…" Click="AddLyrics_Click" />
+                            <Button x:Name="ImportLyricsButton" Content="Import Text…" Click="ImportLyrics_Click" />
+                            <Button x:Name="FetchLyricsButton" Content="Fetch NetEase" Click="FetchLyrics_Click" />
                         </StackPanel>
                     </Grid>
-                    <ListView x:Name="TranslationList" Grid.Row="1" Margin="0,16,0,0">
-                        <ListView.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Padding="8,6" ColumnSpacing="16">
-                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                                    <TextBlock FontSize="15" TextWrapping="Wrap" Text="{Binding Original}" />
-                                    <TextBox Grid.Column="1" Text="{Binding Translation}" LostFocus="Translation_LostFocus" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
-                </Grid>
-
-                <Grid x:Name="AlignmentPanel" Visibility="Collapsed">
-                    <Grid.RowDefinitions><RowDefinition Height="44" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                    <CommandBar DefaultLabelPosition="Collapsed" IsOpen="False">
-                        <AppBarButton x:Name="PlayButton" Icon="Play" Label="Play / Pause" Click="Play_Click" />
-                        <CommandBar.Content>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                                <ComboBox x:Name="SpeedPicker" Width="82" SelectedIndex="2" SelectionChanged="Speed_Changed">
-                                    <ComboBoxItem Content="0.50×" Tag="0.5" /><ComboBoxItem Content="0.75×" Tag="0.75" /><ComboBoxItem Content="1.00×" Tag="1" /><ComboBoxItem Content="1.25×" Tag="1.25" /><ComboBoxItem Content="1.50×" Tag="1.5" /><ComboBoxItem Content="2.00×" Tag="2" />
-                                </ComboBox>
-                                <Button x:Name="LoopAButton" Content="A" Click="LoopA_Click" ToolTipService.ToolTip="Set loop start (A)" />
-                                <Button x:Name="LoopBButton" Content="B" Click="LoopB_Click" ToolTipService.ToolTip="Set loop end (B)" />
-                                <Button x:Name="LoopClearButton" Content="Clear" Click="LoopClear_Click" />
-                                <ToggleButton x:Name="FollowButton" Content="Follow" Checked="Follow_Changed" Unchecked="Follow_Changed" ToolTipService.ToolTip="Keep the playhead in view" />
-                                <ToggleButton x:Name="NextButton" Content="Next" Checked="Next_Changed" Unchecked="Next_Changed" ToolTipService.ToolTip="Keep selection on the lyric after the playhead" />
-                                <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" />
-                                <Button x:Name="AlignButton" Style="{StaticResource AccentButtonStyle}" Content="Run Gemini" Click="Align_Click" />
-                                <Button x:Name="RestoreButton" Content="Restore AI" Click="RestoreGemini_Click" />
-                                <Slider x:Name="ZoomSlider" Width="130" VerticalAlignment="Center" ValueChanged="Zoom_Changed" />
-                                <TextBlock x:Name="ZoomText" Width="40" VerticalAlignment="Center" FontFamily="Consolas" Text="1.0×" />
-                                <TextBlock x:Name="PlaybackTime" VerticalAlignment="Center" FontFamily="Consolas" Text="00:00.000" />
+                    <Grid x:Name="LyricsEmpty" Grid.Row="1" Padding="34" Visibility="Collapsed">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="16" MaxWidth="520">
+                            <TextBlock x:Name="LyricsEmptyTitle" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Text="No lyric text" />
+                            <TextBlock x:Name="LyricsEmptyDetail" TextWrapping="Wrap" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="8">
+                                <Button x:Name="LyricsEmptyAdd" Content="Add Lines…" Click="AddLyrics_Click" />
+                                <Button x:Name="LyricsEmptyImport" Content="Import Text…" Click="ImportLyrics_Click" />
+                                <Button x:Name="LyricsEmptyFetch" Content="Fetch NetEase" Click="FetchLyrics_Click" />
                             </StackPanel>
-                        </CommandBar.Content>
-                        <CommandBar.SecondaryCommands>
-                            <AppBarButton x:Name="HotkeyHintButton" Label="Space play; Return select playing lyric; Tab next lyric; arrows seek/navigate; Esc clear A-B; =/− rate; Ctrl+=/− zoom." />
-                        </CommandBar.SecondaryCommands>
-                    </CommandBar>
-                    <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="280" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        </StackPanel>
+                    </Grid>
+                    <Grid x:Name="LyricsSplit" Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300" MinWidth="250" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,1,0">
-                            <Grid>
-                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                <StackPanel>
-                                <StackPanel x:Name="CreditIntroBanner" Visibility="Collapsed" Orientation="Horizontal" Padding="10,6" Spacing="8">
-                                    <TextBlock x:Name="CreditIntroText" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                    <Button x:Name="MergeCreditsButton" Click="MergeCredits_Click" />
+                            <ScrollViewer Padding="14">
+                                <StackPanel Spacing="14">
+                                    <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                        <StackPanel Spacing="8">
+                                            <Grid>
+                                                <TextBlock x:Name="LyricsCreditsLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="TITLE / CREDITS" />
+                                                <Button x:Name="AddCreditButton" HorizontalAlignment="Right" Content="+" Click="AddCredit_Click" />
+                                            </Grid>
+                                            <TextBlock x:Name="LyricsNoCredits" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
+                                            <ListView x:Name="LyricsCreditsList" SelectionMode="None">
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid ColumnSpacing="8" Padding="0,4">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="90" />
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <TextBox Text="{Binding Label}" LostFocus="CreditLabel_LostFocus" />
+                                                            <TextBox Grid.Column="1" Text="{Binding Value}" LostFocus="CreditValue_LostFocus" />
+                                                            <Button Grid.Column="2" Content="−" Click="RemoveCredit_Click" />
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+                                            <TextBlock x:Name="LyricsCreditsNote" FontSize="11" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock x:Name="LyricsTranslationLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="TRANSLATION" />
+                                            <TextBlock x:Name="LyricsTranslationPill" FontFamily="Consolas" FontSize="10" />
+                                            <TextBlock x:Name="LyricsTranslationHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                            <Button x:Name="OpenTranslationButton" HorizontalAlignment="Left" Content="Open Translation" Click="OpenTranslation_Click" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <ListView x:Name="CreditsList" MaxHeight="140" SelectionMode="None" IsItemClickEnabled="True" ItemClick="CreditsList_ItemClick">
+                            </ScrollViewer>
+                        </Border>
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Padding="12">
+                                <TextBlock x:Name="LyricsLinesLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="LYRIC LINES" />
+                                <TextBlock x:Name="LyricsLinesMeta" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </Grid>
+                            <Grid Grid.Row="1">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Button x:Name="InsertAtStartButton" Margin="12,0" HorizontalAlignment="Left" Content="Insert here" Click="InsertAtStart_Click" />
+                                <ListView x:Name="LyricsList" Grid.Row="1">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
-                                            <StackPanel Padding="10,6" Spacing="2">
-                                                <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Text}" TextWrapping="Wrap" />
-                                                <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Time}" />
-                                            </StackPanel>
+                                            <Grid Padding="8,6" ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="44" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="72" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding LineIdText}" />
+                                                <TextBox Grid.Column="1" Text="{Binding Original}" LostFocus="LyricOriginal_LostFocus" />
+                                                <TextBlock Grid.Column="2" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding SegmentIdText}" />
+                                                <Button Grid.Column="3" Content="+" Click="InsertAfter_Click" />
+                                            </Grid>
                                         </DataTemplate>
                                     </ListView.ItemTemplate>
                                 </ListView>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <Grid x:Name="TranslationPanel" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="72" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Padding="20,0">
+                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                            <TextBlock x:Name="TranslationHeading" FontSize="24" FontWeight="SemiBold" Text="Translation" />
+                            <TextBlock x:Name="TranslationSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Line-level only. Originals and timing stay untouched." />
+                        </StackPanel>
+                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="ImportTranslationButton" Content="Import Text…" Click="ImportTranslations_Click" />
+                            <Button x:Name="ClearTranslationButton" Content="Clear All" Click="ClearTranslations_Click" />
+                            <Button x:Name="TranslateButton" Style="{StaticResource AccentButtonStyle}" Content="Translate" Click="Translate_Click" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid x:Name="TranslationEmpty" Grid.Row="1" Padding="34" Visibility="Collapsed">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="10" MaxWidth="480">
+                            <TextBlock x:Name="TranslationEmptyTitle" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Text="No lyric lines" />
+                            <TextBlock x:Name="TranslationEmptyDetail" TextWrapping="Wrap" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid x:Name="TranslationSplit" Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="300" MinWidth="250" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,1,0">
+                            <ScrollViewer Padding="14">
+                                <StackPanel Spacing="14">
+                                    <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock x:Name="TranslationProviderLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="GEMINI" />
+                                            <TextBlock x:Name="TranslationProviderPill" FontFamily="Consolas" FontSize="10" />
+                                            <TextBlock x:Name="TranslationKeyPill" FontFamily="Consolas" FontSize="10" />
+                                            <TextBlock x:Name="TranslationGeminiHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                            <TextBox x:Name="TargetLanguageBox" PlaceholderText="Target language" />
+                                        </StackPanel>
+                                    </Border>
+                                    <Border Padding="12" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                        <StackPanel Spacing="8">
+                                            <TextBlock x:Name="TranslationCoverageLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="COVERAGE" />
+                                            <TextBlock x:Name="TranslationCoveragePill" FontFamily="Consolas" FontSize="10" />
+                                            <TextBlock x:Name="TranslationCoverageHint" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                    </Border>
                                 </StackPanel>
-                                <ListView Grid.Row="1" x:Name="AlignmentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="AlignmentList_ItemClick">
-                                <ListView.ItemTemplate><DataTemplate><Grid Padding="10,8"><Grid.ColumnDefinitions><ColumnDefinition Width="28" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions><TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding Id}" /><StackPanel Grid.Column="1" Spacing="2"><TextBlock FontSize="15" Text="{Binding Text}" TextWrapping="Wrap" /><TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Timing.Final.TimeMs}" /></StackPanel></Grid></DataTemplate></ListView.ItemTemplate>
+                            </ScrollViewer>
+                        </Border>
+                        <Grid Grid.Column="1">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+                            <Grid Padding="12">
+                                <TextBlock x:Name="TranslationLineHeader" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" />
+                                <TextBlock x:Name="TranslationLinesCount" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </Grid>
+                            <ListView x:Name="TranslationList" Grid.Row="1">
+                                <ListView.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Padding="10,8" Spacing="6">
+                                            <Grid ColumnSpacing="8">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="44" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding LineIdText}" />
+                                                <TextBlock Grid.Column="1" TextWrapping="Wrap" Text="{Binding Original}" />
+                                            </Grid>
+                                            <TextBox Text="{Binding Translation}" LostFocus="Translation_LostFocus" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListView.ItemTemplate>
                             </ListView>
+                        </Grid>
+                    </Grid>
+                </Grid>
+
+                <Grid x:Name="AlignmentPanel" Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="72" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Grid Padding="20,0">
+                        <StackPanel VerticalAlignment="Center" Spacing="3">
+                            <TextBlock x:Name="AlignHeading" FontFamily="Consolas" FontSize="19" FontWeight="SemiBold" Text="TIMELINE" />
+                            <TextBlock x:Name="AlignSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Target audio is the only timing authority" />
+                        </StackPanel>
+                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Button x:Name="RestoreButton" Content="Restore Gemini" Click="RestoreGemini_Click" />
+                            <Button x:Name="AlignButton" Style="{StaticResource AccentButtonStyle}" Content="Align All" Click="Align_Click" />
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel x:Name="CreditIntroBanner" Grid.Row="1" Visibility="Collapsed" Orientation="Horizontal" Padding="20,8" Spacing="8">
+                        <TextBlock x:Name="CreditIntroText" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center" />
+                        <Button x:Name="MergeCreditsButton" Click="MergeCredits_Click" />
+                    </StackPanel>
+                    <Grid x:Name="AlignmentEmpty" Grid.Row="2" Visibility="Collapsed">
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="8" MaxWidth="460">
+                            <TextBlock x:Name="AlignEmptyTitle" FontSize="22" FontWeight="SemiBold" HorizontalAlignment="Center" Text="No lyric segments" />
+                            <TextBlock x:Name="AlignEmptyDetail" TextWrapping="Wrap" HorizontalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid x:Name="AlignmentBody" Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="280" MinWidth="200" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,1,0">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="*" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid Padding="12">
+                                    <TextBlock x:Name="SegmentsLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="SEGMENTS" />
+                                    <TextBlock x:Name="SegmentCount" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                </Grid>
+                                <ScrollViewer Grid.Row="1">
+                                    <StackPanel>
+                                        <TextBlock x:Name="CreditsSectionLabel" Margin="10,8,10,0" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="TITLE / CREDITS" />
+                                        <ListView x:Name="CreditsList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="CreditsList_ItemClick">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Padding="10,6" Spacing="2">
+                                                        <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Text}" TextWrapping="Wrap" />
+                                                        <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Time}" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                        <TextBlock x:Name="LyricsSectionLabel" Margin="10,8,10,0" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="LYRICS" />
+                                        <ListView x:Name="AlignmentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="AlignmentList_ItemClick" ContainerContentChanging="AlignmentList_ContainerChanging">
+                                            <ListView.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Padding="8,6" ColumnSpacing="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="36" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <CheckBox Click="SegmentInclude_Click" />
+                                                        <TextBlock Grid.Column="1" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding IdText}" />
+                                                        <StackPanel Grid.Column="2" Spacing="2">
+                                                            <TextBlock FontSize="14" Text="{Binding Text}" TextWrapping="Wrap" />
+                                                            <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Time}" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListView.ItemTemplate>
+                                        </ListView>
+                                    </StackPanel>
+                                </ScrollViewer>
+                                <StackPanel Grid.Row="2" Padding="10" Spacing="7" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+                                    <Grid>
+                                        <TextBlock x:Name="BatchSelectedText" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6">
+                                            <Button x:Name="BatchAllButton" Content="All" Click="BatchAll_Click" />
+                                            <Button x:Name="BatchClearButton" Content="Clear" Click="BatchClear_Click" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <Button x:Name="BatchClearFinalButton" HorizontalAlignment="Right" Content="Clear Final" Click="BatchClearFinal_Click" />
+                                </StackPanel>
                             </Grid>
                         </Border>
                         <Grid Grid.Column="1">
-                            <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="220" /></Grid.RowDefinitions>
-                            <timeline:TimelineControl x:Name="Timeline" />
-                            <Border Grid.Row="1" Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="42" />
+                                <RowDefinition Height="*" />
+                                <RowDefinition Height="220" MinHeight="180" />
+                            </Grid.RowDefinitions>
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Padding="8,0">
+                                    <Button x:Name="PlayButton" Width="36" Click="Play_Click" />
+                                    <ComboBox x:Name="SpeedPicker" Width="82" SelectedIndex="2" SelectionChanged="Speed_Changed">
+                                        <ComboBoxItem Content="0.50×" Tag="0.5" />
+                                        <ComboBoxItem Content="0.75×" Tag="0.75" />
+                                        <ComboBoxItem Content="1.00×" Tag="1" />
+                                        <ComboBoxItem Content="1.25×" Tag="1.25" />
+                                        <ComboBoxItem Content="1.50×" Tag="1.5" />
+                                        <ComboBoxItem Content="2.00×" Tag="2" />
+                                    </ComboBox>
+                                    <Button x:Name="LoopAButton" Content="A" Click="LoopA_Click" />
+                                    <Button x:Name="LoopBButton" Content="B" Click="LoopB_Click" />
+                                    <Button x:Name="LoopClearButton" Content="Clear" Click="LoopClear_Click" />
+                                    <ToggleButton x:Name="FollowButton" Content="Follow" Checked="Follow_Changed" Unchecked="Follow_Changed" />
+                                    <ToggleButton x:Name="NextButton" Content="Next" Checked="Next_Changed" Unchecked="Next_Changed" />
+                                    <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" />
+                                    <Button x:Name="AlignUndoButton" Content="Undo" Click="Undo_Click" />
+                                    <Button x:Name="AlignRedoButton" Content="Redo" Click="Redo_Click" />
+                                    <TextBlock x:Name="HotkeyHint" VerticalAlignment="Center" FontSize="11" Opacity=".55" Text="Hotkeys" />
+                                    <Slider x:Name="ZoomSlider" Width="130" VerticalAlignment="Center" ValueChanged="Zoom_Changed" />
+                                    <TextBlock x:Name="ZoomText" Width="44" VerticalAlignment="Center" FontFamily="Consolas" Text="2.0×" />
+                                    <TextBlock x:Name="PlaybackTime" VerticalAlignment="Center" FontFamily="Consolas" Text="00:00.000" />
+                                </StackPanel>
+                            </ScrollViewer>
+                            <timeline:TimelineControl x:Name="Timeline" Grid.Row="1" />
+                            <Border Grid.Row="2" Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                                 <Grid>
-                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                                    <StackPanel><TextBlock x:Name="InspectorLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="NO SEGMENT SELECTED" /><TextBlock x:Name="InspectorText" FontSize="19" FontWeight="SemiBold" Text="Press Enter to select the playing lyric, or Tab for the next one." /><TextBlock x:Name="InspectorTranslation" Margin="0,4,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Translation is edited on the Translation page." /></StackPanel>
-                                    <StackPanel Grid.Row="1" Margin="0,9,0,0" Orientation="Horizontal" Spacing="12"><TextBlock x:Name="GeminiTime" FontFamily="Consolas" Text="GEMINI —" /><TextBlock x:Name="FinalTime" FontFamily="Consolas" Text="FINAL —" /></StackPanel>
-                                    <StackPanel Grid.Row="2" Margin="0,9,0,0" Orientation="Horizontal" Spacing="6"><Button Content="−50" Click="Nudge_Click" Tag="-50" /><Button Content="−10" Click="Nudge_Click" Tag="-10" /><Button Content="−1" Click="Nudge_Click" Tag="-1" /><Button Content="+1" Click="Nudge_Click" Tag="1" /><Button Content="+10" Click="Nudge_Click" Tag="10" /><Button Content="+50" Click="Nudge_Click" Tag="50" /><Button x:Name="PlayAroundButton" Content="Play 2s Before" Click="PlayAround_Click" /><Button x:Name="UseGeminiButton" Content="Use Gemini" Click="UseGemini_Click" /></StackPanel>
+                                    <StackPanel x:Name="InspectorEmpty" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
+                                        <TextBlock x:Name="InspectEmptyTitle" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Text="Select a segment" />
+                                        <TextBlock x:Name="InspectEmptyDetail" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <StackPanel x:Name="InspectorCredit" Visibility="Collapsed" Spacing="10">
+                                        <TextBlock x:Name="CreditInspectorLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="TITLE / CREDITS" />
+                                        <TextBlock x:Name="CreditInspectorText" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock x:Name="CreditInspectorTime" VerticalAlignment="Center" FontFamily="Consolas" />
+                                            <Button x:Name="CreditMarkButton" Content="Mark at Playhead" Click="Mark_Click" />
+                                            <Button Content="−50" Click="Nudge_Click" Tag="-50" />
+                                            <Button Content="−10" Click="Nudge_Click" Tag="-10" />
+                                            <Button Content="−1" Click="Nudge_Click" Tag="-1" />
+                                            <Button Content="+1" Click="Nudge_Click" Tag="1" />
+                                            <Button Content="+10" Click="Nudge_Click" Tag="10" />
+                                            <Button Content="+50" Click="Nudge_Click" Tag="50" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <StackPanel x:Name="InspectorSegment" Visibility="Collapsed" Spacing="10">
+                                        <StackPanel>
+                                            <TextBlock x:Name="InspectorLabel" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="SEGMENT" />
+                                            <TextBlock x:Name="InspectorText" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <TextBlock x:Name="InspectorTranslation" Margin="0,4,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                            <StackPanel Width="140" Padding="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                                <Grid>
+                                                    <TextBlock FontFamily="Consolas" FontSize="9" Text="GEMINI" />
+                                                    <TextBlock x:Name="GeminiConfidence" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="10" Opacity=".7" />
+                                                </Grid>
+                                                <TextBlock x:Name="GeminiTime" FontFamily="Consolas" FontSize="14" />
+                                            </StackPanel>
+                                            <StackPanel Width="140" Padding="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
+                                                <Grid>
+                                                    <TextBlock FontFamily="Consolas" FontSize="9" Text="FINAL" />
+                                                    <TextBlock x:Name="FinalConfidence" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="10" Opacity=".7" />
+                                                </Grid>
+                                                <TextBlock x:Name="FinalTime" FontFamily="Consolas" FontSize="14" />
+                                            </StackPanel>
+                                            <Button Content="−50" Click="Nudge_Click" Tag="-50" />
+                                            <Button Content="−10" Click="Nudge_Click" Tag="-10" />
+                                            <Button Content="−1" Click="Nudge_Click" Tag="-1" />
+                                            <Button Content="+1" Click="Nudge_Click" Tag="1" />
+                                            <Button Content="+10" Click="Nudge_Click" Tag="10" />
+                                            <Button Content="+50" Click="Nudge_Click" Tag="50" />
+                                            <Button x:Name="PlayAroundButton" Content="Play 2s Before" Click="PlayAround_Click" />
+                                            <Button x:Name="UseGeminiButton" Content="Use Gemini" Click="UseGemini_Click" />
+                                        </StackPanel>
+                                        <StackPanel Spacing="4">
+                                            <TextBlock x:Name="InspectorLyricLabel" FontFamily="Consolas" FontSize="9" Text="LYRIC TEXT" />
+                                            <TextBox x:Name="InspectorLyricBox" LostFocus="InspectorLyric_LostFocus" />
+                                        </StackPanel>
+                                        <Button x:Name="InspectorClearFinal" HorizontalAlignment="Left" Content="Clear Final" Click="ClearFinal_Click" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </Grid>
                     </Grid>
                 </Grid>
 
-                <Grid x:Name="ExportPanel" Visibility="Collapsed" Padding="24">
-                    <Grid ColumnSpacing="24">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="320" /></Grid.ColumnDefinitions>
-                        <StackPanel Spacing="12" VerticalAlignment="Center">
-                            <TextBlock x:Name="ExportHeading" FontSize="24" FontWeight="SemiBold" Text="Final Export" />
-                            <TextBlock x:Name="ExportHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Export Final writes a new MP3 without re-encoding. Save Cue Sheet writes player-agnostic JSON later plugins consume." />
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button x:Name="SaveCueSheetButton" Content="Save Cue Sheet…" Click="ExportCueSheet_Click" />
-                                <Button x:Name="ExportFinalButton" Style="{StaticResource AccentButtonStyle}" Content="Export Final…" Click="Export_Click" />
+                <Grid x:Name="ExportPanel" Visibility="Collapsed">
+                    <ScrollViewer Padding="22">
+                        <StackPanel MaxWidth="1160" Spacing="18">
+                            <StackPanel Spacing="3">
+                                <TextBlock x:Name="ExportHeading" FontSize="24" FontWeight="SemiBold" Text="Final Export" />
+                                <TextBlock x:Name="ExportSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                             </StackPanel>
+                            <Grid ColumnSpacing="18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="360" />
+                                </Grid.ColumnDefinitions>
+                                <Border Padding="16" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                    <StackPanel Spacing="16">
+                                        <Grid ColumnSpacing="16">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="132" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Image x:Name="ExportCover" Width="132" Height="132" Stretch="Uniform" />
+                                            <StackPanel Grid.Column="1" Spacing="8">
+                                                <TextBlock x:Name="ExportSummaryTitle" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                                <TextBlock x:Name="ExportSummaryArtist" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <StackPanel Orientation="Horizontal" Spacing="26">
+                                                    <StackPanel>
+                                                        <TextBlock x:Name="ExportAlbumLabel" FontFamily="Consolas" FontSize="9" Opacity=".6" />
+                                                        <TextBlock x:Name="ExportSummaryAlbum" FontFamily="Consolas" FontSize="12" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock x:Name="ExportAlbumArtistLabel" FontFamily="Consolas" FontSize="9" Opacity=".6" />
+                                                        <TextBlock x:Name="ExportSummaryAlbumArtist" FontFamily="Consolas" FontSize="12" />
+                                                    </StackPanel>
+                                                    <StackPanel>
+                                                        <TextBlock x:Name="ExportReleaseLabel" FontFamily="Consolas" FontSize="9" Opacity=".6" />
+                                                        <TextBlock x:Name="ExportSummaryDate" FontFamily="Consolas" FontSize="12" />
+                                                    </StackPanel>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <Border Padding="8,3" CornerRadius="10" Background="#26346350">
+                                                <TextBlock x:Name="ExportProtectPill" FontFamily="Consolas" FontSize="10" />
+                                            </Border>
+                                            <Border Padding="8,3" CornerRadius="10" Background="#26346350">
+                                                <TextBlock x:Name="ExportReencodePill" FontFamily="Consolas" FontSize="10" />
+                                            </Border>
+                                            <Border Padding="8,3" CornerRadius="10" Background="#26346350">
+                                                <TextBlock x:Name="ExportAtomicPill" FontFamily="Consolas" FontSize="10" />
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Padding="16" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="6">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock x:Name="AdaptersLabel" FontFamily="Consolas" FontSize="10" Text="PLAYER ADAPTERS" />
+                                        <CheckBox x:Name="LrcCheck" Tag="lrc" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed">
+                                            <StackPanel>
+                                                <TextBlock x:Name="LrcCheckTitle" FontFamily="Consolas" FontSize="11" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="LrcCheckDetail" FontSize="11" Opacity=".7" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <CheckBox x:Name="UsltCheck" Tag="uslt" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed">
+                                            <StackPanel>
+                                                <TextBlock x:Name="UsltCheckTitle" FontFamily="Consolas" FontSize="11" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="UsltCheckDetail" FontSize="11" Opacity=".7" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <CheckBox x:Name="SyltCheck" Tag="sylt" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed">
+                                            <StackPanel>
+                                                <TextBlock x:Name="SyltCheckTitle" FontFamily="Consolas" FontSize="11" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="SyltCheckDetail" FontSize="11" Opacity=".7" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <TextBlock x:Name="BilingualLabel" Margin="0,8,0,0" FontFamily="Consolas" FontSize="10" Text="BILINGUAL" />
+                                        <ComboBox x:Name="BilingualPicker" SelectionChanged="Bilingual_Changed">
+                                            <ComboBoxItem x:Name="BilingualOriginal" Content="Original only" Tag="original_only" />
+                                            <ComboBoxItem x:Name="BilingualCombined" Content="Separate translation" Tag="bilingual" />
+                                        </ComboBox>
+                                        <NumberBox x:Name="OffsetBox" SpinButtonPlacementMode="Compact" ValueChanged="Offset_Changed" />
+                                        <CheckBox x:Name="OverwriteCheck">
+                                            <StackPanel>
+                                                <TextBlock x:Name="OverwriteTitle" FontFamily="Consolas" FontSize="11" FontWeight="SemiBold" />
+                                                <TextBlock x:Name="OverwriteHint" FontSize="11" Opacity=".7" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                        </CheckBox>
+                                        <TextBlock x:Name="AdaptersNote" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                            <Grid>
+                                <StackPanel Spacing="3" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ExportOutputLabel" FontFamily="Consolas" FontSize="9" Opacity=".6" />
+                                    <TextBlock x:Name="ExportHint" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+                                    <Button x:Name="SaveCueSheetButton" Content="Save Cue Sheet…" Click="ExportCueSheet_Click" />
+                                    <Button x:Name="ExportFinalButton" Style="{StaticResource AccentButtonStyle}" Content="Export Final…" Click="Export_Click" />
+                                </StackPanel>
+                            </Grid>
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Spacing="10">
-                            <TextBlock x:Name="AdaptersLabel" FontFamily="Consolas" FontSize="10" Text="PLAYER ADAPTERS" />
-                            <CheckBox x:Name="LrcCheck" Content="LRC sidecar" Tag="lrc" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed" />
-                            <CheckBox x:Name="UsltCheck" Content="USLT embedded lyrics" Tag="uslt" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed" />
-                            <CheckBox x:Name="SyltCheck" Content="SYLT synced tags" Tag="sylt" Checked="ExportOption_Changed" Unchecked="ExportOption_Changed" />
-                            <TextBlock x:Name="BilingualLabel" Margin="0,8,0,0" FontFamily="Consolas" FontSize="10" Text="BILINGUAL" />
-                            <ComboBox x:Name="BilingualPicker" SelectionChanged="Bilingual_Changed">
-                                <ComboBoxItem x:Name="BilingualOriginal" Content="Original only" Tag="original_only" />
-                                <ComboBoxItem x:Name="BilingualCombined" Content="Separate translation" Tag="bilingual" />
-                            </ComboBox>
-                            <NumberBox x:Name="OffsetBox" Header="Export offset (ms)" Minimum="-2000" Maximum="2000" SmallChange="10" SpinButtonPlacementMode="Compact" ValueChanged="Offset_Changed" />
-                            <CheckBox x:Name="OverwriteCheck" Content="Overwrite existing output" />
-                        </StackPanel>
-                    </Grid>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
         </NavigationView>
@@ -269,10 +757,21 @@
         </Grid>
 
         <Grid Grid.Row="2" Padding="14,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock x:Name="ActivityText" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Text="No project" />
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel x:Name="StatusPlayback" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                <Button x:Name="StatusPlayButton" Width="32" Padding="4,0" Click="Play_Click" />
+                <TextBlock x:Name="StatusTime" VerticalAlignment="Center" FontFamily="Consolas" FontSize="11" Text="00:00.000 / 00:00.000" />
+                <TextBlock x:Name="StatusLoop" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Foreground="{StaticResource CueAccentBrush}" />
+            </StackPanel>
             <ProgressBar x:Name="BusyBar" Grid.Column="1" Margin="16,0" VerticalAlignment="Center" IsIndeterminate="True" Visibility="Collapsed" />
-            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12"><Button x:Name="CancelButton" Padding="6,0" Content="Cancel" Visibility="Collapsed" Click="Cancel_Click" /></StackPanel>
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                <TextBlock x:Name="ActivityText" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Text="No project" />
+                <Button x:Name="CancelButton" Padding="6,0" Content="Cancel" Visibility="Collapsed" Click="Cancel_Click" />
+            </StackPanel>
         </Grid>
     </Grid>
 </Page>

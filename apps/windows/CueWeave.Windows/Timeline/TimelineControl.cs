@@ -28,6 +28,8 @@ public sealed partial class TimelineControl : UserControl
     private uint? pointerId;
     private double pressedX;
     private bool dragging;
+    private ulong? creditDragId;
+    private bool creditDidMove;
     private int heldStep;
     private ulong? activeId;
 
@@ -58,6 +60,9 @@ public sealed partial class TimelineControl : UserControl
     public event Action<ulong?>? SelectedSegmentChanged;
     public event Action<double>? ZoomChanged;
     public event Action? VisualizationChanged;
+    public event Action? CreditDragStarted;
+    public event Action<ulong, double>? CreditMoved;
+    public event Action? CreditDragEnded;
 
     public TimelineControl()
     {
@@ -307,12 +312,31 @@ public sealed partial class TimelineControl : UserControl
     {
         if (canvas is null) return;
         Focus(FocusState.Pointer); var point = e.GetCurrentPoint(canvas); pointerId = e.Pointer.PointerId;
-        pressedX = point.Position.X; dragging = false; Viewport.GestureActive = true; canvas.CapturePointer(e.Pointer); e.Handled = true;
+        pressedX = point.Position.X; dragging = false; creditDidMove = false;
+        creditDragId = HitCreditAt(point.Position.X, point.Position.Y, canvas.ActualWidth, canvas.ActualHeight);
+        if (creditDragId is ulong creditId) SelectCredit(creditId);
+        Viewport.GestureActive = true; canvas.CapturePointer(e.Pointer); e.Handled = true;
     }
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (canvas is null || pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
+        if (creditDragId is ulong creditId)
+        {
+            if (!creditDidMove && TimelineViewport.IsSelection(pressedX, x))
+            {
+                creditDidMove = true;
+                CreditDragStarted?.Invoke();
+            }
+            if (creditDidMove)
+            {
+                var time = Math.Max(0, Viewport.TimeAt(x, canvas.ActualWidth));
+                PreviewCreditTime(creditId, (ulong)Math.Round(time));
+                CreditMoved?.Invoke(creditId, time);
+                canvas.Invalidate();
+            }
+            return;
+        }
         if (TimelineViewport.IsSelection(pressedX, x)) dragging = true;
         if (dragging) { Viewport.Selection = (Viewport.TimeAt(pressedX, canvas.ActualWidth), Viewport.TimeAt(x, canvas.ActualWidth)); canvas?.Invalidate(); }
     }
@@ -321,15 +345,27 @@ public sealed partial class TimelineControl : UserControl
     {
         if (canvas is null || pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
         canvas.ReleasePointerCapture(e.Pointer); pointerId = null; Viewport.GestureActive = false;
+        if (creditDragId is ulong creditId)
+        {
+            if (creditDidMove)
+            {
+                CreditMoved?.Invoke(creditId, Viewport.TimeAt(x, canvas.ActualWidth));
+                CreditDragEnded?.Invoke();
+            }
+            creditDragId = null; creditDidMove = false; dragging = false; Viewport.Selection = null;
+            CommitViewport(); e.Handled = true; return;
+        }
         if (dragging) Viewport.ZoomSelection(pressedX, x, canvas.ActualWidth);
-        else if (HitCredit(Viewport.TimeAt(x, canvas.ActualWidth)) is ulong creditId) SelectCredit(creditId);
+        else if (HitCredit(Viewport.TimeAt(x, canvas.ActualWidth)) is ulong hit) SelectCredit(hit);
         else { SelectCredit(null); SeekRequested?.Invoke(Viewport.TimeAt(x, canvas.ActualWidth)); }
         dragging = false; Viewport.Selection = null; CommitViewport(); e.Handled = true;
     }
 
     private void OnPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
-        pointerId = null; dragging = false; Viewport.Selection = null; Viewport.GestureActive = false; canvas?.Invalidate();
+        if (creditDidMove) CreditDragEnded?.Invoke();
+        pointerId = null; dragging = false; creditDragId = null; creditDidMove = false;
+        Viewport.Selection = null; Viewport.GestureActive = false; canvas?.Invalidate();
     }
 
     private void PointerWheel(object sender, PointerRoutedEventArgs e)
@@ -484,6 +520,26 @@ public sealed partial class TimelineControl : UserControl
         if (credits.Count == 0) return null;
         var nearest = credits.MinBy(credit => Math.Abs((double)credit.TimeMs - timeMs));
         return Math.Abs((double)nearest.TimeMs - timeMs) <= 120 ? nearest.Id : null;
+    }
+
+    private void PreviewCreditTime(ulong id, ulong timeMs)
+    {
+        credits = [.. credits.Select(credit => credit.Id == id ? (credit.Id, timeMs, credit.Text) : credit)];
+    }
+
+    private ulong? HitCreditAt(double x, double y, double width, double height)
+    {
+        if (credits.Count == 0 || width <= 0 || height <= 0) return null;
+        var layout = TimelineViewport.Layout(height);
+        if (y < layout.Ruler + layout.Waveform + layout.Bands - 6) return null;
+        ulong? best = null;
+        var bestDist = 14.0;
+        foreach (var credit in credits)
+        {
+            var dist = Math.Abs(Viewport.XAt(credit.TimeMs, width) - x);
+            if (dist < bestDist) { bestDist = dist; best = credit.Id; }
+        }
+        return best;
     }
     private static string FormatTime(double ms) => $"{(long)ms / 60000:00}:{(long)ms / 1000 % 60:00}.{(long)ms % 1000:000}";
 }

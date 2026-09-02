@@ -20,7 +20,15 @@ public partial class App : Application
         MainWindow = new MainWindow();
         MainWindow.Activate();
         BootLog.Append("activated");
-        MainWindow.LoadPage();
-        BootLog.Append("page");
+        try
+        {
+            MainWindow.LoadPage();
+            BootLog.Append("page");
+        }
+        catch (Exception ex)
+        {
+            BootLog.Append($"page-fail {ex}");
+            throw;
+        }
     }
 }
