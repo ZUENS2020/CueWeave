@@ -8,7 +8,6 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Storage;
-using Windows.Storage.Pickers;
 
 namespace CueWeave.WinUI;
 
@@ -566,15 +565,24 @@ public sealed partial class MainPage : Page
 
     private async Task<StorageFile?> PickOpenAsync(string title, params string[] extensions)
     {
-        var picker = new FileOpenPicker { SuggestedStartLocation = PickerLocationId.MusicLibrary, ViewMode = PickerViewMode.List, CommitButtonText = title };
-        foreach (var extension in extensions) picker.FileTypeFilter.Add(extension);
-        Initialize(picker); return await picker.PickSingleFileAsync();
+        try { return await FilePickers.OpenAsync(title, extensions); }
+        catch (Exception error)
+        {
+            BootLog.Append($"picker open {error}");
+            await ShowErrorAsync(error.Message);
+            return null;
+        }
     }
 
     private async Task<StorageFile?> PickSaveAsync(string title, string extension, string name)
     {
-        var picker = new FileSavePicker { SuggestedStartLocation = PickerLocationId.MusicLibrary, SuggestedFileName = name, CommitButtonText = title };
-        picker.FileTypeChoices.Add(title, new[] { extension }); Initialize(picker); return await picker.PickSaveFileAsync();
+        try { return await FilePickers.SaveAsync(title, extension, name); }
+        catch (Exception error)
+        {
+            BootLog.Append($"picker save {error}");
+            await ShowErrorAsync(error.Message);
+            return null;
+        }
     }
 
     private async Task<bool?> ResolveExportOverwriteAsync(string path)
@@ -594,7 +602,6 @@ public sealed partial class MainPage : Page
         return await dialog.ShowAsync() == ContentDialogResult.Primary ? true : null;
     }
 
-    private static void Initialize(object picker) => WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(App.MainWindow));
     private async Task ShowErrorAsync(string message) => await new ContentDialog { XamlRoot = XamlRoot, Title = "CueWeave", Content = L10n.WrapError(message), CloseButtonText = L10n.T("action.ok") }.ShowAsync();
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     private static string Join(IEnumerable<string> values, string separator = ", ") => string.Join(separator, values.DefaultIfEmpty("—"));

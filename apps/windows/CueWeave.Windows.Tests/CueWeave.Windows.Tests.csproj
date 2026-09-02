@@ -10,6 +10,7 @@
     <Compile Include="..\CueWeave.Windows\Timeline\AudioVizCatalog.cs" Link="AudioVizCatalog.cs" />
     <Compile Include="..\CueWeave.Windows\Services\WaveformAnalyzer.cs" Link="WaveformAnalyzer.cs" />
     <Compile Include="..\CueWeave.Windows\Services\CoreRpc.cs" Link="CoreRpc.cs" />
+    <Compile Include="..\CueWeave.Windows\Services\WinPaths.cs" Link="WinPaths.cs" />
     <Compile Include="..\CueWeave.Windows\Services\LocalSettingsStore.cs" Link="LocalSettingsStore.cs" />
     <Compile Include="..\CueWeave.Windows\Services\L10n.cs" Link="L10n.cs" />
     <Compile Include="..\CueWeave.Windows\Models\LocalSettings.cs" Link="LocalSettings.cs" />

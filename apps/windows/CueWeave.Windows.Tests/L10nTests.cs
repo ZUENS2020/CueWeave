@@ -31,6 +31,7 @@ public sealed class L10nTests
         StringAssert.Contains(
             L10n.WrapError("'i' is invalid after a value. Expected either ',', '}', or ']'."),
             "无效响应");
+        StringAssert.Contains(L10n.WrapError("指定的路径过长。"), "更短的目录");
         L10n.Apply("system");
     }
 }

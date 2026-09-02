@@ -64,9 +64,9 @@ public sealed class CoreProcess
             {
                 return CoreRpc.ReadResult(stdout, requestId);
             }
-            catch (CoreException exception) when (exception.Code == "invalid_response")
+            catch (CoreException exception)
             {
-                LogBoot($"rpc {command} stdout={stdout.Length} {CoreRpc.Preview(stdout)}");
+                BootLog.Append($"rpc {command} {exception.Code} stdout={stdout.Length} {CoreRpc.Preview(stdout)}");
                 throw;
             }
         } finally {
@@ -100,16 +100,5 @@ public sealed class CoreProcess
         using var buffer = new MemoryStream();
         await stream.CopyToAsync(buffer, token);
         return buffer.ToArray();
-    }
-
-    private static void LogBoot(string message)
-    {
-        try
-        {
-            File.AppendAllText(
-                Path.Combine(AppContext.BaseDirectory, "boot.log"),
-                $"{DateTime.Now:O} {message}{Environment.NewLine}");
-        }
-        catch { /* boot diagnostics must not throw */ }
     }
 }

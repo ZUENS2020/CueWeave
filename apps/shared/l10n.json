@@ -368,7 +368,8 @@
     "pick.cover": "Choose PNG or JPEG cover art",
     "action.newShort": "New",
     "action.openShort": "Open",
-    "error.cliMissingWin": "cueweave-cli.exe was not found beside CueWeave or in target\\release."
+    "error.cliMissingWin": "cueweave-cli.exe was not found beside CueWeave or in target\\release.",
+    "error.pathTooLong": "That Windows path is too long for the file picker. Save the CueWeave project in a shorter folder such as Desktop, then retry.\n\n{0}"
   },
   "zh": {
     "lang.system": "跟随系统",
@@ -739,6 +740,7 @@
     "pick.cover": "选择 PNG 或 JPEG 封面",
     "action.newShort": "新建",
     "action.openShort": "打开",
-    "error.cliMissingWin": "在 CueWeave 旁边或 target\\release 中找不到 cueweave-cli.exe。"
+    "error.cliMissingWin": "在 CueWeave 旁边或 target\\release 中找不到 cueweave-cli.exe。",
+    "error.pathTooLong": "这个路径超过了 Windows 文件选择器的限制。请把工程存到更短的目录（例如桌面）后再试。\n\n{0}"
   }
 }

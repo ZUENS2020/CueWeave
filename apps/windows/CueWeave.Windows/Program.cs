@@ -1,4 +1,5 @@
 using Microsoft.UI.Dispatching;
+using CueWeave.WinUI.Services;
 using Microsoft.UI.Xaml;
 using WinRT;
 
@@ -9,10 +10,9 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
-        var log = Path.Combine(AppContext.BaseDirectory, "boot.log");
         try
         {
-            File.WriteAllText(log, $"{DateTime.Now:O} main{Environment.NewLine}");
+            BootLog.Append("main");
             Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY", AppContext.BaseDirectory);
             Environment.SetEnvironmentVariable("MICROSOFT_WINDOWSAPPRUNTIME_BASE_DIRECTORY_PID",
                 Environment.ProcessId.ToString(System.Globalization.CultureInfo.InvariantCulture));
@@ -21,13 +21,13 @@ internal static class Program
             {
                 SynchronizationContext.SetSynchronizationContext(
                     new DispatcherQueueSynchronizationContext(DispatcherQueue.GetForCurrentThread()));
-                File.AppendAllText(log, $"{DateTime.Now:O} app{Environment.NewLine}");
+                BootLog.Append("app");
                 new App();
             });
         }
         catch (Exception ex)
         {
-            File.AppendAllText(log, ex.ToString());
+            BootLog.Append(ex.ToString());
         }
     }
 }

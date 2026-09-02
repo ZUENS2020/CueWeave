@@ -45,6 +45,8 @@ public static class L10n
         if (message.Contains("invalid after a value", StringComparison.OrdinalIgnoreCase)
             && !message.Contains("CueWeave Core"))
             return T("error.invalidResponse", message);
+        if (WinPaths.IsTooLong(message))
+            return T("error.pathTooLong", message);
         return message;
     }
 
