@@ -15,7 +15,7 @@ namespace CueWeave.WinUI.Timeline;
 
 public sealed partial class TimelineControl : UserControl
 {
-    private readonly CanvasControl canvas = new();
+    private CanvasControl? canvas;
     private readonly ScrollBar scroll = new() { Orientation = Orientation.Horizontal, Height = 12, VerticalAlignment = VerticalAlignment.Bottom };
     private IReadOnlyList<LyricSegment> segments = [];
     private IReadOnlyList<(ulong Id, ulong TimeMs, string Text)> credits = [];
@@ -65,7 +65,7 @@ public sealed partial class TimelineControl : UserControl
         Grid.SetRow(lowerLanePicker, 2); Grid.SetRow(lyricsLaneCaption, 3);
         labels.Children.Add(timeLaneLabel); labels.Children.Add(upperLanePicker);
         labels.Children.Add(lowerLanePicker); labels.Children.Add(lyricsLaneCaption);
-        var plot = new Grid(); plot.Children.Add(canvas); plot.Children.Add(scroll);
+        var plot = new Grid(); plot.Children.Add(scroll);
         var root = new Grid();
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -73,28 +73,37 @@ public sealed partial class TimelineControl : UserControl
         Content = root;
         upperLanePicker.SelectedIndex = 0; lowerLanePicker.SelectedIndex = 3;
         upperLanePicker.SelectionChanged += LaneChanged; lowerLanePicker.SelectionChanged += LaneChanged;
-        canvas.Draw += Draw;
-        canvas.PointerPressed += OnPointerPressed; canvas.PointerMoved += OnPointerMoved;
-        canvas.PointerReleased += OnPointerReleased; canvas.PointerCaptureLost += OnPointerCaptureLost;
-        canvas.PointerWheelChanged += PointerWheel;
-        canvas.ManipulationMode = ManipulationModes.Scale;
-        canvas.ManipulationStarted += (_, _) => Viewport.GestureActive = true;
-        canvas.ManipulationDelta += OnManipulationDelta;
-        canvas.ManipulationCompleted += (_, _) => { Viewport.GestureActive = false; CommitViewport(); };
         scroll.ValueChanged += ScrollChanged;
         KeyDown += HandleKeyDown; KeyUp += HandleKeyUp;
+        Loaded += (_, _) => AttachCanvas(plot);
+    }
+
+    private void AttachCanvas(Grid plot)
+    {
+        if (canvas is not null) return;
+        var view = new CanvasControl { ManipulationMode = ManipulationModes.Scale };
+        view.Draw += Draw;
+        view.PointerPressed += OnPointerPressed; view.PointerMoved += OnPointerMoved;
+        view.PointerReleased += OnPointerReleased; view.PointerCaptureLost += OnPointerCaptureLost;
+        view.PointerWheelChanged += PointerWheel;
+        view.ManipulationStarted += (_, _) => Viewport.GestureActive = true;
+        view.ManipulationDelta += OnManipulationDelta;
+        view.ManipulationCompleted += (_, _) => { Viewport.GestureActive = false; CommitViewport(); };
+        plot.Children.Insert(0, view);
+        canvas = view;
+        CommitViewport();
     }
 
     public void SetDocument(double durationMs, IReadOnlyList<LyricSegment> values)
     {
         segments = values; Viewport.SetDocument(durationMs); SelectedSegmentId = null; activeId = null;
-        CommitViewport(); canvas.Invalidate();
+        CommitViewport(); canvas?.Invalidate();
     }
 
     public WaveformData CurrentWaveform => waveform;
 
-    public void SetWaveform(WaveformData value) { waveform = value; canvas.Invalidate(); }
-    public void SetSegments(IReadOnlyList<LyricSegment> values) { segments = values; canvas.Invalidate(); }
+    public void SetWaveform(WaveformData value) { waveform = value; canvas?.Invalidate(); }
+    public void SetSegments(IReadOnlyList<LyricSegment> values) { segments = values; canvas?.Invalidate(); }
     public void LocalizeLanes(Func<string, string> text)
     {
         timeLaneLabel.Text = text("lane.time");
@@ -125,17 +134,17 @@ public sealed partial class TimelineControl : UserControl
     public void SetCredits(IReadOnlyList<(ulong Id, ulong TimeMs, string Text)> values)
     {
         credits = values;
-        canvas.Invalidate();
+        canvas?.Invalidate();
     }
 
     public void Select(ulong? id)
     {
-        SelectedSegmentId = id; SelectedCreditId = null; SelectedSegmentChanged?.Invoke(id); canvas.Invalidate();
+        SelectedSegmentId = id; SelectedCreditId = null; SelectedSegmentChanged?.Invoke(id); canvas?.Invalidate();
     }
 
     public void SelectCredit(ulong? id)
     {
-        SelectedCreditId = id; SelectedSegmentId = null; SelectedSegmentChanged?.Invoke(null); canvas.Invalidate();
+        SelectedCreditId = id; SelectedSegmentId = null; SelectedSegmentChanged?.Invoke(null); canvas?.Invalidate();
     }
 
     public void SelectCurrent() => Select(activeId);
@@ -265,20 +274,21 @@ public sealed partial class TimelineControl : UserControl
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
+        if (canvas is null) return;
         Focus(FocusState.Pointer); var point = e.GetCurrentPoint(canvas); pointerId = e.Pointer.PointerId;
         pressedX = point.Position.X; dragging = false; Viewport.GestureActive = true; canvas.CapturePointer(e.Pointer); e.Handled = true;
     }
 
     private void OnPointerMoved(object sender, PointerRoutedEventArgs e)
     {
-        if (pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
+        if (canvas is null || pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
         if (TimelineViewport.IsSelection(pressedX, x)) dragging = true;
-        if (dragging) { Viewport.Selection = (Viewport.TimeAt(pressedX, canvas.ActualWidth), Viewport.TimeAt(x, canvas.ActualWidth)); canvas.Invalidate(); }
+        if (dragging) { Viewport.Selection = (Viewport.TimeAt(pressedX, canvas.ActualWidth), Viewport.TimeAt(x, canvas.ActualWidth)); canvas?.Invalidate(); }
     }
 
     private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
     {
-        if (pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
+        if (canvas is null || pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
         canvas.ReleasePointerCapture(e.Pointer); pointerId = null; Viewport.GestureActive = false;
         if (dragging) Viewport.ZoomSelection(pressedX, x, canvas.ActualWidth);
         else if (HitCredit(Viewport.TimeAt(x, canvas.ActualWidth)) is ulong creditId) SelectCredit(creditId);
@@ -288,11 +298,12 @@ public sealed partial class TimelineControl : UserControl
 
     private void OnPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
-        pointerId = null; dragging = false; Viewport.Selection = null; Viewport.GestureActive = false; canvas.Invalidate();
+        pointerId = null; dragging = false; Viewport.Selection = null; Viewport.GestureActive = false; canvas?.Invalidate();
     }
 
     private void PointerWheel(object sender, PointerRoutedEventArgs e)
     {
+        if (canvas is null) return;
         var point = e.GetCurrentPoint(canvas); var delta = point.Properties.MouseWheelDelta;
         Viewport.NoteUserInteraction();
         if (e.KeyModifiers.HasFlag(VirtualKeyModifiers.Control)) Viewport.ZoomAt(Math.Pow(1.0015, delta), Viewport.TimeAt(point.Position.X, canvas.ActualWidth));
@@ -302,6 +313,7 @@ public sealed partial class TimelineControl : UserControl
 
     private void OnManipulationDelta(object sender, ManipulationDeltaRoutedEventArgs e)
     {
+        if (canvas is null) return;
         Viewport.ZoomAt(e.Delta.Scale, Viewport.TimeAt(e.Position.X, canvas.ActualWidth)); CommitViewport(); e.Handled = true;
     }
 
@@ -357,7 +369,7 @@ public sealed partial class TimelineControl : UserControl
         if (changingScroll) return;
         Viewport.NoteUserInteraction();
         Viewport.SetStart(e.NewValue);
-        canvas.Invalidate();
+        canvas?.Invalidate();
     }
 
     private void CommitViewport(bool invalidate = true)
@@ -365,7 +377,7 @@ public sealed partial class TimelineControl : UserControl
         changingScroll = true; scroll.Maximum = Math.Max(0, Viewport.DurationMs - Viewport.VisibleDurationMs);
         scroll.ViewportSize = Viewport.VisibleDurationMs; scroll.SmallChange = Viewport.VisibleDurationMs * .02;
         scroll.LargeChange = Viewport.VisibleDurationMs * .8; scroll.Value = Viewport.VisibleStartMs; changingScroll = false;
-        ZoomChanged?.Invoke(Viewport.Zoom); if (invalidate) canvas.Invalidate();
+        ZoomChanged?.Invoke(Viewport.Zoom); if (invalidate) canvas?.Invalidate();
     }
 
     private LyricSegment? SegmentAt(double timeMs)
@@ -429,7 +441,7 @@ public sealed partial class TimelineControl : UserControl
         UpperLane = TagOf(upperLanePicker) ?? "peak";
         LowerLane = TagOf(lowerLanePicker) ?? "bands";
         VisualizationChanged?.Invoke();
-        canvas.Invalidate();
+        canvas?.Invalidate();
     }
 
     private static ComboBox MakeLanePicker()

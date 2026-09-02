@@ -17,6 +17,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <SatelliteResourceLanguages>en;zh-Hans</SatelliteResourceLanguages>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <WindowsAppSdkUndockedRegFreeWinRTInitialize>true</WindowsAppSdkUndockedRegFreeWinRTInitialize>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -55,9 +57,17 @@
   </PropertyGroup>
 
   <Target Name="CopyUnpackagedResourcesPri" AfterTargets="Publish">
+    <ItemGroup>
+      <_CueWeaveXbf Include="$(IntermediateOutputPath)**\*.xbf" />
+    </ItemGroup>
     <Copy
       SourceFiles="$(PublishDir)CueWeave.Windows.pri"
       DestinationFiles="$(PublishDir)resources.pri"
       Condition="Exists('$(PublishDir)CueWeave.Windows.pri')" />
+    <Copy
+      SourceFiles="@(_CueWeaveXbf)"
+      DestinationFolder="$(PublishDir)"
+      SkipUnchangedFiles="true"
+      Condition="'@(_CueWeaveXbf)' != ''" />
   </Target>
 </Project>
