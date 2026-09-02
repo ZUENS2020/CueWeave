@@ -362,7 +362,9 @@ public sealed partial class MainPage : Page
             localAudioPath = WinPaths.Materialize(path, sha);
             BootLog.Append($"audio {path.Length} {path} => {localAudioPath.Length} {localAudioPath}");
             await playback.LoadAsync(localAudioPath); Timeline.Tick(0);
+            BootLog.Append("audio playback ok");
             var data = await WaveformAnalyzer.AnalyzeAsync(localAudioPath, token: waveformCancellation.Token);
+            BootLog.Append($"audio analyze ok bins={data.Peak.Length}");
             if (audioPath == path) {
                 data = await AudioVizClient.EnrichAsync(core, localAudioPath, sha, data, Timeline.NeededScales, waveformCancellation.Token);
                 Timeline.SetWaveform(data);
@@ -370,7 +372,7 @@ public sealed partial class MainPage : Page
         } catch (OperationCanceledException) { }
         catch (FileNotFoundException) { await ShowErrorAsync(L10n.T("error.audioMissing", path)); }
         catch (Exception error) {
-            BootLog.Append($"audio {path} {error}");
+            BootLog.Append($"audio fail hr=0x{error.HResult:X8} {error.GetType().FullName}: {error}");
             await ShowErrorAsync(L10n.T("error.audioLoad", path, error.Message));
         }
     }

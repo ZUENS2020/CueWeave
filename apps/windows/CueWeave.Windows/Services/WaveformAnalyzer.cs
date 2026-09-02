@@ -25,7 +25,9 @@ public static class WaveformAnalyzer
 
     internal static WaveformData Analyze(string path, int bins, CancellationToken token)
     {
-        using var reader = new AudioFileReader(path);
+        using var file = new FileStream(WinPaths.Normalize(path), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        using var reader = Open(file, path);
+        var samples = reader.ToSampleProvider();
         var channels = reader.WaveFormat.Channels;
         var sampleRate = reader.WaveFormat.SampleRate;
         var totalFrames = Math.Max(1L, (long)Math.Ceiling(reader.TotalTime.TotalSeconds * sampleRate));
@@ -36,7 +38,7 @@ public static class WaveformAnalyzer
         long framePosition = 0;
         while (true) {
             token.ThrowIfCancellationRequested();
-            var read = reader.Read(buffer.AsSpan());
+            var read = samples.Read(buffer, 0, buffer.Length);
             if (read == 0) break;
             var frames = read / channels;
             for (var frame = 0; frame < frames; frame++) {
@@ -63,6 +65,11 @@ public static class WaveformAnalyzer
         Normalize(peak, squareRoot: false); Normalize(low, true); Normalize(mid, true); Normalize(high, true);
         return new(peak, low, mid, high);
     }
+
+    private static WaveStream Open(FileStream file, string path) =>
+        Path.GetExtension(path).Equals(".wav", StringComparison.OrdinalIgnoreCase)
+            ? new WaveFileReader(file)
+            : new StreamMediaFoundationReader(file);
 
     private static void Normalize(float[] values, bool squareRoot)
     {

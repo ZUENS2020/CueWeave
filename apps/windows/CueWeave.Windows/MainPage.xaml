@@ -173,6 +173,9 @@
                                 <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" />
                                 <Button x:Name="AlignButton" Style="{StaticResource AccentButtonStyle}" Content="Run Gemini" Click="Align_Click" />
                                 <Button x:Name="RestoreButton" Content="Restore AI" Click="RestoreGemini_Click" />
+                                <Slider x:Name="ZoomSlider" Width="130" Minimum="1" Maximum="100" Value="1" StepFrequency=".5" VerticalAlignment="Center" ValueChanged="Zoom_Changed" />
+                                <TextBlock x:Name="ZoomText" Width="40" VerticalAlignment="Center" FontFamily="Consolas" Text="1.0×" />
+                                <TextBlock x:Name="PlaybackTime" VerticalAlignment="Center" FontFamily="Consolas" Text="00:00.000" />
                             </StackPanel>
                         </CommandBar.Content>
                         <CommandBar.SecondaryCommands>
@@ -180,7 +183,7 @@
                         </CommandBar.SecondaryCommands>
                     </CommandBar>
                     <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="320" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="280" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,1,0">
                             <Grid>
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
@@ -206,8 +209,8 @@
                             </Grid>
                         </Border>
                         <Grid Grid.Column="1">
-                            <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="150" /></Grid.RowDefinitions>
-                            <timeline:TimelineControl x:Name="Timeline" MinHeight="360" />
+                            <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="220" /></Grid.RowDefinitions>
+                            <timeline:TimelineControl x:Name="Timeline" />
                             <Border Grid.Row="1" Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
                                 <Grid>
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
@@ -216,7 +219,6 @@
                                     <StackPanel Grid.Row="2" Margin="0,9,0,0" Orientation="Horizontal" Spacing="6"><Button Content="−50" Click="Nudge_Click" Tag="-50" /><Button Content="−10" Click="Nudge_Click" Tag="-10" /><Button Content="−1" Click="Nudge_Click" Tag="-1" /><Button Content="+1" Click="Nudge_Click" Tag="1" /><Button Content="+10" Click="Nudge_Click" Tag="10" /><Button Content="+50" Click="Nudge_Click" Tag="50" /><Button x:Name="PlayAroundButton" Content="Play 2s Before" Click="PlayAround_Click" /><Button x:Name="UseGeminiButton" Content="Use Gemini" Click="UseGemini_Click" /></StackPanel>
                                 </Grid>
                             </Border>
-                            <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" Orientation="Horizontal" Spacing="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"><TextBlock x:Name="PlaybackTime" VerticalAlignment="Center" FontFamily="Consolas" Text="00:00.000" /><Slider x:Name="ZoomSlider" Width="150" Minimum="1" Maximum="100" Value="1" StepFrequency=".5" ValueChanged="Zoom_Changed" /><TextBlock x:Name="ZoomText" Width="48" VerticalAlignment="Center" FontFamily="Consolas" Text="1.0×" /></StackPanel>
                         </Grid>
                     </Grid>
                 </Grid>

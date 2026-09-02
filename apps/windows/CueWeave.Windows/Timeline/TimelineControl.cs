@@ -1,13 +1,17 @@
 using System.Numerics;
 using CueWeave.WinUI.Models;
 using CueWeave.WinUI.Services;
+using Microsoft.Graphics.Canvas.Text;
 using Microsoft.Graphics.Canvas.UI.Xaml;
 using Microsoft.UI;
 using Microsoft.UI.Input;
+using Microsoft.UI.Text;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
 using Windows.System;
 using Windows.UI.Core;
 
@@ -29,8 +33,10 @@ public sealed partial class TimelineControl : UserControl
 
     private readonly ComboBox upperLanePicker = MakeLanePicker();
     private readonly ComboBox lowerLanePicker = MakeLanePicker();
-    private readonly TextBlock timeLaneLabel = new() { FontSize = 10, Padding = new Thickness(8, 6, 0, 0) };
-    private readonly TextBlock lyricsLaneCaption = new() { FontSize = 10, Padding = new Thickness(8, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
+    private readonly TextBlock timeLaneLabel = new() { FontSize = 10, Padding = new Thickness(8, 6, 0, 0), FontFamily = new FontFamily("Consolas") };
+    private readonly TextBlock lyricsLaneTitle = new() { FontSize = 10, FontWeight = FontWeights.SemiBold, FontFamily = new FontFamily("Consolas") };
+    private readonly TextBlock lyricsLaneDetail = new() { FontSize = 10, Opacity = .55, FontFamily = new FontFamily("Consolas") };
+    private readonly StackPanel lyricsLaneCaption = new() { Padding = new Thickness(8, 8, 0, 0), Spacing = 3 };
 
     public TimelineViewport Viewport { get; } = new();
     public double PlayheadMs { get; private set; }
@@ -61,13 +67,18 @@ public sealed partial class TimelineControl : UserControl
         labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(72) });
+        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
+        lyricsLaneCaption.Children.Add(lyricsLaneTitle); lyricsLaneCaption.Children.Add(lyricsLaneDetail);
         Grid.SetRow(timeLaneLabel, 0); Grid.SetRow(upperLanePicker, 1);
         Grid.SetRow(lowerLanePicker, 2); Grid.SetRow(lyricsLaneCaption, 3);
         labels.Children.Add(timeLaneLabel); labels.Children.Add(upperLanePicker);
         labels.Children.Add(lowerLanePicker); labels.Children.Add(lyricsLaneCaption);
-        var plot = new Grid(); plot.Children.Add(scroll);
+        var plot = new Grid();
+        plot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        plot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
+        Grid.SetRow(scroll, 1); plot.Children.Add(scroll);
         var root = new Grid();
-        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(112) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(108) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         root.Children.Add(labels); Grid.SetColumn(plot, 1); root.Children.Add(plot);
         Content = root;
@@ -89,7 +100,7 @@ public sealed partial class TimelineControl : UserControl
         view.ManipulationStarted += (_, _) => Viewport.GestureActive = true;
         view.ManipulationDelta += OnManipulationDelta;
         view.ManipulationCompleted += (_, _) => { Viewport.GestureActive = false; CommitViewport(); };
-        plot.Children.Insert(0, view);
+        Grid.SetRow(view, 0); plot.Children.Insert(0, view);
         canvas = view;
         CommitViewport();
     }
@@ -107,7 +118,8 @@ public sealed partial class TimelineControl : UserControl
     public void LocalizeLanes(Func<string, string> text)
     {
         timeLaneLabel.Text = text("lane.time");
-        lyricsLaneCaption.Text = text("lane.lyricsTimestamps");
+        lyricsLaneTitle.Text = text("lane.lyrics");
+        lyricsLaneDetail.Text = text("lane.timestamps");
         foreach (var box in new[] { upperLanePicker, lowerLanePicker })
             foreach (ComboBoxItem item in box.Items)
                 if (item.Tag is string tag) item.Content = text("audio." + tag);
@@ -176,8 +188,7 @@ public sealed partial class TimelineControl : UserControl
         DrawRuler(ds, width);
         DrawLane(UpperLane, ds, width, 24, trackHeight);
         DrawLane(LowerLane, ds, width, 24 + trackHeight, trackHeight);
-        DrawLyrics(ds, width, lyricTop, height - lyricTop);
-        DrawCredits(ds, width, lyricTop);
+        DrawLyricLane(ds, width, lyricTop, (float)layout.Lyrics);
         ds.DrawLine(0, 24, width, 24, Colors.Gray, 1); ds.DrawLine(0, 24 + trackHeight, width, 24 + trackHeight, Colors.Gray, 1);
         ds.DrawLine(0, lyricTop, width, lyricTop, Colors.Gray, 1);
         if (Viewport.Selection is { } selection) {
@@ -254,21 +265,41 @@ public sealed partial class TimelineControl : UserControl
         }
     }
 
-    private void DrawLyrics(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
+    private void DrawLyricLane(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
+        if (height <= 0 || width <= 0) return;
+        ds.FillRectangle(0, top, width, height, ColorHelper.FromArgb(22, 255, 255, 255));
+        using var layer = ds.CreateLayer(1, new Rect(0, top, width, height));
+        using var idFormat = new CanvasTextFormat { FontSize = 11, FontFamily = "Consolas", WordWrapping = CanvasWordWrapping.NoWrap };
+        using var markFormat = new CanvasTextFormat { FontSize = 10, FontFamily = "Consolas", FontWeight = FontWeights.SemiBold };
         var timed = TimedSegments();
         for (var index = 0; index < timed.Count; index++) {
             var (segment, start) = timed[index]; var end = index + 1 < timed.Count ? timed[index + 1].Time : Viewport.DurationMs;
             if (end < Viewport.VisibleStartMs || start > Viewport.VisibleEndMs) continue;
             var x0 = (float)Viewport.XAt(start, width); var x1 = (float)Viewport.XAt(end, width);
-            var color = segment.Id == SelectedSegmentId ? ColorHelper.FromArgb(120, 50, 127, 159)
+            var span = Math.Max(2, x1 - x0);
+            var fill = segment.Id == SelectedSegmentId ? ColorHelper.FromArgb(120, 50, 127, 159)
                 : segment.Id == activeId ? ColorHelper.FromArgb(70, 50, 127, 159)
-                : segment.Timing.Final is not null ? ColorHelper.FromArgb(45, 50, 127, 159) : ColorHelper.FromArgb(20, 128, 128, 128);
-            ds.FillRectangle(x0, top + 22, Math.Max(1, x1 - x0), height - 24, color);
-            if (x1 - x0 > 42) ds.DrawText(segment.Text, x0 + 4, top + 29, Colors.White);
+                : segment.Timing.Final is not null ? ColorHelper.FromArgb(28, 212, 168, 83) : ColorHelper.FromArgb(18, 128, 128, 128);
+            var stroke = segment.Id == SelectedSegmentId ? ColorHelper.FromArgb(180, 50, 127, 159)
+                : segment.Id == activeId ? ColorHelper.FromArgb(120, 50, 127, 159)
+                : ColorHelper.FromArgb(40, 128, 128, 128);
+            ds.FillRectangle(x0, top, span, height, fill);
+            ds.DrawRectangle(x0, top, span, height, stroke, 1);
+            if (span > 42) ds.DrawText($"{segment.Id:D4}", new Rect(x0 + 4, top + 4, span - 8, 16), Colors.White, idFormat);
             if (segment.Timing.Gemini is { } gemini) {
-                var markerX = (float)Viewport.XAt(gemini.TimeMs, width); ds.DrawLine(markerX, top + 18, markerX, top + 29, Colors.Goldenrod, 2);
+                var gx = (float)Viewport.XAt(gemini.TimeMs, width);
+                ds.DrawText("G", gx - 5, top + 2, Colors.Goldenrod, markFormat);
+                ds.DrawLine(gx, top + 14, gx, top + 28, Colors.Goldenrod, 1);
             }
+        }
+        foreach (var credit in credits)
+        {
+            var x = (float)Viewport.XAt(credit.TimeMs, width);
+            var color = credit.Id == SelectedCreditId ? Colors.DeepSkyBlue : ColorHelper.FromArgb(180, 50, 127, 159);
+            ds.DrawText("C", x + 6, top + 2, color, markFormat);
+            ds.FillCircle(x, top + 22, 4.5f, color);
+            ds.DrawLine(x, top + 28, x, top + height - 6, color, 1);
         }
     }
 
@@ -391,17 +422,6 @@ public sealed partial class TimelineControl : UserControl
         .Select(s => (Segment: s, Point: s.Timing.Final ?? s.Timing.Gemini))
         .Where(value => value.Point is not null).Select(value => (value.Segment, (double)value.Point!.TimeMs))
         .OrderBy(value => value.Item2).ToList();
-    private void DrawCredits(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top)
-    {
-        foreach (var credit in credits)
-        {
-            var x = (float)Viewport.XAt(credit.TimeMs, width);
-            var color = credit.Id == SelectedCreditId ? Colors.DeepSkyBlue : ColorHelper.FromArgb(180, 50, 127, 159);
-            ds.DrawLine(x, top, x, top + 36, color, 2);
-            ds.FillCircle(x, top + 40, 5, color);
-            ds.DrawText("C", x + 6, top + 2, color);
-        }
-    }
 
     private void DrawSpectrogram(
         Microsoft.Graphics.Canvas.CanvasDrawingSession ds,

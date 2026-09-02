@@ -103,6 +103,21 @@ public sealed class TimelineViewportTests
     }
 
     [TestMethod]
+    public void AnalyzeReadsAGeneratedWavFromAFileStream()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"cueweave-{Guid.NewGuid():N}.wav");
+        WriteSineWav(path);
+        try
+        {
+            var data = WaveformAnalyzer.Analyze(path, 64, CancellationToken.None);
+            Assert.AreEqual(64, data.Peak.Length);
+            Assert.IsTrue(data.Peak.Max() > .2f);
+            Assert.IsTrue(data.Low.Max() > 0 || data.Mid.Max() > 0 || data.High.Max() > 0);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [TestMethod]
     public void PlaybackRateStepsAlongSupportedPresets()
     {
         Assert.AreEqual(1.25, TimelineViewport.SteppedRate(1.0, 1), .0001);
@@ -136,5 +151,26 @@ public sealed class TimelineViewportTests
     private static TimelineViewport NewViewport()
     {
         var viewport = new TimelineViewport(); viewport.SetDocument(149_091); return viewport;
+    }
+
+    private static void WriteSineWav(string path)
+    {
+        const int sampleRate = 8000;
+        const int samples = 4000;
+        using var writer = new BinaryWriter(File.Create(path));
+        writer.Write("RIFF"u8);
+        writer.Write(36 + samples * 2);
+        writer.Write("WAVEfmt "u8);
+        writer.Write(16);
+        writer.Write((short)1);
+        writer.Write((short)1);
+        writer.Write(sampleRate);
+        writer.Write(sampleRate * 2);
+        writer.Write((short)2);
+        writer.Write((short)16);
+        writer.Write("data"u8);
+        writer.Write(samples * 2);
+        for (var i = 0; i < samples; i++)
+            writer.Write((short)(Math.Sin(2 * Math.PI * 440 * i / sampleRate) * 20_000));
     }
 }

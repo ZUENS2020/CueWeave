@@ -1,13 +1,15 @@
 using CueWeave.WinUI.Timeline;
 using Windows.Media.Core;
 using Windows.Media.Playback;
-using Windows.Storage;
+using Windows.Storage.Streams;
 
 namespace CueWeave.WinUI.Services;
 
 public sealed class PlaybackService : IDisposable
 {
     private readonly MediaPlayer player = new() { AudioCategory = MediaPlayerAudioCategory.Media };
+    private MediaSource? source;
+    private IRandomAccessStream? content;
 
     public double PositionMs => player.PlaybackSession.Position.TotalMilliseconds;
     public double DurationMs => player.PlaybackSession.NaturalDuration.TotalMilliseconds;
@@ -20,8 +22,11 @@ public sealed class PlaybackService : IDisposable
 
     public async Task LoadAsync(string path)
     {
-        var file = await StorageFile.GetFileFromPathAsync(path);
-        player.Source = MediaSource.CreateFromStorageFile(file);
+        ReleaseSource();
+        var normalized = WinPaths.Normalize(path);
+        content = await CopyFile(normalized);
+        source = MediaSource.CreateFromStream(content, Mime(normalized));
+        player.Source = source;
         player.PlaybackSession.Position = TimeSpan.Zero;
         ClearLoop();
     }
@@ -58,5 +63,47 @@ public sealed class PlaybackService : IDisposable
     }
 
     public void ClearLoop() { LoopStartMs = null; LoopEndMs = null; }
-    public void Dispose() { player.Dispose(); GC.SuppressFinalize(this); }
+
+    public void Dispose()
+    {
+        ReleaseSource();
+        player.Dispose();
+        GC.SuppressFinalize(this);
+    }
+
+    private void ReleaseSource()
+    {
+        player.Source = null;
+        source?.Dispose();
+        source = null;
+        content?.Dispose();
+        content = null;
+    }
+
+    private static async Task<IRandomAccessStream> CopyFile(string path)
+    {
+        var memory = new InMemoryRandomAccessStream();
+        await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var writer = new DataWriter(memory);
+        var buffer = new byte[64 * 1024];
+        int read;
+        while ((read = await file.ReadAsync(buffer, 0, buffer.Length)) > 0)
+        {
+            writer.WriteBytes(read == buffer.Length ? buffer : buffer[..read]);
+            await writer.StoreAsync();
+        }
+        await writer.FlushAsync();
+        writer.DetachStream();
+        writer.Dispose();
+        memory.Seek(0);
+        return memory;
+    }
+
+    private static string Mime(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".wav" => "audio/wav",
+        ".flac" => "audio/flac",
+        ".m4a" or ".mp4" or ".aac" => "audio/mp4",
+        _ => "audio/mpeg"
+    };
 }
