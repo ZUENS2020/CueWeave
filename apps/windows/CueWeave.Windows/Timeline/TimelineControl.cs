@@ -20,7 +20,14 @@ namespace CueWeave.WinUI.Timeline;
 public sealed partial class TimelineControl : UserControl
 {
     private CanvasControl? canvas;
-    private readonly ScrollBar scroll = new() { Orientation = Orientation.Horizontal, Height = 12, VerticalAlignment = VerticalAlignment.Bottom };
+    private readonly ScrollBar scroll = new()
+    {
+        Orientation = Orientation.Horizontal,
+        Height = 16,
+        VerticalAlignment = VerticalAlignment.Bottom,
+        Visibility = Visibility.Visible,
+        Background = new SolidColorBrush(ColorHelper.FromArgb(36, 255, 255, 255))
+    };
     private IReadOnlyList<LyricSegment> segments = [];
     private IReadOnlyList<(LyricSegment Segment, double Time)> timed = [];
     private double lastPostedZoom = double.NaN;
@@ -76,7 +83,7 @@ public sealed partial class TimelineControl : UserControl
         labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
         labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(72) });
-        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
+        labels.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });
         lyricsLaneCaption.Children.Add(lyricsLaneTitle); lyricsLaneCaption.Children.Add(lyricsLaneDetail);
         Grid.SetRow(timeLaneLabel, 0); Grid.SetRow(upperLanePicker, 1);
         Grid.SetRow(lowerLanePicker, 2); Grid.SetRow(lyricsLaneCaption, 3);
@@ -84,7 +91,7 @@ public sealed partial class TimelineControl : UserControl
         labels.Children.Add(lowerLanePicker); labels.Children.Add(lyricsLaneCaption);
         var plot = new Grid();
         plot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        plot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(12) });
+        plot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });
         Grid.SetRow(scroll, 1); plot.Children.Add(scroll);
         var root = new Grid();
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(108) });
@@ -95,7 +102,12 @@ public sealed partial class TimelineControl : UserControl
         upperLanePicker.SelectionChanged += LaneChanged; lowerLanePicker.SelectionChanged += LaneChanged;
         scroll.ValueChanged += ScrollChanged;
         KeyDown += HandleKeyDown; KeyUp += HandleKeyUp;
-        Loaded += (_, _) => AttachCanvas(plot);
+        Loaded += (_, _) =>
+        {
+            AttachCanvas(plot);
+            VisualStateManager.GoToState(scroll, "MouseIndicatorFull", false);
+            VisualStateManager.GoToState(scroll, "ExpandedWithoutAnimation", false);
+        };
     }
 
     private void AttachCanvas(Grid plot)

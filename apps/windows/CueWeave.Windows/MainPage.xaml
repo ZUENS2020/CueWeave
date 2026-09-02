@@ -628,7 +628,7 @@
                                     <TextBlock x:Name="SegmentsLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="SEGMENTS" />
                                     <TextBlock x:Name="SegmentCount" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 </Grid>
-                                <ScrollViewer x:Name="SegmentScroll" Grid.Row="1" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                                <ScrollViewer x:Name="SegmentScroll" Grid.Row="1" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Visible" VerticalScrollMode="Enabled">
                                     <StackPanel>
                                         <TextBlock x:Name="CreditsSectionLabel" Margin="10,8,10,0" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="TITLE / CREDITS" />
                                         <ListView x:Name="CreditsList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="CreditsList_ItemClick"

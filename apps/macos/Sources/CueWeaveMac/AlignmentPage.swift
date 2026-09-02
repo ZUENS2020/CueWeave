@@ -150,6 +150,7 @@ struct AlignmentPage: View {
                             Divider()
                         }
                     }
+                    .background(AlwaysVisibleScrollers())
                 }
                 .onChange(of: interaction.activeSegmentID) { _, segmentID in
                     revealQueueItem(segmentID, proxy: proxy)

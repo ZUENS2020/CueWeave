@@ -8,13 +8,19 @@ struct ZoomableTimeline: View {
 
     var body: some View {
         GeometryReader { outer in
-            let metrics = TimelineLayoutMetrics(totalHeight: outer.size.height)
+            let bar = TimelineScrollChrome.barHeight
+            let plotHeight = max(1, outer.size.height - bar)
+            let metrics = TimelineLayoutMetrics(totalHeight: plotHeight)
             HStack(spacing: 0) {
-                TimelineLaneLabels(interaction: interaction, metrics: metrics).frame(width: 108)
+                VStack(spacing: 0) {
+                    TimelineLaneLabels(interaction: interaction, metrics: metrics)
+                    Color.clear.frame(height: bar)
+                }
+                .frame(width: 108, height: outer.size.height)
                 Divider()
                 TimelineNativeScrollView(
                     zoom: interaction.zoom,
-                    viewportSize: CGSize(width: max(1, outer.size.width - 109), height: outer.size.height),
+                    viewportSize: CGSize(width: max(1, outer.size.width - 109), height: plotHeight),
                     viewport: interaction.viewport
                 ) {
                     TimelineCanvas(

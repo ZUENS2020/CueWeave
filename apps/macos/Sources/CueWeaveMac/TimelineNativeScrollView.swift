@@ -1,6 +1,40 @@
 import AppKit
 import SwiftUI
 
+enum TimelineScrollChrome {
+    static var barHeight: CGFloat { MiniLegacyScroller.barHeight }
+}
+
+struct AlwaysVisibleScrollers: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { RevealLegacyScrollersView() }
+    func updateNSView(_ nsView: NSView, context: Context) {
+        (nsView as? RevealLegacyScrollersView)?.apply()
+    }
+}
+
+private final class RevealLegacyScrollersView: NSView {
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        apply()
+    }
+
+    override func layout() {
+        super.layout()
+        apply()
+    }
+
+    func apply() {
+        var current: NSView? = self
+        while let view = current {
+            if let scroll = view as? NSScrollView {
+                MiniLegacyScroller.install(on: scroll, vertical: true, horizontal: false)
+                return
+            }
+            current = view.superview
+        }
+    }
+}
+
 struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
     let zoom: Double
     let viewportSize: CGSize
@@ -25,10 +59,7 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
         let scrollView = TimelineScrollView()
         scrollView.borderType = .noBorder
         scrollView.drawsBackground = false
-        scrollView.hasHorizontalScroller = true
-        scrollView.hasVerticalScroller = false
-        scrollView.autohidesScrollers = false
-        scrollView.scrollerStyle = .overlay
+        MiniLegacyScroller.install(on: scrollView, vertical: false, horizontal: true)
         scrollView.horizontalScrollElasticity = .automatic
         scrollView.documentView = context.coordinator.hostingView
         scrollView.setContentHuggingPriority(.defaultLow, for: .horizontal)
@@ -50,6 +81,7 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
             height: max(1, viewportSize.height)
         ))
         hostingView.layoutSubtreeIfNeeded()
+        MiniLegacyScroller.install(on: scrollView, vertical: false, horizontal: true)
         viewport.attach(scrollView: scrollView)
         viewport.documentGeometryDidChange()
     }
@@ -66,8 +98,50 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
     }
 }
 
+private final class MiniLegacyScroller: NSScroller {
+    override class var isCompatibleWithOverlayScrollers: Bool { false }
+
+    static var barHeight: CGFloat {
+        max(15, scrollerWidth(for: .mini, scrollerStyle: .legacy))
+    }
+
+    static func install(on scrollView: NSScrollView, vertical: Bool, horizontal: Bool) {
+        scrollView.hasVerticalScroller = vertical
+        scrollView.hasHorizontalScroller = horizontal
+        scrollView.autohidesScrollers = false
+        scrollView.scrollerStyle = .legacy
+        if vertical {
+            if !(scrollView.verticalScroller is MiniLegacyScroller) {
+                let bar = MiniLegacyScroller()
+                bar.controlSize = .mini
+                scrollView.verticalScroller = bar
+            }
+            scrollView.verticalScroller?.controlSize = .mini
+        }
+        if horizontal {
+            if !(scrollView.horizontalScroller is MiniLegacyScroller) {
+                let bar = MiniLegacyScroller()
+                bar.controlSize = .mini
+                scrollView.horizontalScroller = bar
+            }
+            scrollView.horizontalScroller?.controlSize = .mini
+        }
+    }
+}
+
 private final class TimelineScrollView: NSScrollView {
     override var intrinsicContentSize: NSSize {
         NSSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        MiniLegacyScroller.install(on: self, vertical: false, horizontal: true)
+    }
+
+    override func tile() {
+        MiniLegacyScroller.install(on: self, vertical: false, horizontal: true)
+        super.tile()
+        MiniLegacyScroller.install(on: self, vertical: false, horizontal: true)
     }
 }
