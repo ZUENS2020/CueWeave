@@ -110,7 +110,7 @@ public sealed partial class MainPage
             var sha = session.Project?.Target?.Fingerprint?.Sha256;
             var data = await AudioVizClient.EnrichAsync(
                 core,
-                audioPath,
+                localAudioPath ?? audioPath,
                 sha,
                 Timeline.CurrentWaveform,
                 Timeline.NeededScales,

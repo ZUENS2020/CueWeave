@@ -45,7 +45,11 @@ public static class L10n
         if (message.Contains("invalid after a value", StringComparison.OrdinalIgnoreCase)
             && !message.Contains("CueWeave Core"))
             return T("error.invalidResponse", message);
-        if (WinPaths.IsTooLong(message))
+        if (WinPaths.IsTooLong(message)
+            && !message.Contains("音频分析", StringComparison.Ordinal)
+            && !message.Contains("Audio analysis", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("target audio", StringComparison.OrdinalIgnoreCase)
+            && !message.Contains("目标音频", StringComparison.Ordinal))
             return T("error.pathTooLong", message);
         return message;
     }

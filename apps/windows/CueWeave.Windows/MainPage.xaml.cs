@@ -23,6 +23,7 @@ public sealed partial class MainPage : Page
     private bool rendering;
     private bool changingZoom;
     private string? audioPath;
+    private string? localAudioPath;
     private double timelineDuration;
 
     public MainPage()
@@ -357,15 +358,21 @@ public sealed partial class MainPage : Page
         audioPath = path; waveformCancellation?.Cancel(); waveformCancellation?.Dispose();
         waveformCancellation = new CancellationTokenSource();
         try {
-            await playback.LoadAsync(path); Timeline.Tick(0);
-            var data = await WaveformAnalyzer.AnalyzeAsync(path, token: waveformCancellation.Token);
+            var sha = session.Project?.Target?.Fingerprint?.Sha256;
+            localAudioPath = WinPaths.Materialize(path, sha);
+            BootLog.Append($"audio {path.Length} {path} => {localAudioPath.Length} {localAudioPath}");
+            await playback.LoadAsync(localAudioPath); Timeline.Tick(0);
+            var data = await WaveformAnalyzer.AnalyzeAsync(localAudioPath, token: waveformCancellation.Token);
             if (audioPath == path) {
-                var sha = session.Project?.Target?.Fingerprint?.Sha256;
-                data = await AudioVizClient.EnrichAsync(core, path, sha, data, Timeline.NeededScales, waveformCancellation.Token);
+                data = await AudioVizClient.EnrichAsync(core, localAudioPath, sha, data, Timeline.NeededScales, waveformCancellation.Token);
                 Timeline.SetWaveform(data);
             }
         } catch (OperationCanceledException) { }
-        catch (Exception error) { await ShowErrorAsync(L10n.T("error.audioAnalysis", error.Message)); }
+        catch (FileNotFoundException) { await ShowErrorAsync(L10n.T("error.audioMissing", path)); }
+        catch (Exception error) {
+            BootLog.Append($"audio {path} {error}");
+            await ShowErrorAsync(L10n.T("error.audioLoad", path, error.Message));
+        }
     }
 
     private void Play_Click(object sender, RoutedEventArgs e)
