@@ -49,7 +49,7 @@ $TestExe = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\bin\Debug\net10.
 & $TestExe
 if ($LASTEXITCODE -ne 0) { throw "dotnet test failed" }
 
-dotnet publish $AppProj -c Release -r win-x64 --self-contained --no-restore -p:Platform=x64 -p:WindowsAppSDKSelfContained=true -p:WindowsPackageType=None -p:PublishTrimmed=false -p:PublishReadyToRun=false -p:PublishSingleFile=false
+dotnet publish $AppProj -c Release -r win-x64 --self-contained --no-restore -p:Platform=x64 -p:WindowsAppSDKSelfContained=true -p:WindowsPackageType=None -p:PublishTrimmed=false -p:PublishReadyToRun=false -p:PublishSingleFile=false -p:CopyOutputSymbolsToPublishDirectory=false
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
 
 $Publish = Join-Path $Repo "apps\windows\CueWeave.Windows\bin\Release\net10.0-windows10.0.26100.0\win-x64\publish"
@@ -62,8 +62,17 @@ $Dist = Join-Path $Repo "dist\CueWeave-windows-x64"
 New-Item -ItemType Directory -Force -Path $Dist | Out-Null
 Get-ChildItem $Dist -Force | Remove-Item -Recurse -Force
 Copy-Item (Join-Path $Publish "*") $Dist -Recurse -Force
+Get-ChildItem $Dist -Recurse -File -Include *.pdb, boot.log | Remove-Item -Force
+$PortableReadme = Join-Path $PSScriptRoot "windows-portable-readme.txt"
+if (Test-Path $PortableReadme) { Copy-Item $PortableReadme (Join-Path $Dist "README.txt") -Force }
+$ZipDir = Join-Path $Repo "dist\_windows-zip"
+$Inner = Join-Path $ZipDir "CueWeave"
+if (Test-Path $ZipDir) { Remove-Item $ZipDir -Recurse -Force }
+New-Item -ItemType Directory -Force -Path $Inner | Out-Null
+Copy-Item (Join-Path $Dist "*") $Inner -Recurse -Force
 $Zip = Join-Path $Repo "dist\CueWeave-windows-x64.zip"
 if (Test-Path $Zip) { Remove-Item $Zip -Force }
-Compress-Archive -Path (Join-Path $Dist "*") -DestinationPath $Zip
+Compress-Archive -Path $Inner -DestinationPath $Zip
+Remove-Item $ZipDir -Recurse -Force
 Write-Output $Publish
 Write-Output $Zip

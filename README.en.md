@@ -10,6 +10,17 @@ License: [AGPL-3.0-only](LICENSE)
 
 **macOS 14+** and **Windows 11 x64** (WinUI 3) are supported.
 
+## Download
+
+Current release **v0.1**: [GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
+
+One zip per OS. Unzip and run; no extra .NET / Rust / Swift install.
+
+| OS | File | How to run |
+| --- | --- | --- |
+| macOS 14+ Apple Silicon | `CueWeave-0.1-macos-arm64.zip` | Unzip to get `CueWeave.app`. First launch may need Control-click → Open. |
+| Windows 11 x64 | `CueWeave-0.1-windows-x64.zip` | Unzip to get a `CueWeave` folder, then run `CueWeave.Windows.exe` inside it. Do not copy the exe out of that folder. |
+
 ## What it does
 
 ```text
@@ -253,8 +264,8 @@ Windows 11 x64 (run on Windows; over SSH use the repo script so rustup shims in 
 
 Publish output is self-contained (.NET runtime, Windows App SDK, and `cueweave-cli.exe` are inside the folder; users do not install extra runtimes):
 
-- Folder: `dist/CueWeave-windows-x64\`
-- Zip: `dist/CueWeave-windows-x64.zip`
+- Folder: `dist/CueWeave-windows-x64\` (run `CueWeave.Windows.exe` here for desktop checks)
+- Zip: `dist/CueWeave-windows-x64.zip` (extracts to one `CueWeave` folder; do not copy the exe out)
 
 Open `CueWeave.Windows.exe` in an interactive desktop session. Starting it over SSH lands in Session 0.
 

@@ -11,6 +11,17 @@
 
 当前支持 **macOS 14+** 和 **Windows 11 x64**（WinUI 3）。
 
+## 下载
+
+当前版本 **v0.1**：[GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
+
+每个系统一个压缩包，解压即可用，不必再装 .NET / Rust / Swift。
+
+| 系统 | 文件 | 用法 |
+| --- | --- | --- |
+| macOS 14+ Apple Silicon | `CueWeave-0.1-macos-arm64.zip` | 解压得到 `CueWeave.app`。第一次可能要右键 → 打开。 |
+| Windows 11 x64 | `CueWeave-0.1-windows-x64.zip` | 解压得到 `CueWeave` 文件夹，双击其中的 `CueWeave.Windows.exe`。不要把 exe 单独拷走。 |
+
 ## 它做什么
 
 ```text
@@ -264,10 +275,10 @@ Windows 11 x64（在 Windows 上执行；SSH 会话请用仓库里的脚本，�
 
 发布目录（自包含：内置 .NET 运行时、Windows App SDK、`cueweave-cli.exe`，用户不必再装运行库）：
 
-- 文件夹：`dist/CueWeave-windows-x64\`
-- 压缩包：`dist/CueWeave-windows-x64.zip`
+- 文件夹：`dist/CueWeave-windows-x64\`（桌面验收直接跑这里的 `CueWeave.Windows.exe`）
+- 压缩包：`dist/CueWeave-windows-x64.zip`（解压后是一个 `CueWeave` 文件夹，不要把 exe 单独拿出来）
 
-其中的 `CueWeave.Windows.exe` 需要在桌面会话打开。SSH 里直接启动会进 Session 0，窗口不可见。
+`CueWeave.Windows.exe` 需要在桌面会话打开。SSH 里直接启动会进 Session 0，窗口不可见。
 
 macOS `.app` 同样内置 Swift 可执行文件、`cueweave-cli` 和 `l10n.json`，打开即可，不必再装 Rust / SwiftPM。仓库用 `Cargo.lock`、`apps/macos/Package.resolved`、`apps/windows/**/packages.lock.json` 锁定依赖版本；构建走 `--locked`。
 
