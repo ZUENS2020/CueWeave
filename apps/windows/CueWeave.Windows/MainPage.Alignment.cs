@@ -48,6 +48,8 @@ public sealed partial class MainPage
             Time = FormatTime((segment.Timing.Final ?? segment.Timing.Gemini)?.TimeMs),
             Included = batchIds.Contains(segment.Id)
         }).ToList();
+        paintedActive = null;
+        paintedSelected = null;
         CreditsSectionLabel.Visibility = VisibleIf(project.Lyrics.Credits.Count > 0);
         LyricsSectionLabel.Visibility = VisibleIf(project.Lyrics.Credits.Count > 0);
         var providerName = settings.AlignmentProvider == "openrouter" ? "OpenRouter" : "AI Studio";
@@ -57,6 +59,7 @@ public sealed partial class MainPage
             : settings.AiStudioApiKey.Length > 0);
         RestoreButton.IsEnabled = segments.Exists(segment => segment.Timing.Gemini is not null);
         UpdateBatchChrome();
+        UpdateQueueVisuals(Timeline.ActiveSegmentId);
     }
 
     private void Speed_Changed(object sender, SelectionChangedEventArgs e)
@@ -246,20 +249,36 @@ public sealed partial class MainPage
     private LyricSegment? SelectedSegment() => Timeline.SelectedSegmentId is ulong id
         ? session.Project?.Segments.FirstOrDefault(segment => segment.Id == id) : null;
 
+    private Brush? selectedFill;
+    private Brush? playingFill;
+    private ulong? paintedActive;
+    private ulong? paintedSelected;
+
     private void UpdateQueueVisuals(ulong? active)
     {
-        DispatcherQueue.TryEnqueue(() => {
-            if (AlignmentList.ItemsSource is not IList<SegmentRow> rows) return;
-            for (var index = 0; index < rows.Count; index++)
-            {
-                if (AlignmentList.ContainerFromIndex(index) is not ListViewItem item) continue;
-                var id = rows[index].Id;
-                item.Background = new SolidColorBrush(id == Timeline.SelectedSegmentId
-                    ? Microsoft.UI.ColorHelper.FromArgb(115, 50, 127, 159)
-                    : id == active ? Microsoft.UI.ColorHelper.FromArgb(55, 50, 127, 159)
-                    : Microsoft.UI.Colors.Transparent);
-            }
-        });
+        if (AlignmentList.ItemsSource is not IList<SegmentRow> rows) return;
+        selectedFill ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(115, 50, 127, 159));
+        playingFill ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(55, 50, 127, 159));
+        var selected = Timeline.SelectedSegmentId;
+        if (paintedActive == active && paintedSelected == selected) return;
+        PaintRow(rows, paintedActive, null, null);
+        if (paintedSelected != paintedActive) PaintRow(rows, paintedSelected, null, null);
+        paintedActive = active;
+        paintedSelected = selected;
+        PaintRow(rows, active, selected, active);
+        if (selected != active) PaintRow(rows, selected, selected, active);
+    }
+
+    private void PaintRow(IList<SegmentRow> rows, ulong? id, ulong? selected, ulong? active)
+    {
+        if (id is not ulong value) return;
+        for (var index = 0; index < rows.Count; index++)
+        {
+            if (rows[index].Id != value) continue;
+            if (AlignmentList.ContainerFromIndex(index) is not ListViewItem item) return;
+            item.Background = value == selected ? selectedFill : value == active ? playingFill : null;
+            return;
+        }
     }
 
     private void AdjustRate(int direction)
@@ -292,11 +311,11 @@ public sealed partial class MainPage
 
     private void ScrollToSegment(ulong id)
     {
-        if (AlignmentList.ItemsSource is IEnumerable<SegmentRow> rows)
-        {
-            var row = rows.FirstOrDefault(value => value.Id == id);
-            if (row is not null) AlignmentList.ScrollIntoView(row);
-        }
+        if (AlignmentList.ItemsSource is not IList<SegmentRow> rows) return;
+        var index = -1;
+        for (var i = 0; i < rows.Count; i++) if (rows[i].Id == id) { index = i; break; }
+        if (index < 0 || AlignmentList.ContainerFromIndex(index) is not UIElement item) return;
+        item.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.35 });
     }
 
     private static string FormatConfidence(float? value) => value is float number ? number.ToString("0.00") : "—";

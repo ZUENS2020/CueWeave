@@ -22,6 +22,10 @@ public sealed partial class TimelineControl : UserControl
     private CanvasControl? canvas;
     private readonly ScrollBar scroll = new() { Orientation = Orientation.Horizontal, Height = 12, VerticalAlignment = VerticalAlignment.Bottom };
     private IReadOnlyList<LyricSegment> segments = [];
+    private IReadOnlyList<(LyricSegment Segment, double Time)> timed = [];
+    private double lastPostedZoom = double.NaN;
+    private readonly CanvasTextFormat idFormat = new() { FontSize = 11, FontFamily = "Consolas", WordWrapping = CanvasWordWrapping.NoWrap };
+    private readonly CanvasTextFormat markFormat = new() { FontSize = 10, FontFamily = "Consolas", FontWeight = FontWeights.SemiBold };
     private IReadOnlyList<(ulong Id, ulong TimeMs, string Text)> credits = [];
     private WaveformData waveform = WaveformData.Empty;
     private bool changingScroll;
@@ -112,14 +116,14 @@ public sealed partial class TimelineControl : UserControl
 
     public void SetDocument(double durationMs, IReadOnlyList<LyricSegment> values)
     {
-        segments = values; Viewport.SetDocument(durationMs); SelectedSegmentId = null; activeId = null;
+        segments = values; RebuildTimed(); Viewport.SetDocument(durationMs); SelectedSegmentId = null; activeId = null;
         CommitViewport(); canvas?.Invalidate();
     }
 
     public WaveformData CurrentWaveform => waveform;
 
     public void SetWaveform(WaveformData value) { waveform = value; canvas?.Invalidate(); }
-    public void SetSegments(IReadOnlyList<LyricSegment> values) { segments = values; canvas?.Invalidate(); }
+    public void SetSegments(IReadOnlyList<LyricSegment> values) { segments = values; RebuildTimed(); canvas?.Invalidate(); }
     public void LocalizeLanes(Func<string, string> text)
     {
         timeLaneLabel.Text = text("lane.time");
@@ -275,9 +279,6 @@ public sealed partial class TimelineControl : UserControl
         if (height <= 0 || width <= 0) return;
         ds.FillRectangle(0, top, width, height, ColorHelper.FromArgb(22, 255, 255, 255));
         using var layer = ds.CreateLayer(1, new Rect(0, top, width, height));
-        using var idFormat = new CanvasTextFormat { FontSize = 11, FontFamily = "Consolas", WordWrapping = CanvasWordWrapping.NoWrap };
-        using var markFormat = new CanvasTextFormat { FontSize = 10, FontFamily = "Consolas", FontWeight = FontWeights.SemiBold };
-        var timed = TimedSegments();
         for (var index = 0; index < timed.Count; index++) {
             var (segment, start) = timed[index]; var end = index + 1 < timed.Count ? timed[index + 1].Time : Viewport.DurationMs;
             if (end < Viewport.VisibleStartMs || start > Viewport.VisibleEndMs) continue;
@@ -443,21 +444,31 @@ public sealed partial class TimelineControl : UserControl
     {
         changingScroll = true; scroll.Maximum = Math.Max(0, Viewport.DurationMs - Viewport.VisibleDurationMs);
         scroll.ViewportSize = Viewport.VisibleDurationMs; scroll.SmallChange = Viewport.VisibleDurationMs * .02;
-        scroll.LargeChange = Viewport.VisibleDurationMs * .8; scroll.Value = Viewport.VisibleStartMs; changingScroll = false;
-        ZoomChanged?.Invoke(Viewport.Zoom); if (invalidate) canvas?.Invalidate();
+        scroll.LargeChange = Viewport.VisibleDurationMs * .8;
+        if (Math.Abs(scroll.Value - Viewport.VisibleStartMs) > 0.5) scroll.Value = Viewport.VisibleStartMs;
+        changingScroll = false;
+        if (Math.Abs(Viewport.Zoom - lastPostedZoom) > 0.01)
+        {
+            lastPostedZoom = Viewport.Zoom;
+            ZoomChanged?.Invoke(Viewport.Zoom);
+        }
+        if (invalidate) canvas?.Invalidate();
     }
 
     private LyricSegment? SegmentAt(double timeMs)
     {
         LyricSegment? active = null;
-        foreach (var (segment, time) in TimedSegments()) { if (time > timeMs) break; active = segment; }
+        foreach (var (segment, time) in timed) { if (time > timeMs) break; active = segment; }
         return active;
     }
 
-    private List<(LyricSegment Segment, double Time)> TimedSegments() => segments
-        .Select(s => (Segment: s, Point: s.Timing.Final ?? s.Timing.Gemini))
-        .Where(value => value.Point is not null).Select(value => (value.Segment, (double)value.Point!.TimeMs))
-        .OrderBy(value => value.Item2).ToList();
+    private void RebuildTimed()
+    {
+        timed = segments
+            .Select(s => (Segment: s, Point: s.Timing.Final ?? s.Timing.Gemini))
+            .Where(value => value.Point is not null).Select(value => (value.Segment, (double)value.Point!.TimeMs))
+            .OrderBy(value => value.Item2).ToList();
+    }
 
     private void DrawSpectrogram(
         Microsoft.Graphics.Canvas.CanvasDrawingSession ds,

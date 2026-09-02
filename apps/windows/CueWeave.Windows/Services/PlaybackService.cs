@@ -93,17 +93,12 @@ public sealed class PlaybackService : IDisposable
 
     private static async Task<IRandomAccessStream> CopyFile(string path)
     {
-        var memory = new InMemoryRandomAccessStream();
-        await using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        var bytes = await File.ReadAllBytesAsync(path);
+        var memory = new InMemoryRandomAccessStream { Size = (ulong)bytes.Length };
+        memory.Seek(0);
         var writer = new DataWriter(memory);
-        var buffer = new byte[64 * 1024];
-        int read;
-        while ((read = await file.ReadAsync(buffer, 0, buffer.Length)) > 0)
-        {
-            writer.WriteBytes(read == buffer.Length ? buffer : buffer[..read]);
-            await writer.StoreAsync();
-        }
-        await writer.FlushAsync();
+        writer.WriteBytes(bytes);
+        await writer.StoreAsync();
         writer.DetachStream();
         writer.Dispose();
         memory.Seek(0);

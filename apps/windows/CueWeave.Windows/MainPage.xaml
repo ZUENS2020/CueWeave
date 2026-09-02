@@ -12,10 +12,12 @@
             <Setter Property="VerticalAlignment" Value="Stretch" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
-        <Style x:Key="MetaValueText" TargetType="TextBlock">
+        <Style x:Key="SegmentListItem" TargetType="ListViewItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
             <Setter Property="MinWidth" Value="0" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0" />
         </Style>
     </Page.Resources>
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
@@ -621,13 +623,16 @@
                                     <TextBlock x:Name="SegmentsLabel" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" Text="SEGMENTS" />
                                     <TextBlock x:Name="SegmentCount" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                 </Grid>
-                                <ScrollViewer Grid.Row="1">
+                                <ScrollViewer x:Name="SegmentScroll" Grid.Row="1" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
                                     <StackPanel>
                                         <TextBlock x:Name="CreditsSectionLabel" Margin="10,8,10,0" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="TITLE / CREDITS" />
-                                        <ListView x:Name="CreditsList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="CreditsList_ItemClick">
+                                        <ListView x:Name="CreditsList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="CreditsList_ItemClick"
+                                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                  ScrollViewer.VerticalScrollMode="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                                  ItemContainerStyle="{StaticResource SegmentListItem}">
                                             <ListView.ItemTemplate>
                                                 <DataTemplate>
-                                                    <StackPanel Padding="10,6" Spacing="2">
+                                                    <StackPanel Padding="10,6" Spacing="2" MinWidth="0" HorizontalAlignment="Stretch">
                                                         <TextBlock FontSize="12" FontWeight="SemiBold" Text="{Binding Text}" TextWrapping="Wrap" />
                                                         <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Time}" />
                                                     </StackPanel>
@@ -635,20 +640,24 @@
                                             </ListView.ItemTemplate>
                                         </ListView>
                                         <TextBlock x:Name="LyricsSectionLabel" Margin="10,8,10,0" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="LYRICS" />
-                                        <ListView x:Name="AlignmentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="AlignmentList_ItemClick" ContainerContentChanging="AlignmentList_ContainerChanging">
+                                        <ListView x:Name="AlignmentList" SelectionMode="None" IsItemClickEnabled="True" ItemClick="AlignmentList_ItemClick" ContainerContentChanging="AlignmentList_ContainerChanging"
+                                                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                                                  ScrollViewer.VerticalScrollMode="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                                  ItemContainerStyle="{StaticResource SegmentListItem}">
                                             <ListView.ItemTemplate>
                                                 <DataTemplate>
-                                                    <Grid Padding="8,6" ColumnSpacing="8">
+                                                    <Grid Padding="8,6" ColumnSpacing="8" MinWidth="0" HorizontalAlignment="Stretch">
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="Auto" />
-                                                            <ColumnDefinition Width="36" />
-                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" MinWidth="0" />
                                                         </Grid.ColumnDefinitions>
-                                                        <CheckBox Click="SegmentInclude_Click" />
-                                                        <TextBlock Grid.Column="1" VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding IdText}" />
-                                                        <StackPanel Grid.Column="2" Spacing="2">
-                                                            <TextBlock FontSize="14" Text="{Binding Text}" TextWrapping="Wrap" />
-                                                            <TextBlock FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Time}" />
+                                                        <CheckBox Width="28" MaxWidth="32" MinWidth="0" MinHeight="0" Padding="0" VerticalAlignment="Top" Click="SegmentInclude_Click" />
+                                                        <StackPanel Grid.Column="1" MinWidth="0" Spacing="2">
+                                                            <Grid>
+                                                                <TextBlock VerticalAlignment="Center" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="{Binding IdText}" />
+                                                                <TextBlock HorizontalAlignment="Right" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{Binding Time}" />
+                                                            </Grid>
+                                                            <TextBlock FontSize="14" Text="{Binding Text}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
                                                         </StackPanel>
                                                     </Grid>
                                                 </DataTemplate>

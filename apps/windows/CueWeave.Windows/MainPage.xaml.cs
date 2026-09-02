@@ -265,11 +265,15 @@ public sealed partial class MainPage : Page
         UpdatePlaybackFrame();
     }
 
+    private bool chromePlaying;
+
     private void UpdateRendering()
     {
         var playing = playback.IsTransportActive || playRequested;
         if (playing && !rendering) { CompositionTarget.Rendering += RenderingFrame; rendering = true; }
         else if (!playing) StopRendering();
+        if (chromePlaying == playing) return;
+        chromePlaying = playing;
         var icon = new SymbolIcon(playing ? Symbol.Pause : Symbol.Play);
         PlayButton.Content = icon;
         StatusPlayButton.Content = new SymbolIcon(playing ? Symbol.Pause : Symbol.Play);
