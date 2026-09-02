@@ -29,7 +29,6 @@ public sealed partial class MainPage : Page
     public MainPage()
     {
         session = new ProjectSession(core);
-        settings = LocalSettingsStore.Load();
         L10n.Apply(settings.UiLanguage);
         InitializeComponent();
         FollowButton.IsChecked = true;
@@ -50,7 +49,6 @@ public sealed partial class MainPage : Page
         Timeline.SelectedSegmentChanged += _ => { RefreshInspector(); UpdateQueueVisuals(Timeline.ActiveSegmentId); };
         Timeline.ZoomChanged += zoom => { changingZoom = true; ZoomSlider.Value = zoom; ZoomText.Text = $"{zoom:0.0}×"; changingZoom = false; };
         Unloaded += (_, _) => { StopRendering(); waveformCancellation?.Cancel(); };
-        Navigation.SelectedItem = Navigation.MenuItems[0];
         Refresh();
     }
 
@@ -298,6 +296,9 @@ public sealed partial class MainPage : Page
         BindChrome();
         var project = session.Project;
         WelcomePanel.Visibility = project is null ? Visibility.Visible : Visibility.Collapsed;
+        Navigation.Visibility = project is null ? Visibility.Collapsed : Visibility.Visible;
+        if (project is not null && Navigation.SelectedItem is null)
+            Navigation.SelectedItem = Navigation.MenuItems[0];
         ProjectTitle.Text = project is null ? L10n.T("welcome.headline.one") : session.Title;
         SaveStateText.Text = project is null ? L10n.T("status.noProject") : session.IsDirty ? L10n.T("status.edited") : L10n.T("status.saved");
         SaveButton.IsEnabled = project is not null;
