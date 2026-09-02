@@ -111,7 +111,6 @@ public sealed partial class MainPage
         InspectorLyricLabel.Text = L10n.T("inspect.lyricText");
         InspectorLyricBox.PlaceholderText = L10n.T("inspect.lyricPlaceholder");
         InspectorClearFinal.Content = L10n.T("align.clearFinal");
-        ToolTipService.SetToolTip(PlayButton, L10n.T("hotkey.playPause"));
         ToolTipService.SetToolTip(LoopAButton, L10n.T("loop.a.help"));
         ToolTipService.SetToolTip(LoopBButton, L10n.T("loop.b.help"));
         LoopClearButton.Content = L10n.T("action.clear");
@@ -122,7 +121,6 @@ public sealed partial class MainPage
         MarkButton.Content = L10n.T("mark");
         AlignUndoButton.Content = L10n.T("action.undo");
         AlignRedoButton.Content = L10n.T("action.redo");
-        HotkeyHint.Text = L10n.T("hotkey.windowsHint");
         PlayAroundButton.Content = L10n.T("inspect.playAround");
         UseGeminiButton.Content = L10n.T("inspect.useGemini");
         ExportHeading.Text = L10n.T("export.title");

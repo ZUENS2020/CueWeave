@@ -25,6 +25,8 @@ public sealed partial class MainPage : Page
     private string? localAudioPath;
     private double timelineDuration;
     private readonly HashSet<ulong> batchIds = [];
+    private bool playRequested;
+    private long lastSpaceToggle;
 
     public MainPage()
     {
@@ -46,6 +48,20 @@ public sealed partial class MainPage : Page
         var save = new KeyboardAccelerator { Key = VirtualKey.S, Modifiers = VirtualKeyModifiers.Control };
         save.Invoked += (_, args) => { args.Handled = true; Save_Click(this, new RoutedEventArgs()); };
         KeyboardAccelerators.Add(save);
+        var space = new KeyboardAccelerator { Key = VirtualKey.Space };
+        space.Invoked += (_, args) =>
+        {
+            if (!TryHandleSpacePlay()) return;
+            args.Handled = true;
+        };
+        KeyboardAccelerators.Add(space);
+        Loaded += (_, _) => AddHandler(KeyDownEvent, new KeyEventHandler(GlobalKeyDown), true);
+        playback.StateChanged += () => DispatcherQueue.TryEnqueue(() =>
+        {
+            if (playback.IsPlaying || !playback.IsTransportActive) playRequested = false;
+            UpdateRendering();
+            UpdatePlaybackFrame();
+        });
         BindChrome();
         session.PropertyChanged += (_, _) => Refresh();
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };
@@ -221,18 +237,42 @@ public sealed partial class MainPage : Page
         }
     }
 
-    private void Play_Click(object sender, RoutedEventArgs e)
+    private void Play_Click(object sender, RoutedEventArgs e) => TogglePlay();
+
+    private void GlobalKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        playback.PlayPause(); UpdateRendering(); UpdatePlaybackFrame();
+        if (e.Key != VirtualKey.Space || !TryHandleSpacePlay()) return;
+        e.Handled = true;
+    }
+
+    private bool TryHandleSpacePlay()
+    {
+        if (session.Project is null) return false;
+        if (FocusManager.GetFocusedElement(XamlRoot) is TextBox or PasswordBox) return false;
+        var now = Environment.TickCount64;
+        if (now - lastSpaceToggle < 80) return true;
+        lastSpaceToggle = now;
+        TogglePlay();
+        return true;
+    }
+
+    private void TogglePlay()
+    {
+        var pausing = playback.IsTransportActive || playRequested;
+        playRequested = !pausing;
+        if (pausing) playback.Pause(); else playback.Play();
+        UpdateRendering();
+        UpdatePlaybackFrame();
     }
 
     private void UpdateRendering()
     {
-        if (playback.IsPlaying && !rendering) { CompositionTarget.Rendering += RenderingFrame; rendering = true; }
-        else if (!playback.IsPlaying) StopRendering();
-        var icon = new SymbolIcon(playback.IsPlaying ? Symbol.Pause : Symbol.Play);
+        var playing = playback.IsTransportActive || playRequested;
+        if (playing && !rendering) { CompositionTarget.Rendering += RenderingFrame; rendering = true; }
+        else if (!playing) StopRendering();
+        var icon = new SymbolIcon(playing ? Symbol.Pause : Symbol.Play);
         PlayButton.Content = icon;
-        StatusPlayButton.Content = new SymbolIcon(playback.IsPlaying ? Symbol.Pause : Symbol.Play);
+        StatusPlayButton.Content = new SymbolIcon(playing ? Symbol.Pause : Symbol.Play);
     }
 
     private void StopRendering()
@@ -242,7 +282,7 @@ public sealed partial class MainPage : Page
 
     private void RenderingFrame(object? sender, object e)
     {
-        UpdatePlaybackFrame(); if (!playback.IsPlaying) UpdateRendering();
+        UpdatePlaybackFrame(); if (!playback.IsTransportActive && !playRequested) UpdateRendering();
     }
 
     private void UpdatePlaybackFrame()

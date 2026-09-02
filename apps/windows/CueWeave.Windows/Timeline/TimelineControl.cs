@@ -416,7 +416,7 @@ public sealed partial class TimelineControl : UserControl
             e.Handled = true; return;
         }
         var command = e.Key switch {
-            VirtualKey.Enter => "select_current", VirtualKey.Space => "play",
+            VirtualKey.Enter => "select_current",
             VirtualKey.A => "loop_a", VirtualKey.B => "loop_b", VirtualKey.Escape => "loop_clear",
             VirtualKey.Down => "next", VirtualKey.Up => "previous",
             VirtualKey.M => "mark", VirtualKey.N when !control => "toggle_follow_next",

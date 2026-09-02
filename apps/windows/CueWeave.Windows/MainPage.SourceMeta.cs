@@ -29,16 +29,29 @@ public sealed partial class MainPage
     private void BindMetadata(ProjectDocument project)
     {
         var source = project.Metadata.Source; var target = project.Metadata.Target; var draft = project.Metadata.Draft;
-        SourceTitle.Text = source.Title ?? "—"; TargetTitle.Text = target.Title ?? "—"; DraftTitle.Text = draft.Title ?? "";
-        SourceArtist.Text = Join(source.Artists); TargetArtist.Text = Join(target.Artists); DraftArtist.Text = Join(draft.Artists, " / ");
-        SourceAlbum.Text = source.Album ?? "—"; TargetAlbum.Text = target.Album ?? "—"; DraftAlbum.Text = draft.Album ?? "";
-        SourceAlbumArtist.Text = source.AlbumArtist ?? "—"; TargetAlbumArtist.Text = target.AlbumArtist ?? "—"; DraftAlbumArtist.Text = draft.AlbumArtist ?? "";
-        SourceDate.Text = source.Date ?? "—"; TargetDate.Text = target.Date ?? "—"; DraftDate.Text = draft.Date ?? "";
-        SourceTrack.Text = NumberText(source.Track); TargetTrack.Text = NumberText(target.Track); DraftTrack.Text = draft.Track?.ToString() ?? "";
-        SourceDisc.Text = NumberText(source.Disc); TargetDisc.Text = NumberText(target.Disc); DraftDisc.Text = draft.Disc?.ToString() ?? "";
-        SourceComposer.Text = source.Composer ?? "—"; TargetComposer.Text = target.Composer ?? "—"; DraftComposer.Text = draft.Composer ?? "";
-        SourceLyricist.Text = source.Lyricist ?? "—"; TargetLyricist.Text = target.Lyricist ?? "—"; DraftLyricist.Text = draft.Lyricist ?? "";
+        SetTrimmed(SourceTitle, source.Title); SetTrimmed(TargetTitle, target.Title); SetDraft(DraftTitle, draft.Title ?? "");
+        SetTrimmed(SourceArtist, Join(source.Artists, " / ")); SetTrimmed(TargetArtist, Join(target.Artists, " / ")); SetDraft(DraftArtist, string.Join(" / ", draft.Artists));
+        SetTrimmed(SourceAlbum, source.Album); SetTrimmed(TargetAlbum, target.Album); SetDraft(DraftAlbum, draft.Album ?? "");
+        SetTrimmed(SourceAlbumArtist, source.AlbumArtist); SetTrimmed(TargetAlbumArtist, target.AlbumArtist); SetDraft(DraftAlbumArtist, draft.AlbumArtist ?? "");
+        SetTrimmed(SourceDate, source.Date); SetTrimmed(TargetDate, target.Date); SetDraft(DraftDate, draft.Date ?? "");
+        SetTrimmed(SourceTrack, NumberText(source.Track)); SetTrimmed(TargetTrack, NumberText(target.Track)); SetDraft(DraftTrack, draft.Track?.ToString() ?? "");
+        SetTrimmed(SourceDisc, NumberText(source.Disc)); SetTrimmed(TargetDisc, NumberText(target.Disc)); SetDraft(DraftDisc, draft.Disc?.ToString() ?? "");
+        SetTrimmed(SourceComposer, source.Composer); SetTrimmed(TargetComposer, target.Composer); SetDraft(DraftComposer, draft.Composer ?? "");
+        SetTrimmed(SourceLyricist, source.Lyricist); SetTrimmed(TargetLyricist, target.Lyricist); SetDraft(DraftLyricist, draft.Lyricist ?? "");
         BindCover(MetaCover, project);
+    }
+
+    private static void SetTrimmed(TextBlock block, string? value)
+    {
+        var text = string.IsNullOrWhiteSpace(value) ? "—" : value;
+        block.Text = text;
+        ToolTipService.SetToolTip(block, text == "—" ? null : text);
+    }
+
+    private static void SetDraft(TextBox box, string value)
+    {
+        if (box.FocusState != FocusState.Unfocused) return;
+        if (box.Text != value) box.Text = value;
     }
 
     private void Metadata_LostFocus(object sender, RoutedEventArgs e)
@@ -46,7 +59,10 @@ public sealed partial class MainPage
         if (refreshing || session.Project is null) return;
         session.Mutate(project => {
             project.Metadata.Draft.Title = EmptyToNull(DraftTitle.Text);
-            project.Metadata.Draft.Artists = DraftArtist.Text.Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).ToList();
+            project.Metadata.Draft.Artists = DraftArtist.Text
+                .Replace('\n', '/')
+                .Split('/', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .ToList();
             project.Metadata.Draft.Album = EmptyToNull(DraftAlbum.Text);
             project.Metadata.Draft.AlbumArtist = EmptyToNull(DraftAlbumArtist.Text);
             project.Metadata.Draft.Date = EmptyToNull(DraftDate.Text);

@@ -13,12 +13,20 @@ public sealed class PlaybackService : IDisposable
 
     public double PositionMs => player.PlaybackSession.Position.TotalMilliseconds;
     public double DurationMs => player.PlaybackSession.NaturalDuration.TotalMilliseconds;
-    public bool IsPlaying => player.PlaybackSession.PlaybackState == MediaPlaybackState.Playing;
+    public MediaPlaybackState TransportState => player.PlaybackSession.PlaybackState;
+    public bool IsPlaying => TransportState == MediaPlaybackState.Playing;
+    public bool IsTransportActive => TransportState is MediaPlaybackState.Playing
+        or MediaPlaybackState.Buffering or MediaPlaybackState.Opening;
     public double Rate => player.PlaybackSession.PlaybackRate;
     public double? LoopStartMs { get; private set; }
     public double? LoopEndMs { get; private set; }
+    public event Action? StateChanged;
 
-    public PlaybackService() => player.CommandManager.IsEnabled = false;
+    public PlaybackService()
+    {
+        player.CommandManager.IsEnabled = false;
+        player.PlaybackSession.PlaybackStateChanged += (_, _) => StateChanged?.Invoke();
+    }
 
     public async Task LoadAsync(string path)
     {
@@ -31,9 +39,12 @@ public sealed class PlaybackService : IDisposable
         ClearLoop();
     }
 
+    public void Play() => player.Play();
+    public void Pause() => player.Pause();
+
     public void PlayPause()
     {
-        if (IsPlaying) player.Pause(); else player.Play();
+        if (IsTransportActive) Pause(); else Play();
     }
 
     public void Seek(double milliseconds) => player.PlaybackSession.Position =

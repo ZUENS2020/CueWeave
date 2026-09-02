@@ -111,7 +111,7 @@ public sealed partial class MainPage
     {
         var time = SelectedSegment()?.Timing.Final?.TimeMs ?? SelectedSegment()?.Timing.Gemini?.TimeMs;
         if (time is null) return;
-        playback.Seek(Math.Max(0, (long)time - 2_000)); if (!playback.IsPlaying) playback.PlayPause(); UpdateRendering();
+        playback.Seek(Math.Max(0, (long)time - 2_000)); if (!playback.IsTransportActive) playback.Play(); playRequested = true; UpdateRendering();
     }
 
     private void UseGemini_Click(object sender, RoutedEventArgs e) { if (Timeline.SelectedSegmentId is ulong id) session.UseGemini(id); }
