@@ -27,23 +27,25 @@ public static class WaveformAnalyzer
     {
         using var file = new FileStream(WinPaths.Normalize(path), FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         using var reader = Open(file, path);
-        var samples = reader.ToSampleProvider();
-        var channels = reader.WaveFormat.Channels;
-        var sampleRate = reader.WaveFormat.SampleRate;
+        var format = reader.WaveFormat;
+        var channels = format.Channels;
+        var sampleRate = format.SampleRate;
+        var bytesPerSample = Math.Max(1, format.BitsPerSample / 8);
         var totalFrames = Math.Max(1L, (long)Math.Ceiling(reader.TotalTime.TotalSeconds * sampleRate));
         var peak = new float[bins]; var low = new float[bins]; var mid = new float[bins]; var high = new float[bins];
         const int fftSize = 1024; const int fftPower = 10;
-        var buffer = new float[fftSize * channels];
+        var bytes = new byte[fftSize * format.BlockAlign];
         var spectrum = new Complex[fftSize];
         long framePosition = 0;
         while (true) {
             token.ThrowIfCancellationRequested();
-            var read = samples.Read(buffer, 0, buffer.Length);
+            var read = reader.Read(bytes, 0, bytes.Length);
             if (read == 0) break;
-            var frames = read / channels;
+            var frames = read / format.BlockAlign;
             for (var frame = 0; frame < frames; frame++) {
                 float mono = 0;
-                for (var channel = 0; channel < channels; channel++) mono += buffer[frame * channels + channel];
+                for (var channel = 0; channel < channels; channel++)
+                    mono += SampleAt(bytes, frame * format.BlockAlign + channel * bytesPerSample, format);
                 mono /= channels;
                 var bin = (int)Math.Min(bins - 1, (framePosition + frame) * bins / totalFrames);
                 peak[bin] = Math.Max(peak[bin], Math.Abs(mono));
@@ -66,10 +68,25 @@ public static class WaveformAnalyzer
         return new(peak, low, mid, high);
     }
 
-    private static WaveStream Open(FileStream file, string path) =>
-        Path.GetExtension(path).Equals(".wav", StringComparison.OrdinalIgnoreCase)
-            ? new WaveFileReader(file)
-            : new StreamMediaFoundationReader(file);
+    private static WaveStream Open(FileStream file, string path)
+    {
+        if (Path.GetExtension(path).Equals(".wav", StringComparison.OrdinalIgnoreCase))
+            return new WaveFileReader(file);
+#if WINDOWS
+        return new StreamMediaFoundationReader(file);
+#else
+        return new AudioFileReader(path);
+#endif
+    }
+
+    private static float SampleAt(byte[] data, int offset, WaveFormat format)
+    {
+        if (format.Encoding == WaveFormatEncoding.IeeeFloat && format.BitsPerSample >= 32)
+            return BitConverter.ToSingle(data, offset);
+        if (format.BitsPerSample == 16) return BitConverter.ToInt16(data, offset) / 32768f;
+        if (format.BitsPerSample == 8) return (data[offset] - 128) / 128f;
+        return 0;
+    }
 
     private static void Normalize(float[] values, bool squareRoot)
     {
