@@ -16,6 +16,7 @@
     <SelfContained>true</SelfContained>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <SatelliteResourceLanguages>en;zh-Hans</SatelliteResourceLanguages>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
   </PropertyGroup>
 
@@ -33,11 +34,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- WinUI 1.8 component only. The 2.4 metapackage pulls AI/ML/Search/Widgets and a WinUI 2.3 ABI that crashes with Win2D 1.4 (0xc000027b). -->
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Graphics.Win2D" Version="1.4.0" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.WinUI" Version="1.8.260803003" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.28000.2705" />
-    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.4.0" />
-    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.WinApp" Version="0.6.1" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools.MSIX" Version="1.7.260610101" PrivateAssets="all" />
     <PackageReference Include="NAudio" Version="3.0.1" />
   </ItemGroup>
 

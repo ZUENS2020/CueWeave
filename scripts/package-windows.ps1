@@ -32,6 +32,11 @@ if ($LASTEXITCODE -ne 0) { throw "cargo build failed" }
 
 $AppProj = Join-Path $Repo "apps\windows\CueWeave.Windows\CueWeave.Windows.csproj"
 $TestProj = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\CueWeave.Windows.Tests.csproj"
+$AppRoot = Join-Path $Repo "apps\windows\CueWeave.Windows"
+foreach ($stale in @("bin", "obj")) {
+    $path = Join-Path $AppRoot $stale
+    if (Test-Path $path) { Remove-Item $path -Recurse -Force }
+}
 $RestoreLock = if ($env:CI -eq "true") { "--locked-mode" } else { "--use-lock-file" }
 dotnet restore $AppProj -r win-x64 $RestoreLock --nologo
 if ($LASTEXITCODE -ne 0) { throw "dotnet restore app failed" }
