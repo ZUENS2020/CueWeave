@@ -32,6 +32,9 @@ public sealed partial class MainPage : Page
         settings = LocalSettingsStore.Load();
         L10n.Apply(settings.UiLanguage);
         InitializeComponent();
+        FollowButton.IsChecked = true;
+        NextButton.IsChecked = false;
+        OverwriteCheck.IsChecked = true;
         BindChrome();
         session.PropertyChanged += (_, _) => Refresh();
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };

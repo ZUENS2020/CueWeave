@@ -183,8 +183,8 @@
                                 <Button x:Name="LoopAButton" Content="A" Click="LoopA_Click" ToolTipService.ToolTip="Set loop start (A)" />
                                 <Button x:Name="LoopBButton" Content="B" Click="LoopB_Click" ToolTipService.ToolTip="Set loop end (B)" />
                                 <Button x:Name="LoopClearButton" Content="Clear" Click="LoopClear_Click" />
-                                <ToggleButton x:Name="FollowButton" Content="Follow" IsChecked="True" Checked="Follow_Changed" Unchecked="Follow_Changed" ToolTipService.ToolTip="Keep the playhead in view" />
-                                <ToggleButton x:Name="NextButton" Content="Next" IsChecked="False" Checked="Next_Changed" Unchecked="Next_Changed" ToolTipService.ToolTip="Keep selection on the lyric after the playhead" />
+                                <ToggleButton x:Name="FollowButton" Content="Follow" Checked="Follow_Changed" Unchecked="Follow_Changed" ToolTipService.ToolTip="Keep the playhead in view" />
+                                <ToggleButton x:Name="NextButton" Content="Next" Checked="Next_Changed" Unchecked="Next_Changed" ToolTipService.ToolTip="Keep selection on the lyric after the playhead" />
                                 <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" />
                                 <Button x:Name="AlignButton" Style="{StaticResource AccentButtonStyle}" Content="Run Gemini" Click="Align_Click" />
                                 <Button x:Name="RestoreButton" Content="Restore AI" Click="RestoreGemini_Click" />
@@ -258,7 +258,7 @@
                                 <ComboBoxItem x:Name="BilingualCombined" Content="Separate translation" Tag="bilingual" />
                             </ComboBox>
                             <NumberBox x:Name="OffsetBox" Header="Export offset (ms)" Minimum="-2000" Maximum="2000" SmallChange="10" SpinButtonPlacementMode="Compact" ValueChanged="Offset_Changed" />
-                            <CheckBox x:Name="OverwriteCheck" Content="Overwrite existing output" IsChecked="True" />
+                            <CheckBox x:Name="OverwriteCheck" Content="Overwrite existing output" />
                         </StackPanel>
                     </Grid>
                 </Grid>
