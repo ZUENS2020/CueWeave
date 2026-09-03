@@ -8,7 +8,6 @@ let package = Package(
         .executable(name: "CueWeaveMac", targets: ["CueWeaveMac"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-testing.git", exact: "6.3.2"),
         .package(url: "https://github.com/dmrschmidt/DSWaveformImage.git", exact: "14.5.0"),
     ],
     targets: [
@@ -27,7 +26,6 @@ let package = Package(
             name: "CueWeaveMacTests",
             dependencies: [
                 "CueWeaveMac",
-                .product(name: "Testing", package: "swift-testing"),
             ],
             linkerSettings: [
                 .unsafeFlags([

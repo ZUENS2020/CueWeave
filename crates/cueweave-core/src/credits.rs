@@ -154,20 +154,6 @@ pub fn add_credit(
     Ok(id)
 }
 
-pub fn remove_credit(project: &mut SongProject, id: CreditId) -> Result<(), ProjectError> {
-    let Some(index) = project
-        .lyrics
-        .credits
-        .iter()
-        .position(|credit| credit.id == id)
-    else {
-        return Err(ProjectError::NotFound("credit", id.0));
-    };
-    project.lyrics.credits.remove(index);
-    sync_credit_cues(project);
-    Ok(())
-}
-
 pub fn set_credit_time(
     project: &mut SongProject,
     id: CreditId,

@@ -124,12 +124,6 @@ pub fn builtin_audio_viz_adapters() -> Vec<Box<dyn AudioVizAdapter>> {
     ]
 }
 
-pub fn builtin_audio_viz_adapter(id: &str) -> Option<Box<dyn AudioVizAdapter>> {
-    builtin_audio_viz_adapters()
-        .into_iter()
-        .find(|adapter| adapter.info().id == id)
-}
-
 pub fn list_audio_viz_adapters() -> Vec<AudioVizAdapterInfo> {
     builtin_audio_viz_adapters()
         .into_iter()

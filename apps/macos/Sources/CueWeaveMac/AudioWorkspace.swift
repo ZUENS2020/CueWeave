@@ -22,10 +22,6 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var lastAudioTime: TimeInterval = 0
     private var displayClock = PlaybackDisplayClock()
 
-    override init() {
-        super.init()
-    }
-
     func load(_ url: URL) throws {
         let player = try AVAudioPlayer(contentsOf: url)
         player.enableRate = true
