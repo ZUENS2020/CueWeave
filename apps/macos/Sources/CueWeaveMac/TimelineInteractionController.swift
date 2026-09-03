@@ -61,6 +61,8 @@ final class TimelineInteractionController: ObservableObject {
             viewport.endInteraction()
         case .zoomBegan:
             viewport.beginInteraction()
+        case let .creditDrag(id, fraction):
+            dragCredit(id, fraction: fraction)
         case let .zoom(delta, _):
             zoom(to: zoom * exp(delta * 2))
         case .zoomEnded:
@@ -187,11 +189,16 @@ final class TimelineInteractionController: ObservableObject {
         player.duration > 0 ? UInt64((player.duration * 1_000).rounded()) : nil
     }
 
-    private func hitCredit(at fraction: Double) -> UInt64? {
+    func hitCreditHandle(_ sample: TimelinePointerSample, width: CGFloat) -> UInt64? {
+        guard width > 0, player.duration > 0 else { return nil }
+        return hitCredit(at: sample.documentFraction, windowMS: 14 / width * player.duration * 1_000)
+    }
+
+    private func hitCredit(at fraction: Double, windowMS: Double = 120) -> UInt64? {
         guard player.duration > 0, let cues = store.project?.creditCues, !cues.isEmpty else { return nil }
         let target = fraction * player.duration * 1_000
         return cues.min(by: { abs(Double($0.timeMS) - target) < abs(Double($1.timeMS) - target) })
-            .flatMap { abs(Double($0.timeMS) - target) <= 120 ? $0.id : nil }
+            .flatMap { abs(Double($0.timeMS) - target) <= windowMS ? $0.id : nil }
     }
 
     func seek(toSeconds seconds: TimeInterval) {

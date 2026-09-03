@@ -40,6 +40,20 @@ struct TimelineInteractionTests {
             return
         }
         #expect(committed == 0.10 ... 0.35)
+
+        pointer.begin(at: start, x: 100, credit: 7)
+        #expect(
+            pointer.drag(to: .init(documentFraction: 0.20, viewportFraction: 0.35), x: 150)
+                == .creditDrag(id: 7, fraction: 0.20)
+        )
+        #expect(pointer.end(at: .init(documentFraction: 0.22, viewportFraction: 0.37)) == nil)
+
+        pointer.begin(at: start, x: 100, credit: 7)
+        guard case let .click(creditClick)? = pointer.end(at: start) else {
+            Issue.record("Unmoved credit press must remain a click")
+            return
+        }
+        #expect(close(creditClick.documentFraction, 0.10))
     }
 
     @Test("Coordinates cover a complete 149.091-second document")

@@ -8,7 +8,7 @@ final class L10n: ObservableObject {
 
     private let catalog: [String: [String: String]]
 
-    private init() {
+    init() {
         catalog = Self.loadCatalog()
     }
 

@@ -1,5 +1,5 @@
 {
-  "originHash" : "01e7fe90b66775b13a3f90f305f8ec2f46e27b1302e2cb4717873940eee0e455",
+  "originHash" : "3f18dee98f73cac39f1acb77d7cf4aebab2f73db5e0be20b25ecbcb77880bade",
   "pins" : [
     {
       "identity" : "dswaveformimage",
@@ -8,24 +8,6 @@
       "state" : {
         "revision" : "00afb7930863b9cc3bd011389d601735e548093c",
         "version" : "14.5.0"
-      }
-    },
-    {
-      "identity" : "swift-syntax",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swiftlang/swift-syntax.git",
-      "state" : {
-        "revision" : "79e4b74a295b6eb74a8b585e3a39d29e70c1dbd1",
-        "version" : "603.0.2"
-      }
-    },
-    {
-      "identity" : "swift-testing",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/swiftlang/swift-testing.git",
-      "state" : {
-        "revision" : "70eff261d7f462cad1fff51e05bcc74aa0b0f420",
-        "version" : "6.3.2"
       }
     }
   ],

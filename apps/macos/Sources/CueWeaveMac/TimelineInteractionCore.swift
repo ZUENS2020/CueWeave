@@ -21,6 +21,7 @@ enum TimelinePointerEvent: Equatable {
     case click(TimelinePointerSample)
     case selectionChanged(ClosedRange<Double>)
     case selectionCommitted(ClosedRange<Double>)
+    case creditDrag(id: UInt64, fraction: Double)
     case zoomBegan
     case zoom(delta: Double, anchor: TimelinePointerSample)
     case zoomEnded
@@ -30,33 +31,39 @@ struct TimelinePointerStateMachine {
     private var start: TimelinePointerSample?
     private var startX: CGFloat = 0
     private var selecting = false
+    private var credit: UInt64?
 
-    mutating func begin(at sample: TimelinePointerSample, x: CGFloat) {
+    mutating func begin(at sample: TimelinePointerSample, x: CGFloat, credit: UInt64? = nil) {
         start = sample
         startX = x
         selecting = false
+        self.credit = credit
     }
 
     mutating func drag(to sample: TimelinePointerSample, x: CGFloat) -> TimelinePointerEvent? {
         guard let start else { return nil }
+        if let credit {
+            selecting = true
+            return .creditDrag(id: credit, fraction: sample.documentFraction)
+        }
         if !selecting { selecting = abs(x - startX) >= 4 }
         guard selecting else { return nil }
         return .selectionChanged(Self.range(start.documentFraction, sample.documentFraction))
     }
 
     mutating func end(at sample: TimelinePointerSample) -> TimelinePointerEvent? {
+        defer { self.start = nil; selecting = false; credit = nil }
         guard let start else { return nil }
-        let event: TimelinePointerEvent = selecting
+        if credit != nil { return selecting ? nil : .click(sample) }
+        return selecting
             ? .selectionCommitted(Self.range(start.documentFraction, sample.documentFraction))
             : .click(sample)
-        self.start = nil
-        selecting = false
-        return event
     }
 
     mutating func cancel() {
         start = nil
         selecting = false
+        credit = nil
     }
 
     private static func range(_ first: Double, _ second: Double) -> ClosedRange<Double> {
