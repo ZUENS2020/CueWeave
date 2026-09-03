@@ -3,21 +3,25 @@ import SwiftUI
 
 struct TimelinePointerSurface: NSViewRepresentable {
     let onEvent: (TimelinePointerEvent) -> Void
+    let creditAt: (TimelinePointerSample, CGFloat) -> UInt64?
 
     func makeNSView(context: Context) -> PointerView {
         let view = PointerView()
         view.onEvent = onEvent
+        view.creditAt = creditAt
         return view
     }
 
     func updateNSView(_ view: PointerView, context: Context) {
         view.onEvent = onEvent
+        view.creditAt = creditAt
     }
 
 }
 
 final class PointerView: NSView {
     var onEvent: ((TimelinePointerEvent) -> Void)?
+    var creditAt: ((TimelinePointerSample, CGFloat) -> UInt64?)?
     private var pointer = TimelinePointerStateMachine()
     private var zoomGestureActive = false
 
@@ -26,7 +30,8 @@ final class PointerView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
-        pointer.begin(at: sample(event), x: point.x)
+        let sample = sample(event)
+        pointer.begin(at: sample, x: point.x, credit: sample.lane == .lyrics ? creditAt?(sample, bounds.width) : nil)
     }
 
     override func mouseDragged(with event: NSEvent) {

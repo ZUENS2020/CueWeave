@@ -141,7 +141,7 @@ private struct TimelineCanvas: View {
                     width: geometry.size.width,
                     height: geometry.size.height
                 )
-                TimelinePointerSurface(onEvent: interaction.handle)
+                TimelinePointerSurface(onEvent: interaction.handle, creditAt: interaction.hitCreditHandle)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 creditHandles(duration: duration, width: geometry.size.width, height: geometry.size.height)
             }
@@ -491,13 +491,7 @@ private struct TimelineCanvas: View {
                 }
                 .foregroundStyle(CueWeaveStyle.accent)
                 .position(x: x, y: metrics.lyricTop + 18)
-                .gesture(
-                    DragGesture(minimumDistance: 1)
-                        .onChanged { value in
-                            let fraction = min(max(0, (x + value.translation.width) / width), 1)
-                            interaction.dragCredit(credit.id, fraction: Double(fraction))
-                        }
-                )
+                .allowsHitTesting(false)
             }
         }
     }
