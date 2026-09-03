@@ -14,12 +14,11 @@ struct L10nCatalogTests {
 
     @Test("Preference switches resolved language")
     func preferenceSwitch() {
-        let previous = L10n.shared.preference
-        defer { L10n.shared.setPreference(previous) }
-        L10n.shared.setPreference("zh")
-        #expect(L10n.shared.language == "zh")
-        #expect(L10n.shared.t("action.save") == "保存")
-        L10n.shared.setPreference("en")
-        #expect(L10n.shared.t("action.save") == "Save")
+        let l10n = L10n()
+        l10n.setPreference("zh")
+        #expect(l10n.language == "zh")
+        #expect(l10n.t("action.save") == "保存")
+        l10n.setPreference("en")
+        #expect(l10n.t("action.save") == "Save")
     }
 }
