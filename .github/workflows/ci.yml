@@ -32,6 +32,8 @@ jobs:
         run: cargo build --locked --release -p cueweave-cli
       - name: Test native app
         run: swift test --package-path apps/macos --disable-automatic-resolution
+      - name: Install ripgrep
+        run: brew install ripgrep
       - name: Check timeline, settings and document boundaries
         run: |
           ./scripts/check-timeline-interaction.sh
