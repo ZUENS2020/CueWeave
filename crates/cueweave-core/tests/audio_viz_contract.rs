@@ -1,5 +1,6 @@
 use cueweave_core::{
-    FrequencyScale, PcmAudio, list_audio_viz_adapters, spectrogram_tile, waveform_bins,
+    FrequencyScale, PcmAudio, builtin_audio_viz_adapter, list_audio_viz_adapters, spectrogram_tile,
+    waveform_bins,
 };
 use std::f32::consts::PI;
 
@@ -84,8 +85,8 @@ fn lists_seven_audio_viz_adapters_without_alignment_fields() {
     );
     assert_eq!(adapters[2].series, ["peak", "rms"]);
     assert_eq!(adapters[5].scale, Some(FrequencyScale::Log));
-    assert!(adapters.iter().any(|adapter| adapter.id == "peak"));
-    assert!(adapters.iter().all(|adapter| adapter.id != "onset"));
+    assert!(builtin_audio_viz_adapter("peak").is_some());
+    assert!(builtin_audio_viz_adapter("onset").is_none());
     let encoded = serde_json::to_string(&adapters).unwrap();
     assert!(!encoded.contains("onset"));
     assert!(!encoded.contains("snap"));

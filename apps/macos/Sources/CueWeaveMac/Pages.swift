@@ -97,40 +97,40 @@ struct MetadataPage: View {
                             MetadataTextRow(
                                 label: l10n.t("meta.title"), source: metadata.source.title, target: metadata.target.title,
                                 draft: store.draftBinding(\.title),
-                                useSource: { store.adoptMetadata(\.title, from: .source) },
-                                useTarget: { store.adoptMetadata(\.title, from: .target) },
+                                useSource: { store.adopt(\.title, from: .source) },
+                                useTarget: { store.adopt(\.title, from: .target) },
                                 useSourceHelp: l10n.t("meta.useSource"),
                                 useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
                                 label: l10n.t("meta.artist"), source: artists(metadata.source), target: artists(metadata.target),
                                 draft: store.artistsBinding(),
-                                useSource: { store.adoptArtists(from: .source) },
-                                useTarget: { store.adoptArtists(from: .target) },
+                                useSource: { store.adopt(\.artists, from: .source) },
+                                useTarget: { store.adopt(\.artists, from: .target) },
                                 useSourceHelp: l10n.t("meta.useSource"),
                                 useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
                                 label: l10n.t("meta.albumArtist"), source: metadata.source.albumArtist, target: metadata.target.albumArtist,
                                 draft: store.draftBinding(\.albumArtist),
-                                useSource: { store.adoptMetadata(\.albumArtist, from: .source) },
-                                useTarget: { store.adoptMetadata(\.albumArtist, from: .target) },
+                                useSource: { store.adopt(\.albumArtist, from: .source) },
+                                useTarget: { store.adopt(\.albumArtist, from: .target) },
                                 useSourceHelp: l10n.t("meta.useSource"),
                                 useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
                                 label: l10n.t("meta.album"), source: metadata.source.album, target: metadata.target.album,
                                 draft: store.draftBinding(\.album),
-                                useSource: { store.adoptMetadata(\.album, from: .source) },
-                                useTarget: { store.adoptMetadata(\.album, from: .target) },
+                                useSource: { store.adopt(\.album, from: .source) },
+                                useTarget: { store.adopt(\.album, from: .target) },
                                 useSourceHelp: l10n.t("meta.useSource"),
                                 useTargetHelp: l10n.t("meta.useTarget")
                             )
                             MetadataTextRow(
                                 label: l10n.t("meta.date"), source: metadata.source.date, target: metadata.target.date,
                                 draft: store.draftBinding(\.date),
-                                useSource: { store.adoptMetadata(\.date, from: .source) },
-                                useTarget: { store.adoptMetadata(\.date, from: .target) },
+                                useSource: { store.adopt(\.date, from: .source) },
+                                useTarget: { store.adopt(\.date, from: .target) },
                                 useSourceHelp: l10n.t("meta.useSource"),
                                 useTargetHelp: l10n.t("meta.useTarget")
                             )
@@ -139,32 +139,32 @@ struct MetadataPage: View {
                                     MetadataTextRow(
                                         label: l10n.t("meta.track"), source: number(metadata.source.track), target: number(metadata.target.track),
                                         draft: store.numberBinding(\.track),
-                                        useSource: { store.adoptNumber(\.track, from: .source) },
-                                        useTarget: { store.adoptNumber(\.track, from: .target) },
+                                        useSource: { store.adopt(\.track, from: .source) },
+                                        useTarget: { store.adopt(\.track, from: .target) },
                                         useSourceHelp: l10n.t("meta.useSource"),
                                         useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                     MetadataTextRow(
                                         label: l10n.t("meta.disc"), source: number(metadata.source.disc), target: number(metadata.target.disc),
                                         draft: store.numberBinding(\.disc),
-                                        useSource: { store.adoptNumber(\.disc, from: .source) },
-                                        useTarget: { store.adoptNumber(\.disc, from: .target) },
+                                        useSource: { store.adopt(\.disc, from: .source) },
+                                        useTarget: { store.adopt(\.disc, from: .target) },
                                         useSourceHelp: l10n.t("meta.useSource"),
                                         useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                     MetadataTextRow(
                                         label: l10n.t("meta.composer"), source: metadata.source.composer, target: metadata.target.composer,
                                         draft: store.draftBinding(\.composer),
-                                        useSource: { store.adoptMetadata(\.composer, from: .source) },
-                                        useTarget: { store.adoptMetadata(\.composer, from: .target) },
+                                        useSource: { store.adopt(\.composer, from: .source) },
+                                        useTarget: { store.adopt(\.composer, from: .target) },
                                         useSourceHelp: l10n.t("meta.useSource"),
                                         useTargetHelp: l10n.t("meta.useTarget")
                                     )
                                     MetadataTextRow(
                                         label: l10n.t("meta.lyricist"), source: metadata.source.lyricist, target: metadata.target.lyricist,
                                         draft: store.draftBinding(\.lyricist),
-                                        useSource: { store.adoptMetadata(\.lyricist, from: .source) },
-                                        useTarget: { store.adoptMetadata(\.lyricist, from: .target) },
+                                        useSource: { store.adopt(\.lyricist, from: .source) },
+                                        useTarget: { store.adopt(\.lyricist, from: .target) },
                                         useSourceHelp: l10n.t("meta.useSource"),
                                         useTargetHelp: l10n.t("meta.useTarget")
                                     )

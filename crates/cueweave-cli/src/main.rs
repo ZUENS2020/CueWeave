@@ -179,7 +179,10 @@ fn parse_ids(value: &OsString) -> Result<Vec<SegmentId>, Box<dyn Error>> {
         .collect()
 }
 
-fn provider_from_env() -> Result<(String, String, Option<String>), Box<dyn Error>> {
+fn align_project(
+    project_path: &OsString,
+    selected: Option<&[SegmentId]>,
+) -> Result<(), Box<dyn Error>> {
     let provider =
         std::env::var("CUEWEAVE_ALIGNMENT_PROVIDER").unwrap_or_else(|_| "openrouter".into());
     let (api_key, model) = match provider.as_str() {
@@ -193,14 +196,6 @@ fn provider_from_env() -> Result<(String, String, Option<String>), Box<dyn Error
         ),
         _ => return Err(format!("unsupported alignment provider: {provider}").into()),
     };
-    Ok((provider, api_key, model))
-}
-
-fn align_project(
-    project_path: &OsString,
-    selected: Option<&[SegmentId]>,
-) -> Result<(), Box<dyn Error>> {
-    let (provider, api_key, model) = provider_from_env()?;
     align_project_with_config(project_path, selected, &provider, api_key, model)
 }
 
@@ -243,7 +238,19 @@ fn translate_project(
     project_path: &OsString,
     target_language: Option<&str>,
 ) -> Result<(), Box<dyn Error>> {
-    let (provider, api_key, model) = provider_from_env()?;
+    let provider =
+        std::env::var("CUEWEAVE_ALIGNMENT_PROVIDER").unwrap_or_else(|_| "openrouter".into());
+    let (api_key, model) = match provider.as_str() {
+        "openrouter" => (
+            std::env::var("OPENROUTER_API_KEY").map_err(|_| "OPENROUTER_API_KEY is not set")?,
+            std::env::var("OPENROUTER_MODEL").ok(),
+        ),
+        "ai_studio" => (
+            std::env::var("GEMINI_API_KEY").map_err(|_| "GEMINI_API_KEY is not set")?,
+            std::env::var("GEMINI_MODEL").ok(),
+        ),
+        _ => return Err(format!("unsupported alignment provider: {provider}").into()),
+    };
     translate_project_with_config(project_path, &provider, api_key, model, target_language)
 }
 

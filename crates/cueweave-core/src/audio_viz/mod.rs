@@ -11,8 +11,8 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 pub use adapter::{
-    AudioVizAdapter, AudioVizAdapterInfo, AudioVizSurface, builtin_audio_viz_adapters,
-    list_audio_viz_adapters,
+    AudioVizAdapter, AudioVizAdapterInfo, AudioVizSurface, builtin_audio_viz_adapter,
+    builtin_audio_viz_adapters, list_audio_viz_adapters,
 };
 pub use spectrogram::{FFT_SIZE, FrequencyScale, HOP_SIZE, SpectrogramTile, spectrogram_tile};
 pub use waveform::{WaveformBin, waveform_bins};

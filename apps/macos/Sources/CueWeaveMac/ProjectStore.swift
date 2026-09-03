@@ -284,30 +284,10 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
         )
     }
 
-    func adoptMetadata(
-        _ keyPath: WritableKeyPath<MetadataValues, String?>,
-        from origin: MetadataOrigin
-    ) {
+    func adopt<T>(_ keyPath: WritableKeyPath<MetadataValues, T>, from origin: MetadataOrigin) {
         mutate { document in
             let values = origin == .source ? document.metadata.source : document.metadata.target
             document.metadata.draft[keyPath: keyPath] = values[keyPath: keyPath]
-        }
-    }
-
-    func adoptNumber(
-        _ keyPath: WritableKeyPath<MetadataValues, UInt32?>,
-        from origin: MetadataOrigin
-    ) {
-        mutate { document in
-            let values = origin == .source ? document.metadata.source : document.metadata.target
-            document.metadata.draft[keyPath: keyPath] = values[keyPath: keyPath]
-        }
-    }
-
-    func adoptArtists(from origin: MetadataOrigin) {
-        mutate { document in
-            document.metadata.draft.artists = origin == .source
-                ? document.metadata.source.artists : document.metadata.target.artists
         }
     }
 
