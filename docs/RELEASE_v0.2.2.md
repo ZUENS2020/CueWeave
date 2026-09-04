@@ -11,6 +11,14 @@
 
 此为发行说明草稿，CI artifact 不等于已发布 Release。实际播放验收另行记录；macOS 仍为 ad-hoc 签名、未经公证，Windows 实机验收仍需在线设备。
 
+### 2026-09-04 验收记录
+
+- 代码提交 `442242b` 的 [CI 33878651944](https://github.com/ZUENS2020/CueWeave/actions/runs/33878651944) 全部通过。Mac 双架构包含 37 项原生测试；Windows 构建通过，不代表 Windows 实机交互验收。
+- 本机安装 CI 的 ARM64 包（0.2.2 Build 5），验证签名与 SDK 26.5；冷启动显示开屏，打开项目后封面立即出现。
+- 使用原项目的独立副本，149 秒 / 38 句、64×、Follow + Next：检查歌曲后半段连续换句、0.5× / 1× / 2×、A–B 循环跳回、空格暂停、N、Tab 保持 Next、Shift-Tab 取消 Next。多次观察中指针保持居中，换句不再出现双重列表滚动。
+- 前后各做 5 秒、2 ms 间隔的本地 `sample` 对照。同期 `ps` CPU 读数旧版约 48.8%，新版 28.3–29.7%；这只是有限场景采样，不是帧率或零掉帧保证。
+- 原项目与验收副本在测试结束后内容哈希一致；旧 App 留有可恢复备份。
+
 ## English
 
 - Update the native playhead and follow-scroll in the same Core Animation transaction instead of following indirect SwiftUI state callbacks.
@@ -21,3 +29,11 @@
 - Add regression coverage for synchronous frame delivery, static waveform inputs, Next reveals, readout throttling and native scrolling from 1× to 64×.
 
 Draft release notes: CI artifacts are not a published release. Live playback acceptance is recorded separately. macOS remains ad-hoc signed, not notarized; Windows device acceptance requires an online machine.
+
+### Acceptance — 2026-09-04
+
+- [CI 33878651944](https://github.com/ZUENS2020/CueWeave/actions/runs/33878651944) passed for code commit `442242b`, including 37 native tests on each Mac architecture and the Windows build. This is not Windows device-interaction acceptance.
+- Installed and verified the ARM64 CI app, 0.2.2 Build 5 with SDK 26.5. Cold launch showed the welcome screen; opening a project displayed its cover immediately.
+- Used an independent project copy: 149 seconds / 38 lyrics, 64×, Follow + Next. Checked late-song transitions, 0.5× / 1× / 2×, A–B loop wrap, Space pause, N, Tab preserving Next, and Shift-Tab cancelling it. Repeated observations showed a centered playhead without the previous competing list reveals.
+- Compared two local five-second `sample` captures at 2 ms intervals. Contemporaneous `ps` CPU readings were approximately 48.8% before and 28.3–29.7% after. This limited sample is not a frame-rate measurement or a guarantee of zero dropped frames.
+- The original project and test copy remained byte-identical; the previous installed app is backed up for rollback.
