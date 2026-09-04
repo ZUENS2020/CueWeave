@@ -95,7 +95,7 @@ public sealed partial class MainPage
         AlignHeading.Text = L10n.T("timeline.title").ToUpperInvariant();
         AlignSubtitle.Text = L10n.T("page.alignment.subtitle");
         RestoreButton.Content = L10n.T("align.restoreGemini");
-        ToolTipService.SetToolTip(RestoreButton, L10n.T("align.restoreHelp"));
+        ToolTipService.SetToolTip(RestoreButton, L10n.T("align.restoreHelp.win"));
         AlignEmptyTitle.Text = L10n.T("align.emptyTitle");
         AlignEmptyDetail.Text = L10n.T("align.emptyDetail");
         SegmentsLabel.Text = L10n.T("align.segments");
@@ -121,6 +121,8 @@ public sealed partial class MainPage
         MarkButton.Content = L10n.T("mark");
         AlignUndoButton.Content = L10n.T("action.undo");
         AlignRedoButton.Content = L10n.T("action.redo");
+        ToolTipService.SetToolTip(HotkeysButton, L10n.T("hotkeys.help"));
+        Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(HotkeysButton, L10n.T("hotkeys.help"));
         PlayAroundButton.Content = L10n.T("inspect.playAround");
         UseGeminiButton.Content = L10n.T("inspect.useGemini");
         ExportHeading.Text = L10n.T("export.title");

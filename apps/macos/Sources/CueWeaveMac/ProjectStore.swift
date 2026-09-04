@@ -32,6 +32,7 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
 
     @MainActor private var playerStorage: AudioPlayer?
     @MainActor private var waveformStorage: WaveformModel?
+    @MainActor private var pickingProject = false
 
     @MainActor
     var player: AudioPlayer {
@@ -103,6 +104,9 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
 
     @MainActor
     func createInteractive() async {
+        guard !isBusy, !pickingProject else { return }
+        pickingProject = true
+        defer { pickingProject = false }
         guard let source = chooseFile(extension: "ncm", title: L10n.shared.t("pick.ncm")),
               let target = chooseFile(extension: "mp3", title: L10n.shared.t("pick.mp3")),
               let output = chooseProjectDestination(defaultName: target.deletingPathExtension().lastPathComponent)
@@ -120,6 +124,9 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
 
     @MainActor
     func openInteractive() {
+        guard !isBusy, !pickingProject else { return }
+        pickingProject = true
+        defer { pickingProject = false }
         let panel = NSOpenPanel()
         panel.title = L10n.shared.t("welcome.open")
         panel.allowsMultipleSelection = false

@@ -4,7 +4,9 @@ set -eu
 script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_dir=$(dirname -- "$script_dir")
 
-swift test --package-path "$repo_dir/apps/macos"
+if [ "${CUEWEAVE_SKIP_SWIFT_TESTS:-0}" != "1" ]; then
+    swift test --package-path "$repo_dir/apps/macos" --disable-automatic-resolution
+fi
 
 timeline_view="$repo_dir/apps/macos/Sources/CueWeaveMac/TimelineView.swift"
 alignment_page="$repo_dir/apps/macos/Sources/CueWeaveMac/AlignmentPage.swift"

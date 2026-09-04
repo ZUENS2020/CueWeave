@@ -9,18 +9,23 @@ struct ExportPage: View {
             VStack(alignment: .leading, spacing: 18) {
                 SectionHeading(l10n.t("export.title"), subtitle: l10n.t("page.export.subtitle"))
                 if let project = store.project {
-                    HStack(alignment: .top, spacing: 18) {
-                        summary(project).frame(maxWidth: .infinity)
-                        options(project).frame(width: 360)
+                    ViewThatFits(in: .horizontal) {
+                        HStack(alignment: .top, spacing: 18) {
+                            summary(project).frame(minWidth: 440, maxWidth: .infinity)
+                            options(project).frame(width: 320)
+                        }
+                        VStack(alignment: .leading, spacing: 18) {
+                            summary(project)
+                            options(project)
+                        }
                     }
-                    HStack {
+                    CueFlowLayout(spacing: 12) {
                         VStack(alignment: .leading, spacing: 3) {
                             Text(l10n.t("export.output")).font(.system(size: 9, design: .monospaced)).foregroundStyle(.tertiary)
                             Text(l10n.t("export.outputHint"))
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
                         Button(l10n.t("export.saveCueSheet")) { Task { await store.exportCueSheetInteractive() } }
                             .disabled(store.isBusy)
                         Button(l10n.t("export.exportFinal")) { Task { await store.exportInteractive() } }
@@ -47,7 +52,7 @@ struct ExportPage: View {
                         Text(project.metadata.draft.artists.joined(separator: " / "))
                             .foregroundStyle(.secondary)
                         Divider()
-                        HStack(spacing: 26) {
+                        CueFlowLayout(spacing: 16) {
                             DataReadout(label: l10n.t("meta.albumLabel"), value: project.metadata.draft.album ?? "—")
                             DataReadout(label: l10n.t("meta.albumArtistLabel"), value: project.metadata.draft.albumArtist ?? "—")
                             DataReadout(label: l10n.t("meta.release"), value: project.metadata.draft.date ?? "—")
@@ -55,7 +60,7 @@ struct ExportPage: View {
                     }
                 }
                 Divider()
-                HStack(spacing: 8) {
+                CueFlowLayout(spacing: 8) {
                     StatusPill(text: l10n.t("export.protectTarget"), tone: CueWeaveStyle.ready)
                     StatusPill(text: l10n.t("export.noReencode"), tone: CueWeaveStyle.ready)
                     StatusPill(text: l10n.t("export.atomic"), tone: CueWeaveStyle.ready)

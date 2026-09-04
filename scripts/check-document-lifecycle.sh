@@ -6,7 +6,9 @@ repo_dir=$(dirname -- "$script_dir")
 store="$repo_dir/apps/macos/Sources/CueWeaveMac/ProjectStore.swift"
 app="$repo_dir/apps/macos/Sources/CueWeaveMac/CueWeaveApp.swift"
 
-swift test --package-path "$repo_dir/apps/macos" --filter ProjectPortabilityTests
+if [ "${CUEWEAVE_SKIP_SWIFT_TESTS:-0}" != "1" ]; then
+    swift test --package-path "$repo_dir/apps/macos" --disable-automatic-resolution --filter ProjectPortabilityTests
+fi
 rg -q 'ReferenceFileDocument' "$store"
 rg -q 'DocumentGroup' "$app"
 rg -q 'UndoManager' "$store"

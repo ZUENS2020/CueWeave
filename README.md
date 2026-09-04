@@ -6,6 +6,9 @@
 - [English README](README.en.md)
 - [Cue Sheet 播放器插件契约](docs/CUE_SHEET.md)
 - [音频可视化适配器](docs/AUDIO_VIZ.md)
+- [本轮 UI 修复与待验收记录](docs/UI_INTERACTION_OFFLINE_2026-09-04.md)
+- [CI 构建与发布](docs/CI_RELEASE.md)
+- [无声铃鹿元素图标与双端资源](apps/shared/branding/README.md)
 
 许可证：[AGPL-3.0-only](LICENSE)
 
@@ -13,14 +16,18 @@
 
 ## 下载
 
-当前版本 **v0.1**：[GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
+当前版本 **v0.2.0**：[GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
 
-每个系统一个压缩包，解压即可用，不必再装 .NET / Rust / Swift。
+按处理器下载对应压缩包，解压即可用，不必再装 .NET / Rust / Swift。
 
 | 系统 | 文件 | 用法 |
 | --- | --- | --- |
-| macOS 14+ Apple Silicon | `CueWeave-0.1-macos-arm64.zip` | 解压得到 `CueWeave.app`。第一次可能要右键 → 打开。 |
-| Windows 11 x64 | `CueWeave-0.1-windows-x64.zip` | 解压得到 `CueWeave` 文件夹，双击其中的 `CueWeave.Windows.exe`。不要把 exe 单独拷走。 |
+| macOS 14+ Apple Silicon | `CueWeave-0.2.0-macos-arm64.zip` | 解压得到 `CueWeave.app`。 |
+| macOS 14+ Intel | `CueWeave-0.2.0-macos-x86_64.zip` | 解压得到 `CueWeave.app`。 |
+| Windows 11 x64 | `CueWeave-0.2.0-windows-x64.zip` | 解压得到 `CueWeave` 文件夹，双击其中的 `CueWeave.Windows.exe`。不要把 exe 单独拷走。 |
+
+包由 CI 构建并附 SHA-256 校验和。macOS 为 ad-hoc 签名、未公证；Windows 未做受信任代码签名，首次打开可能出现系统安全提示。
+CI 通过不等于实机交互验收，详见[发行说明](docs/RELEASE_v0.2.0.md)。
 
 ## 它做什么
 
@@ -30,7 +37,7 @@
   → 取得并清洗歌词文字
   → 可选翻译（不改原文、不改轴）
   → Gemini 对着目标音轨重新打轴
-  → 人工确认 Final
+  → 人工调整 Final 时间
   → 复制目标 MP3、只改标签，导出歌词 / Cue Sheet
 ```
 
@@ -39,7 +46,7 @@
 - 歌词来源只回答「唱什么」。NCM / LRC / YRC 上的时间戳在进入项目前会被丢掉。
 - 目标 MP3 是唯一时间基准。不要用来源曲的轴。
 - 自动打轴只来自 Gemini。波形、频谱、频段能量只给眼睛看，不会改时间。
-- Gemini 建议和 Final 分层保存。重跑 Align 不会覆盖已经确认的 Final。
+- Gemini 建议和 Final 分层保存。重跑 Align 不会覆盖已经手动设置的 Final；没有逐句审核状态。
 - 导出复制 MPEG 音频体并校验 SHA-256，不重编码，也不覆盖目标音频。
 - 业务规则在 Rust Core。macOS / Windows 只负责界面、播放和输入。
 
@@ -166,7 +173,7 @@ cueweave-cli translations song.cueweave translation.txt
 | 操作 | macOS | Windows |
 | --- | --- | --- |
 | 新建 / 打开 / 保存 | ⌘N / ⌘O / ⌘S | Ctrl+N / Ctrl+O / Ctrl+S |
-| 撤销 / 重做 | ⌘Z / ⇧⌘Z | 工具栏 Undo / Redo |
+| 撤销 / 重做 | ⌘Z / ⇧⌘Z | Ctrl+Z / Ctrl+Shift+Z（或 Ctrl+Y） |
 
 ### 对齐页
 
@@ -259,6 +266,9 @@ JSON 里的时间已经加过 `offset_ms`。插件只负责把这份 snapshot �
 设置里可选：**跟随系统** / **English** / **简体中文**。系统语言以 `zh` 开头时默认中文，否则英文。写在同一份本地配置里，立即生效。
 
 ## 打包
+
+默认使用 [GitHub Actions CI](https://github.com/ZUENS2020/CueWeave/actions/workflows/ci.yml) 完成两端构建、测试和打包；版本标签通过全部检查后自动发布。
+不用开启个人 Mac 或 Windows 验收机。操作说明见 [CI 构建与发布](docs/CI_RELEASE.md)。以下命令仅作为本地维护备用。
 
 macOS（验收包 `dist/CueWeave.app`，请完全退出后再打开）：
 

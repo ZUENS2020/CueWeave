@@ -169,9 +169,9 @@ private struct PlaybackStatusBar: View {
                     .frame(width: 16)
             }
             .buttonStyle(.plain)
-            Text(time(player.currentTime))
+            Text(time(player.currentTime)).fixedSize()
             Text("/").foregroundStyle(.tertiary)
-            Text(time(player.duration)).foregroundStyle(.secondary)
+            Text(time(player.duration)).foregroundStyle(.secondary).fixedSize()
             if let start = player.loopStart, let end = player.loopEnd, end > start {
                 Divider().frame(height: 14)
                 Text(l10n.t("loop.status", time(start), time(end)))
@@ -183,6 +183,7 @@ private struct PlaybackStatusBar: View {
                 Button(l10n.t("action.cancel")) { store.cancelOperation() }.buttonStyle(.plain)
             }
             Text(store.activity).foregroundStyle(.secondary)
+                .lineLimit(1).truncationMode(.middle).help(store.activity)
         }
         .font(.system(size: 10, design: .monospaced))
         .padding(.horizontal, 14)
@@ -224,6 +225,10 @@ private struct WelcomeView: View {
         HStack(spacing: 0) {
             VStack(alignment: .leading, spacing: 24) {
                 Spacer()
+                if let icon = NSImage(named: "CueWeaveSuzuka") {
+                    Image(nsImage: icon).resizable().scaledToFit().frame(width: 88, height: 88)
+                        .accessibilityLabel("CueWeave")
+                }
                 Text(l10n.t("welcome.kicker"))
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(.tertiary)
@@ -234,7 +239,7 @@ private struct WelcomeView: View {
                     .font(.title3)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: 520, alignment: .leading)
-                HStack(spacing: 10) {
+                CueFlowLayout(spacing: 10) {
                     Button(l10n.t("welcome.new")) { Task { await store.createInteractive() } }
                         .controlSize(.large)
                     Button(l10n.t("welcome.open")) { store.openInteractive() }

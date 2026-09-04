@@ -42,7 +42,7 @@ public sealed partial class TimelineControl : UserControl
     private bool dragging;
     private ulong? creditDragId;
     private bool creditDidMove;
-    private int heldStep;
+    private readonly TimelineKeyboard keyboard = new();
     private ulong? activeId;
 
     private readonly ComboBox upperLanePicker = MakeLanePicker();
@@ -95,12 +95,14 @@ public sealed partial class TimelineControl : UserControl
         plot.RowDefinitions.Add(new RowDefinition { Height = new GridLength(16) });
         Grid.SetRow(scroll, 1); plot.Children.Add(scroll);
         var root = new Grid();
-        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(108) });
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(144) });
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         root.Children.Add(labels); Grid.SetColumn(plot, 1); root.Children.Add(plot);
         Content = root;
         upperLanePicker.SelectedIndex = 0; lowerLanePicker.SelectedIndex = 3;
         upperLanePicker.SelectionChanged += LaneChanged; lowerLanePicker.SelectionChanged += LaneChanged;
+        upperLanePicker.DropDownClosed += (_, _) => Focus(FocusState.Programmatic);
+        lowerLanePicker.DropDownClosed += (_, _) => Focus(FocusState.Programmatic);
         scroll.ValueChanged += ScrollChanged;
         Loaded += (_, _) =>
         {
@@ -186,14 +188,13 @@ public sealed partial class TimelineControl : UserControl
     public void SelectRelativeToPlayhead(int offset)
     {
         if (segments.Count == 0) return;
-        var playhead = activeId ?? SelectedSegmentId;
+        var playhead = activeId;
         var current = -1;
         if (playhead is ulong id) {
             for (var index = 0; index < segments.Count; index++) {
                 if (segments[index].Id == id) { current = index; break; }
             }
         }
-        if (current < 0) current = offset > 0 ? -1 : segments.Count;
         Select(segments[Math.Clamp(current + offset, 0, segments.Count - 1)].Id);
     }
 
@@ -418,52 +419,28 @@ public sealed partial class TimelineControl : UserControl
     {
         var control = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
         var alt = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu).HasFlag(CoreVirtualKeyStates.Down);
-        var plus = e.Key is VirtualKey.Add || (int)e.Key == 187;
-        var minus = e.Key is VirtualKey.Subtract || (int)e.Key == 189;
-        if (alt || (control && !plus && !minus)) return;
-        if (e.Key is VirtualKey.Number1 or VirtualKey.Number2 or VirtualKey.Number3) { heldStep = e.Key == VirtualKey.Number1 ? 1 : e.Key == VirtualKey.Number2 ? 10 : 50; return; }
-        if (e.Key is VirtualKey.Left or VirtualKey.Right) {
-            var right = e.Key == VirtualKey.Right;
-            if (heldStep > 0) NudgeRequested?.Invoke(TimelineViewport.NudgeDelta(heldStep, right));
-            else SeekRequested?.Invoke(PlayheadMs + (right ? 1 : -1) * Viewport.SeekStep);
-            e.Handled = true; return;
-        }
-        if (e.Key == VirtualKey.Tab) {
-            var shift = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
-            CommandRequested?.Invoke(shift ? "select_previous_playing" : "select_next_playing");
-            e.Handled = true; return;
-        }
-        if (e.Key == VirtualKey.Home) { SeekRequested?.Invoke(0); e.Handled = true; return; }
-        if (e.Key == VirtualKey.End) { SeekRequested?.Invoke(Viewport.DurationMs); e.Handled = true; return; }
-        if ((int)e.Key is 188) { NudgeRequested?.Invoke(-1); e.Handled = true; return; }
-        if ((int)e.Key is 190) { NudgeRequested?.Invoke(1); e.Handled = true; return; }
-        if (plus || minus)
+        var shift = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift).HasFlag(CoreVirtualKeyStates.Down);
+        if (keyboard.Translate(new(e.Key, control, shift, alt, e.KeyStatus.WasKeyDown)) is not { } action) return;
+        e.Handled = true;
+        switch (action.Command)
         {
-            if (control)
-            {
-                Viewport.SetZoom(Viewport.Zoom * (plus ? 1.25 : .8), PlayheadMs);
-                CommitViewport();
-            }
-            else CommandRequested?.Invoke(plus ? "rate_up" : "rate_down");
-            e.Handled = true; return;
+            case "consume": break;
+            case "seek": SeekRequested?.Invoke(PlayheadMs + action.Direction * Viewport.SeekStep); break;
+            case "nudge": NudgeRequested?.Invoke(action.Direction); break;
+            case "start": SeekRequested?.Invoke(0); break;
+            case "end": SeekRequested?.Invoke(Viewport.DurationMs); break;
+            case "zoom": Viewport.SetZoom(Viewport.Zoom + action.Direction * .5, PlayheadMs); CommitViewport(); break;
+            case "rate": CommandRequested?.Invoke(action.Direction > 0 ? "rate_up" : "rate_down"); break;
+            default: CommandRequested?.Invoke(action.Command); break;
         }
-        var command = e.Key switch {
-            VirtualKey.Enter => "select_current",
-            VirtualKey.A => "loop_a", VirtualKey.B => "loop_b", VirtualKey.Escape => "loop_clear",
-            VirtualKey.Down => "next", VirtualKey.Up => "previous",
-            VirtualKey.M => "mark", VirtualKey.N when !control => "toggle_follow_next",
-            VirtualKey.Delete or VirtualKey.Back => "clear_final",
-            _ => null
-        };
-        if (command is not null) { CommandRequested?.Invoke(command); e.Handled = true; }
     }
 
     public void HandleKeyUp(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key is VirtualKey.Number1 or VirtualKey.Number2 or VirtualKey.Number3) heldStep = 0;
+        keyboard.Translate(new(e.Key, Released: true));
     }
 
-    public void ResetHeldKeys() => heldStep = 0;
+    public void ResetHeldKeys() => keyboard.Reset();
 
     private void ScrollChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
@@ -546,7 +523,7 @@ public sealed partial class TimelineControl : UserControl
 
     private static ComboBox MakeLanePicker()
     {
-        var box = new ComboBox { HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0), FontSize = 11 };
+        var box = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0, 6, 0), FontSize = 11 };
         foreach (var adapter in AudioVizCatalog.All)
             box.Items.Add(new ComboBoxItem { Content = adapter.Id, Tag = adapter.Id });
         return box;

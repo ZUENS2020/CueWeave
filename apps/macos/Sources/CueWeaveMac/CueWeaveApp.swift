@@ -48,7 +48,7 @@ private struct CueWeaveAppMac14: App {
 }
 
 final class CueWeaveAppDelegate: NSObject, NSApplicationDelegate {
-    private var createdUntitled = false
+    private var creatingUntitled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         UserDefaults.standard.set(false, forKey: "NSQuitAlwaysKeepsWindows")
@@ -73,8 +73,9 @@ final class CueWeaveAppDelegate: NSObject, NSApplicationDelegate {
 
     private func ensureUntitledDocument() {
         guard NSDocumentController.shared.documents.isEmpty else { return }
-        guard !createdUntitled else { return }
-        createdUntitled = true
+        guard !creatingUntitled else { return }
+        creatingUntitled = true
+        defer { creatingUntitled = false }
         NSDocumentController.shared.newDocument(nil)
     }
 }

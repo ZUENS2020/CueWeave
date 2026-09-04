@@ -1,0 +1,9 @@
+{
+  "apps/shared/branding/cueweave-suzuka-light-v2.png": "dc839b403ee45a3a976865646503d67ba2c060528b1e30d4f77cdb72258a13ab",
+  "apps/macos/Resources/CueWeaveSuzuka.icns": "37721a2116d116a1132a6a719e49ea7730a4d634cf8d811e9142bab9a59b15a6",
+  "apps/windows/CueWeave.Windows/Assets/CueWeaveSuzuka.ico": "56e6c6cf6b304cbc32bf506b9c0d9f42c8181222f25bcf00e2bfe28d792ff3cc",
+  "apps/shared/branding/previews/16.png": "adf34ed000f234119af928bd3c572112c752c8fe37ed4c57e5424039d3e5895f",
+  "apps/shared/branding/previews/32.png": "7b8da171755e58ad7020de7268281f3e152160bf6632c1f9db793e1ef18c882c",
+  "apps/shared/branding/previews/64.png": "c3f63d5ef9dd35ac3370b071777ca832748995b1d57d3e1cc8f32ccc5ed377b2",
+  "apps/shared/branding/previews/128.png": "cbb58d92f8c92b249ed13229213af56928331bcd5f604088a8a468dc26f545b0"
+}

@@ -8,9 +8,8 @@ struct TranslationPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            CueFlowLayout(spacing: 10) {
                 SectionHeading(l10n.t("page.translation"), subtitle: l10n.t("page.translation.subtitle"))
-                Spacer()
                 Button(l10n.t("translation.import")) { showingImport = true }
                     .disabled(store.project?.lyrics.lines.isEmpty != false || store.isBusy)
                 Button(l10n.t("translation.clearAll")) { store.clearTranslations() }
@@ -23,8 +22,10 @@ struct TranslationPage: View {
                     || store.alignmentAPIKey.isEmpty
                     || store.isBusy)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
-            .frame(height: 72)
+            .padding(.vertical, 12)
+            .frame(minHeight: 72)
             Divider()
             if store.project?.lyrics.lines.isEmpty != false {
                 EmptyWorkspaceState(

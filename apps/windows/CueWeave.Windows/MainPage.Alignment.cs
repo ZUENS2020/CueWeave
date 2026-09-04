@@ -2,6 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
+using System.Globalization;
 using CueWeave.WinUI.Models;
 using CueWeave.WinUI.Services;
 using CueWeave.WinUI.Timeline;
@@ -64,7 +65,7 @@ public sealed partial class MainPage
 
     private void Speed_Changed(object sender, SelectionChangedEventArgs e)
     {
-        if (SpeedPicker.SelectedItem is ComboBoxItem item && double.TryParse(item.Tag?.ToString(), out var rate)) playback.SetRate(rate);
+        if (SpeedPicker.SelectedItem is ComboBoxItem item && double.TryParse(item.Tag?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var rate)) playback.SetRate(rate);
     }
 
     private void LoopA_Click(object sender, RoutedEventArgs e) { playback.MarkA(); SyncLoop(); }
@@ -140,8 +141,11 @@ public sealed partial class MainPage
 
     private void AlignmentList_ContainerChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
     {
+        if (args.InRecycleQueue) { args.ItemContainer.Background = null; return; }
         if (args.Item is not SegmentRow row) return;
         if (FirstCheckBox(args.ItemContainer) is CheckBox box) box.IsChecked = row.Included;
+        args.ItemContainer.Background = row.Id == Timeline.SelectedSegmentId ? selectedFill
+            : row.Id == Timeline.ActiveSegmentId ? playingFill : null;
     }
 
     private static CheckBox? FirstCheckBox(DependencyObject root)
@@ -288,7 +292,7 @@ public sealed partial class MainPage
         for (var index = 0; index < SpeedPicker.Items.Count; index++)
         {
             if (SpeedPicker.Items[index] is ComboBoxItem item &&
-                double.TryParse(item.Tag?.ToString(), out var value) &&
+                double.TryParse(item.Tag?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var value) &&
                 Math.Abs(value - rate) < 0.01)
             {
                 SpeedPicker.SelectedIndex = index;

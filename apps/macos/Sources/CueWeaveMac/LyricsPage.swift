@@ -10,9 +10,8 @@ struct LyricsPage: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
+            CueFlowLayout(spacing: 10) {
                 SectionHeading(l10n.t("page.lyrics"), subtitle: l10n.t("page.lyrics.subtitle"))
-                Spacer()
                 Button(l10n.t("lyrics.requestPreview")) { showingPreview = true }
                     .disabled(store.allSegments.isEmpty)
                 Button(l10n.t("lyrics.addLines")) { showingInsert = true }
@@ -22,8 +21,10 @@ struct LyricsPage: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(store.project?.source?.musicID == nil || store.isBusy)
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
-            .frame(height: 72)
+            .padding(.vertical, 12)
+            .frame(minHeight: 72)
             Divider()
             if store.project?.lyrics.lines.isEmpty != false {
                 emptyState

@@ -105,7 +105,8 @@ struct TimelineKeyChordState: Equatable {
         case seek(Int)
     }
 
-    private(set) var heldStep: Int64?
+    private var heldSteps: [Int64] = []
+    var heldStep: Int64? { heldSteps.last }
 
     mutating func handle(
         symbol: String,
@@ -115,9 +116,9 @@ struct TimelineKeyChordState: Equatable {
     ) -> Action {
         if let step = TimelineInteractionMath.nudgeStep(for: symbol) {
             if phase == .up {
-                if heldStep == step { heldStep = nil }
-            } else {
-                heldStep = step
+                heldSteps.removeAll { $0 == step }
+            } else if !heldSteps.contains(step) {
+                heldSteps.append(step)
             }
             return .consume
         }
@@ -306,20 +307,26 @@ struct TimelineHotkeyTranslator: Equatable {
     var chord = TimelineKeyChordState()
 
     mutating func translate(_ input: TimelineHotkeyInput) -> TimelineHotkey? {
+        // Releases must not be lost when Command/Option/Control is pressed mid-chord.
+        if input.isKeyUp {
+            let action = chord.handle(symbol: Self.chordSymbol(input), isArrowLeft: input.keyCode == 123,
+                                      isArrowRight: input.keyCode == 124, phase: .up)
+            return action == .consume ? .consume : nil
+        }
         if input.option || input.control { return nil }
         if input.command {
-            if input.isKeyUp { return nil }
             if Self.isZoomIn(input) { return .zoom(0.5) }
             if Self.isZoomOut(input) { return .zoom(-0.5) }
             return nil
         }
 
+        if input.shift && input.keyCode != 48 && !Self.isRateUp(input) && !Self.isRateDown(input) { return nil }
         let symbol = Self.chordSymbol(input)
         switch chord.handle(
             symbol: symbol,
             isArrowLeft: input.keyCode == 123,
             isArrowRight: input.keyCode == 124,
-            phase: input.isKeyUp ? .up : input.isRepeat ? .repeating : .down
+            phase: input.isRepeat ? .repeating : .down
         ) {
         case .ignore:
             break
@@ -331,11 +338,13 @@ struct TimelineHotkeyTranslator: Equatable {
             return .seekPlayhead(direction)
         }
 
-        if input.isKeyUp { return nil }
         if Self.isRateUp(input) { return .adjustPlaybackRate(1) }
         if Self.isRateDown(input) { return .adjustPlaybackRate(-1) }
-        if input.isRepeat { return nil }
-        if input.shift && input.keyCode != 48 { return nil }
+        if input.isRepeat {
+            var press = input
+            press.isRepeat = false
+            return translate(press) == nil ? nil : .consume
+        }
 
         switch input.keyCode {
         case 49: return .playPause

@@ -27,6 +27,7 @@ public sealed partial class MainPage : Page
     private double timelineDuration;
     private readonly HashSet<ulong> batchIds = [];
     private bool playRequested;
+    private bool projectPickerActive;
 
     public MainPage()
     {
@@ -46,11 +47,17 @@ public sealed partial class MainPage : Page
         PlayButton.Content = new SymbolIcon(Symbol.Play);
         StatusPlayButton.Content = new SymbolIcon(Symbol.Play);
         var save = new KeyboardAccelerator { Key = VirtualKey.S, Modifiers = VirtualKeyModifiers.Control };
-        save.Invoked += (_, args) => { args.Handled = true; Save_Click(this, new RoutedEventArgs()); };
+        save.Invoked += (_, args) =>
+        {
+            if (session.Project is null || operationCancellation is not null || KeyOwner() == ShortcutOwner.Modal) return;
+            args.Handled = true; Save_Click(this, new RoutedEventArgs());
+        };
         KeyboardAccelerators.Add(save);
         PreviewKeyDown += GlobalKeyDown;
         PreviewKeyUp += Timeline.HandleKeyUp;
         LostFocus += (_, _) => Timeline.ResetHeldKeys();
+        SpeedPicker.DropDownClosed += (_, _) => Timeline.Focus(FocusState.Programmatic);
+        InspectorLyricBox.GotFocus += (_, _) => SetFollowSelection(false);
         IsTabStop = true;
         AddHandler(PointerPressedEvent, new PointerEventHandler(DismissEditor), true);
         playback.StateChanged += () => DispatcherQueue.TryEnqueue(() =>
@@ -60,6 +67,7 @@ public sealed partial class MainPage : Page
             UpdatePlaybackFrame();
         });
         BindChrome();
+        Loaded += (_, _) => { UpdateNavigationPane(); App.MainWindow.Activated += Window_Activated; };
         session.PropertyChanged += (_, args) =>
         {
             if (args.PropertyName is nameof(ProjectSession.Project) or nameof(ProjectSession.ProjectPath))
@@ -80,7 +88,11 @@ public sealed partial class MainPage : Page
             if (id is ulong value) ScrollToSegment(value);
             FollowNextIfNeeded(id);
         };
-        Timeline.SelectedSegmentChanged += _ => { RefreshInspector(); UpdateQueueVisuals(Timeline.ActiveSegmentId); };
+        Timeline.SelectedSegmentChanged += id =>
+        {
+            RefreshInspector(); UpdateQueueVisuals(Timeline.ActiveSegmentId);
+            if (id is ulong value) ScrollToSegment(value);
+        };
         Timeline.ZoomChanged += zoom =>
         {
             changingZoom = true;
@@ -93,25 +105,49 @@ public sealed partial class MainPage : Page
         Timeline.CreditDragEnded += () => session.EndCreditDrag();
         Timeline.SetFollow(true);
         Timeline.SetZoom(2);
-        Unloaded += (_, _) => { StopRendering(); waveformCancellation?.Cancel(); };
+        Unloaded += (_, _) =>
+        {
+            App.MainWindow.Activated -= Window_Activated;
+            Timeline.ResetHeldKeys(); StopRendering(); waveformCancellation?.Cancel();
+        };
         Refresh();
     }
 
     private async void NewProject_Click(object sender, RoutedEventArgs e)
     {
-        var source = await PickOpenAsync(L10n.T("pick.ncm"), ".ncm");
-        if (source is null) return;
-        var target = await PickOpenAsync(L10n.T("pick.mp3"), ".mp3");
-        if (target is null) return;
-        var output = await PickSaveAsync(L10n.T("pick.project"), ".cueweave", Path.GetFileNameWithoutExtension(target.Name));
-        if (output is null) return;
-        await RunAsync(L10n.T("activity.creating"), token => session.CreateAsync(output.Path, source.Path, target.Path, token));
+        if (projectPickerActive || operationCancellation is not null) return;
+        projectPickerActive = true;
+        try
+        {
+            var source = await PickOpenAsync(L10n.T("pick.ncm"), ".ncm");
+            if (source is null) return;
+            var target = await PickOpenAsync(L10n.T("pick.mp3"), ".mp3");
+            if (target is null) return;
+            var output = await PickSaveAsync(L10n.T("pick.project"), ".cueweave", Path.GetFileNameWithoutExtension(target.Name));
+            if (output is null) return;
+            await RunAsync(L10n.T("activity.creating"), async token =>
+            {
+                await session.SaveAsync(token);
+                await session.CreateAsync(output.Path, source.Path, target.Path, token);
+            });
+        }
+        finally { projectPickerActive = false; }
     }
 
     private async void OpenProject_Click(object sender, RoutedEventArgs e)
     {
-        var file = await PickOpenAsync(L10n.T("pick.openProject"), ".cueweave");
-        if (file is not null) await RunAsync(L10n.T("activity.opening"), token => session.LoadAsync(file.Path, token));
+        if (projectPickerActive || operationCancellation is not null) return;
+        projectPickerActive = true;
+        try
+        {
+            var file = await PickOpenAsync(L10n.T("pick.openProject"), ".cueweave");
+            if (file is not null) await RunAsync(L10n.T("activity.opening"), async token =>
+            {
+                await session.SaveAsync(token);
+                await session.LoadAsync(file.Path, token);
+            });
+        }
+        finally { projectPickerActive = false; }
     }
 
     private async void Save_Click(object sender, RoutedEventArgs e)
@@ -133,6 +169,25 @@ public sealed partial class MainPage : Page
         ExportPanel.Visibility = VisibleIf(tag == "export");
         BindPageChrome(tag);
         if (tag == "alignment") Timeline.Focus(FocusState.Programmatic);
+    }
+
+    private void NavigationPane_Changed(NavigationView sender, object args) => UpdateNavigationPane();
+
+    private void UpdateNavigationPane()
+    {
+        // Compact navigation has room for icons only, not clipped project/provider text.
+        if (PaneHeading is null || PaneProvider is null) return;
+        PaneHeading.Visibility = PaneProvider.Visibility = VisibleIf(Navigation.IsPaneOpen);
+    }
+
+    private void ExportColumns_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (ExportOptionsCard is null) return;
+        var stacked = e.NewSize.Width < 840;
+        ExportOptionsColumn.Width = new GridLength(stacked ? 0 : 320);
+        ExportColumns.ColumnSpacing = stacked ? 0 : 18;
+        Grid.SetColumn(ExportOptionsCard, stacked ? 0 : 1);
+        Grid.SetRow(ExportOptionsCard, stacked ? 1 : 0);
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) { operationCancellation?.Cancel(); core.Cancel(); }
@@ -199,7 +254,7 @@ public sealed partial class MainPage : Page
 
     private void DismissEditor(object sender, PointerRoutedEventArgs args)
     {
-        if (FocusManager.GetFocusedElement(XamlRoot) is not (TextBox or PasswordBox or RichEditBox)) return;
+        if (KeyOwner() is not (ShortcutOwner.Editor or ShortcutOwner.NativeControl)) return;
         for (var node = args.OriginalSource as DependencyObject; node is not null && node != this;
             node = VisualTreeHelper.GetParent(node))
             if (node is TextBox or PasswordBox or RichEditBox or ContentDialog
@@ -269,12 +324,17 @@ public sealed partial class MainPage : Page
 
     private void Play_Click(object sender, RoutedEventArgs e) => TogglePlay();
 
+    private void Window_Activated(object sender, WindowActivatedEventArgs e)
+    {
+        if (e.WindowActivationState == WindowActivationState.Deactivated) Timeline.ResetHeldKeys();
+    }
+
     private void GlobalKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (session.Project is null || BusyBar.Visibility == Visibility.Visible) return;
         // Text editors and dialogs own their keys; all other alignment surfaces
         // share the same shortcuts, including the left lyric list.
-        if (IsEditingOrDialog()) return;
+        if (TimelineKeyboard.IsReserved(e.Key, KeyOwner())) { Timeline.ResetHeldKeys(); return; }
         var control = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
         var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
@@ -287,7 +347,7 @@ public sealed partial class MainPage : Page
             if (e.Key == VirtualKey.Y || shift) session.Redo(); else session.Undo();
             e.Handled = true;
         }
-        else if (!control && e.Key == VirtualKey.Space)
+        else if (!control && !shift && e.Key == VirtualKey.Space)
         {
             if (!e.KeyStatus.WasKeyDown) TogglePlay();
             e.Handled = true;
@@ -295,13 +355,20 @@ public sealed partial class MainPage : Page
         else if (CurrentPageTag() == "alignment") Timeline.HandleKeyDown(sender, e);
     }
 
-    private bool IsEditingOrDialog()
+    private ShortcutOwner KeyOwner()
     {
-        if (VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Count > 0) return true;
+        if (projectPickerActive) return ShortcutOwner.Modal;
+        // A tooltip must not disable the entire keyboard. Menus/dialogs still own their keys.
+        if (VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Any(popup => popup.Child is not ToolTip))
+            return ShortcutOwner.Modal;
         for (var node = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
             node is not null; node = VisualTreeHelper.GetParent(node))
-            if (node is TextBox or PasswordBox or RichEditBox or ContentDialog or ComboBox or Slider) return true;
-        return false;
+        {
+            if (node is ContentDialog) return ShortcutOwner.Modal;
+            if (node is TextBox or PasswordBox or RichEditBox) return ShortcutOwner.Editor;
+            if (node is ComboBox or Slider) return ShortcutOwner.NativeControl;
+        }
+        return ShortcutOwner.Workspace;
     }
 
     private void TogglePlay()

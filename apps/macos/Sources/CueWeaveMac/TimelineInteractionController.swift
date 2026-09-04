@@ -118,13 +118,13 @@ final class TimelineInteractionController: ObservableObject {
 
     func setFollowSelection(_ on: Bool) {
         followSelection = on
-        if on { playheadDidChange() }
+        if on { selectedCreditID = nil; playheadDidChange() }
     }
 
     func selectCurrent() {
         breakFollowSelection()
         selectedCreditID = nil
-        if let activeSegmentID { selectedSegmentID = activeSegmentID }
+        selectedSegmentID = activeSegmentID
     }
 
     func selectRelativeToPlayhead(offset: Int) {
@@ -134,8 +134,7 @@ final class TimelineInteractionController: ObservableObject {
         selectedCreditID = nil
         let segments = store.allSegments
         guard !segments.isEmpty else { return }
-        let playhead = activeSegmentID ?? selectedSegmentID
-        let current = segments.firstIndex { $0.id == playhead } ?? (offset > 0 ? -1 : segments.count)
+        let current = segments.firstIndex { $0.id == activeSegmentID } ?? -1
         selectedSegmentID = segments[min(max(0, current + offset), segments.count - 1)].id
     }
 
@@ -228,6 +227,8 @@ final class TimelineInteractionController: ObservableObject {
     func markLoopEnd() { player.markLoopEnd() }
     func clearLoop() { player.clearLoop() }
 
+    func resetHotkeys() { hotkeys = TimelineHotkeyTranslator() }
+
     func handleHotkey(_ input: TimelineHotkeyInput) -> Bool {
         if inspectorEditing { return false }
         guard let action = hotkeys.translate(input) else { return false }
@@ -243,7 +244,6 @@ final class TimelineInteractionController: ObservableObject {
         case let .moveSelection(offset):
             moveSelection(by: offset)
         case .selectCurrent:
-            guard activeSegmentID != nil else { return false }
             selectCurrent()
         case let .selectRelativeToPlayhead(offset):
             selectRelativeToPlayhead(offset: offset)

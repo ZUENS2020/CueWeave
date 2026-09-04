@@ -5,6 +5,9 @@ CueWeave transfers song metadata and lyrics onto another vocal or mix, then rebu
 - [中文 README](README.md)
 - [Cue Sheet player plugin contract](docs/CUE_SHEET.md)
 - [Audio visualization adapters](docs/AUDIO_VIZ.md)
+- [UI changes and pending acceptance](docs/UI_INTERACTION_OFFLINE_2026-09-04.md)
+- [CI builds and releases](docs/CI_RELEASE.md)
+- [Suzuka-inspired icon and native resources](apps/shared/branding/README.md)
 
 License: [AGPL-3.0-only](LICENSE)
 
@@ -12,14 +15,18 @@ License: [AGPL-3.0-only](LICENSE)
 
 ## Download
 
-Current release **v0.1**: [GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
+Current release **v0.2.0**: [GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
 
-One zip per OS. Unzip and run; no extra .NET / Rust / Swift install.
+Choose the ZIP matching your processor. Unzip and run; no extra .NET / Rust / Swift install.
 
 | OS | File | How to run |
 | --- | --- | --- |
-| macOS 14+ Apple Silicon | `CueWeave-0.1-macos-arm64.zip` | Unzip to get `CueWeave.app`. First launch may need Control-click → Open. |
-| Windows 11 x64 | `CueWeave-0.1-windows-x64.zip` | Unzip to get a `CueWeave` folder, then run `CueWeave.Windows.exe` inside it. Do not copy the exe out of that folder. |
+| macOS 14+ Apple Silicon | `CueWeave-0.2.0-macos-arm64.zip` | Unzip to get `CueWeave.app`. |
+| macOS 14+ Intel | `CueWeave-0.2.0-macos-x86_64.zip` | Unzip to get `CueWeave.app`. |
+| Windows 11 x64 | `CueWeave-0.2.0-windows-x64.zip` | Unzip to get a `CueWeave` folder, then run `CueWeave.Windows.exe` inside it. Do not copy the exe out of that folder. |
+
+CI builds include SHA-256 checksums. macOS is ad-hoc signed and not notarized; Windows is not trusted-code-signed. OS security prompts may appear.
+CI is not interactive device acceptance; see the [release notes](docs/RELEASE_v0.2.0.md).
 
 ## What it does
 
@@ -29,7 +36,7 @@ Original NCM (information source) + target MP3 (only timing authority)
   → fetch and normalize lyric text
   → optional translation (originals and timing stay untouched)
   → Gemini re-times against the target
-  → human-confirmed Final
+  → manually adjusted Final times
   → copy the target MP3, tags only, plus lyrics / Cue Sheet
 ```
 
@@ -38,7 +45,7 @@ Invariants:
 - Lyric sources answer “what is sung”. Provider timestamps are destroyed before they enter the project.
 - The target MP3 is the only timing authority.
 - Gemini is the only automatic aligner. Waveform, spectrogram, and band energy are visual only.
-- Gemini suggestions and Final times are stored separately. Re-running Align does not overwrite confirmed Finals.
+- Gemini suggestions and Final times are stored separately. Re-running Align does not overwrite manually set Finals; there is no per-line review state.
 - Export copies the MPEG payload and SHA-256-checks it. No re-encode, and the target audio file is never overwritten.
 - Rust Core owns business rules. macOS and Windows GUIs display, play, and capture input.
 
@@ -155,7 +162,7 @@ A timeline click seeks only; it does not select a lyric. Select with a left-list
 | Action | macOS | Windows |
 | --- | --- | --- |
 | New / Open / Save | ⌘N / ⌘O / ⌘S | Ctrl+N / Ctrl+O / Ctrl+S |
-| Undo / Redo | ⌘Z / ⇧⌘Z | Toolbar Undo / Redo |
+| Undo / Redo | ⌘Z / ⇧⌘Z | Ctrl+Z / Ctrl+Shift+Z (or Ctrl+Y) |
 
 ### Alignment
 
@@ -248,6 +255,9 @@ Plain local JSON. Not Keychain / Credential Manager. Not stored in the project.
 Settings can follow the system, or lock to English or Simplified Chinese. Systems whose language code starts with `zh` default to Chinese. The choice is stored in the same local config file and applies immediately.
 
 ## Packaging
+
+[GitHub Actions CI](https://github.com/ZUENS2020/CueWeave/actions/workflows/ci.yml) is the default for builds, tests and packages; version tags publish only after all checks pass.
+No personal Mac or Windows acceptance host needs to be online. See [CI builds and releases](docs/CI_RELEASE.md); local commands below remain a maintenance fallback.
 
 macOS (quit fully before reopening `dist/CueWeave.app`):
 

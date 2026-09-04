@@ -68,6 +68,13 @@ struct AlignmentPage: View {
         .onDisappear { removeKeyMonitor() }
         .onChange(of: inspectorField) { _, field in
             interaction.inspectorEditing = field != nil
+            if field != nil { interaction.setFollowSelection(false) }
+            interaction.resetHotkeys()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
+            if let window = notification.object as? NSWindow, window === interaction.hostWindow {
+                interaction.resetHotkeys()
+            }
         }
         .onChange(of: store.allSegments.map(\.id)) { _, segmentIDs in
             selectedIDs.formIntersection(segmentIDs)
@@ -76,9 +83,8 @@ struct AlignmentPage: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 12) {
+        CueFlowLayout(spacing: 12) {
             SectionHeading(l10n.t("timeline.title"), subtitle: l10n.t("page.alignment.subtitle"))
-            Spacer()
             Button(l10n.t("align.restoreGemini")) {
                 Task { await store.restoreGeminiAlignment() }
             }
@@ -89,8 +95,10 @@ struct AlignmentPage: View {
             }
             .disabled(store.isBusy || store.alignmentAPIKey.isEmpty || store.allSegments.isEmpty)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 20)
-        .frame(height: 72)
+        .padding(.vertical, 12)
+        .frame(minHeight: 72)
     }
 
     private var segmentSidebar: some View {
@@ -161,11 +169,10 @@ struct AlignmentPage: View {
             }
             Divider()
             VStack(spacing: 7) {
-                HStack(spacing: 6) {
+                CueFlowLayout(spacing: 6) {
                     Text(l10n.t("align.selected", String(selectedIDs.count)))
-                        .font(.system(size: 8, design: .monospaced))
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.secondary)
-                    Spacer()
                     Button(l10n.t("align.allBtn")) { selectedIDs.formUnion(store.allSegments.map(\.id)) }
                     Button(l10n.t("action.clear")) { selectedIDs.removeAll() }.disabled(selectedIDs.isEmpty)
                 }
@@ -183,19 +190,21 @@ struct AlignmentPage: View {
         .background(Color(nsColor: .controlBackgroundColor))
     }
 
-    @ViewBuilder
     private var inspector: some View {
-        if let credit = selectedCredit {
-            creditInspector(credit)
-                .padding(14)
-                .background(CueWeaveStyle.panel)
-        } else if let segment = selected {
-            unifiedInspector(segment)
+        ScrollView {
+            Group {
+                if let credit = selectedCredit {
+                    creditInspector(credit)
+                } else if let segment = selected {
+                    unifiedInspector(segment)
+                } else {
+                    EmptyWorkspaceState(title: l10n.t("inspect.emptyTitle"), detail: l10n.t("inspect.emptyDetail"))
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(14)
-            .background(CueWeaveStyle.panel)
-        } else {
-            EmptyWorkspaceState(title: l10n.t("inspect.emptyTitle"), detail: l10n.t("inspect.emptyDetail"))
         }
+        .background(CueWeaveStyle.panel)
     }
 
     private func creditInspector(_ credit: Credit) -> some View {
@@ -204,7 +213,7 @@ struct AlignmentPage: View {
                 .font(.system(size: 9, design: .monospaced))
                 .foregroundStyle(.tertiary)
             Text(credit.displayText).font(.title3).textSelection(.enabled)
-            HStack(spacing: 8) {
+            CueFlowLayout(spacing: 8) {
                 Text(cueTime(store.project?.creditTime(id: credit.id) ?? 0))
                     .font(.system(size: 11, design: .monospaced))
                 Button(l10n.t("inspect.markPlayhead")) { interaction.stampCredit(credit.id) }
@@ -214,7 +223,6 @@ struct AlignmentPage: View {
                 Button("+1") { interaction.nudgeSelected(by: 1) }
                 Button("+10") { interaction.nudgeSelected(by: 10) }
                 Button("+50") { interaction.nudgeSelected(by: 50) }
-                Spacer()
             }
             .controlSize(.small)
         }
@@ -238,17 +246,15 @@ struct AlignmentPage: View {
     private func unifiedInspector(_ segment: LyricSegment) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             inspectorHeader(segment)
-            HStack(spacing: 8) {
+            CueFlowLayout(spacing: 8) {
                 timingReadouts(segment)
-                    .frame(minWidth: 0, idealWidth: 270, maxWidth: 300)
-                Divider().frame(height: 34)
+                    .frame(width: 270)
                 Button("−50") { interaction.nudgeSelected(by: -50) }
                 Button("−10") { interaction.nudgeSelected(by: -10) }
                 Button("−1") { interaction.nudgeSelected(by: -1) }
                 Button("+1") { interaction.nudgeSelected(by: 1) }
                 Button("+10") { interaction.nudgeSelected(by: 10) }
                 Button("+50") { interaction.nudgeSelected(by: 50) }
-                Spacer(minLength: 4)
                 Button(l10n.t("inspect.playAround")) { playAround(segment) }
                 Button(l10n.t("inspect.useGemini")) { store.acceptGeminiSuggestion(segmentID: segment.id) }
                     .disabled(segment.timing.gemini == nil)
@@ -325,9 +331,14 @@ struct AlignmentPage: View {
     private func installKeyMonitor() {
         removeKeyMonitor()
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .leftMouseDown]) { event in
-            if NSApp.modalWindow != nil { return event }
-            if let host = interaction.hostWindow, event.window != nil, event.window !== host { return event }
+            guard let host = interaction.hostWindow, host.isKeyWindow,
+                  NSApp.modalWindow == nil, host.attachedSheet == nil,
+                  event.window == nil || event.window === host else {
+                interaction.resetHotkeys()
+                return event
+            }
             if event.type == .leftMouseDown {
+                interaction.resetHotkeys()
                 if (inspectorField != nil || interaction.inspectorEditing || Self.isEditingText())
                     && !Self.hitIsTextInput(event)
                 {
@@ -335,12 +346,7 @@ struct AlignmentPage: View {
                 }
                 return event
             }
-            if AlignmentPage.isEditingText() { return event }
-            if event.modifierFlags.contains(.command) {
-                let chars = event.charactersIgnoringModifiers ?? ""
-                let isZoom = chars == "+" || chars == "=" || chars == "-" || chars == "_"
-                if !isZoom { return event }
-            }
+            if AlignmentPage.isEditingText() { interaction.resetHotkeys(); return event }
             let input = TimelineHotkeyInput(
                 keyCode: event.keyCode,
                 characters: event.charactersIgnoringModifiers ?? "",
@@ -356,6 +362,7 @@ struct AlignmentPage: View {
     }
 
     private func removeKeyMonitor() {
+        interaction.resetHotkeys()
         if let keyMonitor {
             NSEvent.removeMonitor(keyMonitor)
             self.keyMonitor = nil
@@ -410,7 +417,7 @@ private struct TimelinePlaybackBar: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        CueFlowLayout(spacing: 8) {
             Button { player.playPause() } label: {
                 Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
             }
@@ -444,10 +451,8 @@ private struct TimelinePlaybackBar: View {
             }
             .toggleStyle(.button)
             .help(l10n.t("next.help"))
-            Divider().frame(height: 18)
             Button(l10n.t("mark")) { stampCurrent() }
             .disabled(interaction.selectedSegmentID == nil && interaction.selectedCreditID == nil)
-            Divider().frame(height: 18)
             Button { store.undo() } label: { Image(systemName: "arrow.uturn.backward") }
                 .disabled(!store.canUndo)
                 .help(l10n.t("undo.help"))
@@ -485,25 +490,26 @@ private struct TimelinePlaybackBar: View {
                 Image(systemName: "keyboard")
             }
             .help(l10n.t("hotkeys.help"))
-            Divider().frame(height: 18)
-            Image(systemName: "minus.magnifyingglass")
-            Slider(
-                value: Binding(get: { interaction.zoom }, set: { interaction.setZoom($0) }),
-                in: 1 ... TimelineInteractionMath.maximumZoom,
-                step: 0.5
-            )
-            .frame(width: 130)
-            Image(systemName: "plus.magnifyingglass")
-            Text("\(interaction.zoom.formatted(.number.precision(.fractionLength(1))))×")
-                .font(.system(size: 10, design: .monospaced))
-                .frame(width: 34)
-            Spacer()
+            HStack(spacing: 6) {
+                Image(systemName: "minus.magnifyingglass")
+                Slider(
+                    value: Binding(get: { interaction.zoom }, set: { interaction.setZoom($0) }),
+                    in: 1 ... TimelineInteractionMath.maximumZoom,
+                    step: 0.5
+                )
+                .frame(width: 110)
+                Image(systemName: "plus.magnifyingglass")
+                Text("\(interaction.zoom.formatted(.number.precision(.fractionLength(1))))×")
+                    .font(.system(size: 10, design: .monospaced))
+                    .frame(width: 40)
+            }
             Text(cueTime(UInt64(max(0, player.currentTime) * 1000)))
                 .font(.system(size: 11, design: .monospaced))
         }
         .controlSize(.small)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
-        .frame(height: 42)
+        .padding(.vertical, 10)
         .background(.bar)
     }
 

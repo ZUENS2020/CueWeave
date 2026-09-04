@@ -6,6 +6,8 @@
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\CueWeave.Windows\Timeline\TimelineKeyboard.cs" Link="TimelineKeyboard.cs" />
+    <Compile Include="..\CueWeave.Windows\Controls\WrapLayout.cs" Link="WrapLayout.cs" />
     <Compile Include="..\CueWeave.Windows\Timeline\TimelineViewport.cs" Link="TimelineViewport.cs" />
     <Compile Include="..\CueWeave.Windows\Timeline\AudioVizCatalog.cs" Link="AudioVizCatalog.cs" />
     <Compile Include="..\CueWeave.Windows\Services\WaveformAnalyzer.cs" Link="WaveformAnalyzer.cs" />

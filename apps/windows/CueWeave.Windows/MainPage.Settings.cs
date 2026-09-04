@@ -7,6 +7,18 @@ namespace CueWeave.WinUI;
 
 public sealed partial class MainPage
 {
+    private async void Hotkeys_Click(object sender, RoutedEventArgs e)
+    {
+        var content = new StackPanel { Spacing = 12, MaxWidth = 480 };
+        foreach (var key in new[] { "play", "selectPlaying", "selectNext", "selectPrev", "followNext", "mark",
+            "clearFinal", "nextPrev", "movePlayhead", "nudge1", "nudge10", "nudge50", "nudgeComma", "jump",
+            "speed", "zoom.win", "loopA", "loopB", "loopClear", "undo.win", "redo.win", "clickAway" })
+            content.Children.Add(new TextBlock { Text = L10n.T("hotkey." + key), TextWrapping = TextWrapping.Wrap });
+        await new ContentDialog { XamlRoot = XamlRoot, Title = L10n.T("hotkeys.help"),
+            Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+            CloseButtonText = L10n.T("action.ok") }.ShowAsync();
+    }
+
     private async void Settings_Click(object sender, RoutedEventArgs e)
     {
         var language = new ComboBox {
@@ -44,7 +56,7 @@ public sealed partial class MainPage
         BindProviderFields();
         var clear = new Button { Content = L10n.T("settings.clearKey") };
         clear.Click += (_, _) => { keyBox.Password = ""; keyStatus.Text = L10n.T("settings.keyMissing"); };
-        var content = new StackPanel { Spacing = 10, Width = 420 };
+        var content = new StackPanel { Spacing = 10, MaxWidth = 420 };
         content.Children.Add(new TextBlock { Text = L10n.T("settings.language"), FontFamily = new FontFamily("Consolas") });
         content.Children.Add(language);
         content.Children.Add(new TextBlock { Text = L10n.T("settings.provider"), FontFamily = new FontFamily("Consolas") });
@@ -56,7 +68,9 @@ public sealed partial class MainPage
         content.Children.Add(clear);
         content.Children.Add(new TextBlock { Text = L10n.T("settings.keysNote"), TextWrapping = TextWrapping.Wrap, Opacity = .75 });
         content.Children.Add(path);
-        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = L10n.T("settings.title"), Content = content, PrimaryButtonText = L10n.T("settings.saveLocally"), CloseButtonText = L10n.T("action.cancel") };
+        var dialog = new ContentDialog { XamlRoot = XamlRoot, Title = L10n.T("settings.title"),
+            Content = new ScrollViewer { Content = content, VerticalScrollBarVisibility = ScrollBarVisibility.Auto },
+            PrimaryButtonText = L10n.T("settings.saveLocally"), CloseButtonText = L10n.T("action.cancel") };
         if (await dialog.ShowAsync() != ContentDialogResult.Primary) return;
         FlushProviderFields();
         settings.UiLanguage = language.SelectedIndex == 1 ? "en" : language.SelectedIndex == 2 ? "zh" : "system";

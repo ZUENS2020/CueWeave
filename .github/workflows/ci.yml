@@ -3,15 +3,39 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cueweave-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 jobs:
-  core:
+  version:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: version
+        name: Validate app, Core and release versions
+        env:
+          CUEWEAVE_RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: node scripts/check-version.mjs >> "$GITHUB_OUTPUT"
+
+  core:
+    needs: version
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
+      - uses: Swatinem/rust-cache@v2
       - name: Install code counter
         run: cargo install tokei --locked
       - name: Check formatting
@@ -24,38 +48,109 @@ jobs:
         run: ./scripts/check-budget.sh P4
 
   macos:
-    runs-on: macos-15
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Verify runner architecture and icons
+        run: |
+          test "$(uname -m)" = '${{ matrix.arch }}'
+          ruby scripts/prepare-icons.rb --check
       - name: Build Core bridge
         run: cargo build --locked --release -p cueweave-cli
       - name: Test native app
         run: swift test --package-path apps/macos --disable-automatic-resolution
       - name: Install ripgrep
-        run: brew install ripgrep
+        run: command -v rg || brew install ripgrep
       - name: Check timeline, settings and document boundaries
+        env:
+          CUEWEAVE_SKIP_SWIFT_TESTS: "1"
         run: |
           ./scripts/check-timeline-interaction.sh
           ./scripts/check-local-settings.sh
           ./scripts/check-document-lifecycle.sh
+      - name: Package and verify self-contained app
+        run: |
+          ./scripts/package-macos.sh
+          mv dist/CueWeave-macOS.zip 'dist/CueWeave-${{ needs.version.outputs.version }}-macos-${{ matrix.arch }}.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cueweave-macos-${{ matrix.arch }}
+          path: dist/*.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
 
   windows:
+    needs: version
     runs-on: windows-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
-      - name: Test Core
-        run: cargo test --locked --workspace --all-targets
+      - uses: Swatinem/rust-cache@v2
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.400"
-      - name: Test viewport and settings
+      - name: Test and package self-contained WinUI app
+        shell: pwsh
         run: |
-          dotnet restore apps/windows/CueWeave.Windows.Tests/CueWeave.Windows.Tests.csproj --locked-mode --nologo
-          dotnet build apps/windows/CueWeave.Windows.Tests/CueWeave.Windows.Tests.csproj --nologo --no-restore
-          ./apps/windows/CueWeave.Windows.Tests/bin/Debug/net10.0-windows10.0.26100.0/CueWeave.Windows.Tests.exe
-      - name: Build the unpackaged WinUI application
+          ./scripts/package-windows.ps1
+          Move-Item dist/CueWeave-windows-x64.zip 'dist/CueWeave-${{ needs.version.outputs.version }}-windows-x64.zip'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cueweave-windows-x64
+          path: dist/*.zip
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  release:
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [version, core, macos, windows]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cueweave-*
+          path: dist
+          merge-multiple: true
+      - name: Publish verified artifacts and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ needs.version.outputs.version }}
+          GH_REPO: ${{ github.repository }}
         run: |
-          dotnet restore apps/windows/CueWeave.Windows/CueWeave.Windows.csproj -r win-x64 --locked-mode --nologo
-          dotnet publish apps/windows/CueWeave.Windows/CueWeave.Windows.csproj -c Release -r win-x64 --self-contained --no-restore -p:Platform=x64
+          set -euo pipefail
+          tag="v$RELEASE_VERSION"
+          notes="docs/RELEASE_$tag.md"
+          test -f "$notes"
+          for platform in macos-arm64 macos-x86_64 windows-x64; do
+            test -s "dist/CueWeave-$RELEASE_VERSION-$platform.zip"
+          done
+          (cd dist && sha256sum *.zip > SHA256SUMS.txt)
+          if gh release view "$tag" --json isDraft > release-state.json 2>/dev/null; then
+            if ! jq -e '.isDraft' release-state.json; then
+              echo "Release already published; never replace its assets."
+              exit 0
+            fi
+          else
+            gh release create "$tag" --verify-tag --draft --title "CueWeave $tag" --notes-file "$notes"
+          fi
+          gh release upload "$tag" dist/*.zip dist/SHA256SUMS.txt --clobber
+          gh release edit "$tag" --draft=false --latest

@@ -25,6 +25,25 @@ public sealed class L10nTests
     }
 
     [TestMethod]
+    public void WindowsShortcutHelpUsesWindowsModifiersInBothLanguages()
+    {
+        try
+        {
+            foreach (var language in new[] { "en", "zh" })
+            {
+                L10n.Apply(language);
+                foreach (var key in new[] { "hotkey.zoom.win", "hotkey.undo.win", "hotkey.redo.win", "align.restoreHelp.win" })
+                {
+                    StringAssert.Contains(L10n.T(key), "Ctrl+");
+                    Assert.IsFalse(L10n.T(key).Contains("⌘"));
+                }
+                Assert.AreNotEqual("hotkeys.help", L10n.T("hotkeys.help"));
+            }
+        }
+        finally { L10n.Apply("system"); }
+    }
+
+    [TestMethod]
     public void WrapErrorMapsRawJsonParseFailures()
     {
         L10n.Apply("zh");
