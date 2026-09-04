@@ -20,7 +20,7 @@ final class PlaybackFrameStats {
         maxWork = max(maxWork, work)
         frames += 1
         if frames % 120 == 0 {
-            Self.logger.notice("frames=\(frames, privacy: .public) missed=\(missed, privacy: .public) maxGapMS=\(maxGap * 1_000, privacy: .public) maxWorkMS=\(maxWork * 1_000, privacy: .public) clockResyncs=\(corrections, privacy: .public)")
+            Self.logger.notice("frames=\(self.frames, privacy: .public) missed=\(self.missed, privacy: .public) maxGapMS=\(self.maxGap * 1_000, privacy: .public) maxWorkMS=\(self.maxWork * 1_000, privacy: .public) clockResyncs=\(corrections, privacy: .public)")
         }
     }
 }
