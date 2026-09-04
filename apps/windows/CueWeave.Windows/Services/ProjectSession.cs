@@ -36,7 +36,7 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
         var result = await core.CallAsync("load_project", new JsonObject { ["project_path"] = path }, token);
         var loaded = JsonSerializer.Deserialize(result.GetRawText(), CueJsonContext.Default.ProjectDocument)
             ?? throw new CoreException("invalid_response", L10n.T("error.coreEmpty"));
-        if (keepUndo && Project is not null) Push(undo, Snapshot(Project));
+        if (keepUndo && Project is not null) { Push(undo, Snapshot(Project)); redo.Clear(); }
         else { undo.Clear(); redo.Clear(); }
         Project = loaded;
         ProjectPath = path;
@@ -293,11 +293,16 @@ public sealed partial class ProjectSession(CoreProcess core) : ObservableObject
     private async Task SaveCoreAsync(CancellationToken token)
     {
         if (Project is null || ProjectPath is null) return;
+        var savedProject = Project;
+        var savedPath = ProjectPath;
+        var savedSnapshot = Snapshot(savedProject);
         await core.CallAsync("save_project", new JsonObject {
-            ["project_path"] = ProjectPath,
-            ["project"] = JsonSerializer.SerializeToNode(Project, CueJsonContext.Default.ProjectDocument)
+            ["project_path"] = savedPath,
+            ["project"] = JsonNode.Parse(savedSnapshot)
         }, token);
-        IsDirty = false;
+        // Do not mark edits made while the RPC was in flight as already saved.
+        if (ReferenceEquals(Project, savedProject) && ProjectPath == savedPath
+            && savedSnapshot.AsSpan().SequenceEqual(Snapshot(savedProject))) IsDirty = false;
     }
 
     private static byte[] Snapshot(ProjectDocument value) =>

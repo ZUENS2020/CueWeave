@@ -32,6 +32,7 @@ public sealed partial class TimelineControl : UserControl
     private IReadOnlyList<(LyricSegment Segment, double Time)> timed = [];
     private double lastPostedZoom = double.NaN;
     private readonly CanvasTextFormat idFormat = new() { FontSize = 11, FontFamily = "Consolas", WordWrapping = CanvasWordWrapping.NoWrap };
+    private readonly CanvasTextFormat rulerFormat = new() { FontSize = 10, FontFamily = "Consolas", WordWrapping = CanvasWordWrapping.NoWrap };
     private readonly CanvasTextFormat markFormat = new() { FontSize = 10, FontFamily = "Consolas", FontWeight = FontWeights.SemiBold };
     private IReadOnlyList<(ulong Id, ulong TimeMs, string Text)> credits = [];
     private WaveformData waveform = WaveformData.Empty;
@@ -101,7 +102,6 @@ public sealed partial class TimelineControl : UserControl
         upperLanePicker.SelectedIndex = 0; lowerLanePicker.SelectedIndex = 3;
         upperLanePicker.SelectionChanged += LaneChanged; lowerLanePicker.SelectionChanged += LaneChanged;
         scroll.ValueChanged += ScrollChanged;
-        KeyDown += HandleKeyDown; KeyUp += HandleKeyUp;
         Loaded += (_, _) =>
         {
             AttachCanvas(plot);
@@ -115,7 +115,8 @@ public sealed partial class TimelineControl : UserControl
         if (canvas is not null) return;
         var view = new CanvasControl { ManipulationMode = ManipulationModes.Scale };
         view.Draw += Draw;
-        view.PointerPressed += OnPointerPressed; view.PointerMoved += OnPointerMoved;
+        view.PointerPressed += OnPointerPressed;
+        view.AddHandler(PointerMovedEvent, new PointerEventHandler(OnPointerMoved), true);
         view.PointerReleased += OnPointerReleased; view.PointerCaptureLost += OnPointerCaptureLost;
         view.PointerWheelChanged += PointerWheel;
         view.ManipulationStarted += (_, _) => Viewport.GestureActive = true;
@@ -228,7 +229,7 @@ public sealed partial class TimelineControl : UserControl
         var first = Math.Ceiling(Viewport.VisibleStartMs / interval) * interval;
         for (var time = first; time <= Viewport.VisibleEndMs; time += interval) {
             var x = (float)Viewport.XAt(time, width); ds.DrawLine(x, 17, x, 24, Colors.Gray, 1);
-            ds.DrawText(FormatTime(time), x + 3, 2, Colors.Gray);
+            ds.DrawText(FormatTime(time), x + 3, 2, Colors.Gray, rulerFormat);
         }
     }
 
@@ -260,7 +261,7 @@ public sealed partial class TimelineControl : UserControl
         for (var index = start; index < Math.Min(end, waveform.Peak.Length); index++) {
             var time = index * Viewport.DurationMs / waveform.Peak.Length; var x = (float)Viewport.XAt(time, width);
             var amplitude = (mode is "rms" && waveform.Rms.Length > index ? waveform.Rms[index] : waveform.Peak[index]) * height * .43f;
-            ds.DrawLine(x, center - amplitude, x, center + amplitude, Colors.DeepSkyBlue, 1);
+            ds.DrawLine(x, center - amplitude, x, center + amplitude, ColorHelper.FromArgb(220, 78, 143, 175), 1);
             if (mode is "peakRms" && waveform.Rms.Length > index) {
                 var rmsAmp = waveform.Rms[index] * height * .43f;
                 ds.DrawLine(x, center - rmsAmp, x, center + rmsAmp, Colors.White, 1);
@@ -270,9 +271,9 @@ public sealed partial class TimelineControl : UserControl
 
     private void DrawBands(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float width, float top, float height)
     {
-        DrawBand(ds, waveform.Low, width, top, height, Colors.MediumSeaGreen);
-        DrawBand(ds, waveform.Mid, width, top, height, Colors.Goldenrod);
-        DrawBand(ds, waveform.High, width, top, height, Colors.OrangeRed);
+        DrawBand(ds, waveform.Low, width, top, height, ColorHelper.FromArgb(210, 64, 122, 163));
+        DrawBand(ds, waveform.Mid, width, top, height, ColorHelper.FromArgb(180, 184, 120, 46));
+        DrawBand(ds, waveform.High, width, top, height, ColorHelper.FromArgb(180, 140, 92, 163));
     }
 
     private void DrawBand(Microsoft.Graphics.Canvas.CanvasDrawingSession ds, float[] values, float width, float top, float height, Windows.UI.Color color)
@@ -296,15 +297,16 @@ public sealed partial class TimelineControl : UserControl
             if (end < Viewport.VisibleStartMs || start > Viewport.VisibleEndMs) continue;
             var x0 = (float)Viewport.XAt(start, width); var x1 = (float)Viewport.XAt(end, width);
             var span = Math.Max(2, x1 - x0);
-            var fill = segment.Id == SelectedSegmentId ? ColorHelper.FromArgb(120, 50, 127, 159)
-                : segment.Id == activeId ? ColorHelper.FromArgb(70, 50, 127, 159)
-                : segment.Timing.Final is not null ? ColorHelper.FromArgb(28, 212, 168, 83) : ColorHelper.FromArgb(18, 128, 128, 128);
+            var fill = segment.Id == SelectedSegmentId ? ColorHelper.FromArgb(70, 56, 110, 140)
+                : segment.Id == activeId ? ColorHelper.FromArgb(36, 56, 110, 140)
+                : ColorHelper.FromArgb(12, 128, 128, 128);
             var stroke = segment.Id == SelectedSegmentId ? ColorHelper.FromArgb(180, 50, 127, 159)
                 : segment.Id == activeId ? ColorHelper.FromArgb(120, 50, 127, 159)
                 : ColorHelper.FromArgb(40, 128, 128, 128);
             ds.FillRectangle(x0, top, span, height, fill);
             ds.DrawRectangle(x0, top, span, height, stroke, 1);
-            if (span > 42) ds.DrawText($"{segment.Id:D4}", new Rect(x0 + 4, top + 4, span - 8, 16), Colors.White, idFormat);
+            if (span > 42) ds.DrawText($"{segment.Id:D4}", new Rect(x0 + 4, top + 32, span - 8, 16),
+                ActualTheme == ElementTheme.Dark ? Colors.LightGray : Colors.DimGray, idFormat);
             if (segment.Timing.Gemini is { } gemini) {
                 var gx = (float)Viewport.XAt(gemini.TimeMs, width);
                 ds.DrawText("G", gx - 5, top + 2, Colors.Goldenrod, markFormat);
@@ -357,7 +359,18 @@ public sealed partial class TimelineControl : UserControl
     private void OnPointerReleased(object sender, PointerRoutedEventArgs e)
     {
         if (canvas is null || pointerId != e.Pointer.PointerId) return; var x = e.GetCurrentPoint(canvas).Position.X;
-        canvas.ReleasePointerCapture(e.Pointer); pointerId = null; Viewport.GestureActive = false;
+        // Pointer moves may be coalesced/handled by a parent. The final pointer
+        // position still determines whether this was a click or a range drag.
+        dragging |= TimelineViewport.IsSelection(pressedX, x);
+        if (creditDragId is not null && dragging && !creditDidMove)
+        {
+            creditDidMove = true;
+            CreditDragStarted?.Invoke();
+        }
+        // Releasing capture raises CaptureLost synchronously; preserve the gesture
+        // until its commit is complete rather than clearing it in that callback.
+        pointerId = null; Viewport.GestureActive = false;
+        canvas.ReleasePointerCapture(e.Pointer);
         if (creditDragId is ulong creditId)
         {
             if (creditDidMove)
@@ -369,13 +382,17 @@ public sealed partial class TimelineControl : UserControl
             CommitViewport(); e.Handled = true; return;
         }
         if (dragging) Viewport.ZoomSelection(pressedX, x, canvas.ActualWidth);
-        else if (HitCredit(Viewport.TimeAt(x, canvas.ActualWidth)) is ulong hit) SelectCredit(hit);
-        else { SelectCredit(null); SeekRequested?.Invoke(Viewport.TimeAt(x, canvas.ActualWidth)); }
+        else
+        {
+            if (SelectedCreditId is not null) SelectCredit(null);
+            SeekRequested?.Invoke(Viewport.TimeAt(x, canvas.ActualWidth));
+        }
         dragging = false; Viewport.Selection = null; CommitViewport(); e.Handled = true;
     }
 
     private void OnPointerCaptureLost(object sender, PointerRoutedEventArgs e)
     {
+        if (pointerId is null) return;
         if (creditDidMove) CreditDragEnded?.Invoke();
         pointerId = null; dragging = false; creditDragId = null; creditDidMove = false;
         Viewport.Selection = null; Viewport.GestureActive = false; canvas?.Invalidate();
@@ -397,8 +414,13 @@ public sealed partial class TimelineControl : UserControl
         Viewport.ZoomAt(e.Delta.Scale, Viewport.TimeAt(e.Position.X, canvas.ActualWidth)); CommitViewport(); e.Handled = true;
     }
 
-    private void HandleKeyDown(object sender, KeyRoutedEventArgs e)
+    public void HandleKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        var control = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
+        var alt = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu).HasFlag(CoreVirtualKeyStates.Down);
+        var plus = e.Key is VirtualKey.Add || (int)e.Key == 187;
+        var minus = e.Key is VirtualKey.Subtract || (int)e.Key == 189;
+        if (alt || (control && !plus && !minus)) return;
         if (e.Key is VirtualKey.Number1 or VirtualKey.Number2 or VirtualKey.Number3) { heldStep = e.Key == VirtualKey.Number1 ? 1 : e.Key == VirtualKey.Number2 ? 10 : 50; return; }
         if (e.Key is VirtualKey.Left or VirtualKey.Right) {
             var right = e.Key == VirtualKey.Right;
@@ -415,9 +437,6 @@ public sealed partial class TimelineControl : UserControl
         if (e.Key == VirtualKey.End) { SeekRequested?.Invoke(Viewport.DurationMs); e.Handled = true; return; }
         if ((int)e.Key is 188) { NudgeRequested?.Invoke(-1); e.Handled = true; return; }
         if ((int)e.Key is 190) { NudgeRequested?.Invoke(1); e.Handled = true; return; }
-        var control = InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control).HasFlag(CoreVirtualKeyStates.Down);
-        var plus = e.Key is VirtualKey.Add || (int)e.Key == 187;
-        var minus = e.Key is VirtualKey.Subtract || (int)e.Key == 189;
         if (plus || minus)
         {
             if (control)
@@ -439,10 +458,12 @@ public sealed partial class TimelineControl : UserControl
         if (command is not null) { CommandRequested?.Invoke(command); e.Handled = true; }
     }
 
-    private void HandleKeyUp(object sender, KeyRoutedEventArgs e)
+    public void HandleKeyUp(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key is VirtualKey.Number1 or VirtualKey.Number2 or VirtualKey.Number3) heldStep = 0;
     }
+
+    public void ResetHeldKeys() => heldStep = 0;
 
     private void ScrollChanged(object sender, RangeBaseValueChangedEventArgs e)
     {
@@ -459,7 +480,7 @@ public sealed partial class TimelineControl : UserControl
         scroll.LargeChange = Viewport.VisibleDurationMs * .8;
         if (Math.Abs(scroll.Value - Viewport.VisibleStartMs) > 0.5) scroll.Value = Viewport.VisibleStartMs;
         changingScroll = false;
-        if (Math.Abs(Viewport.Zoom - lastPostedZoom) > 0.01)
+        if (TimelineViewport.ShouldNotifyZoom(lastPostedZoom, Viewport.Zoom))
         {
             lastPostedZoom = Viewport.Zoom;
             ZoomChanged?.Invoke(Viewport.Zoom);
@@ -538,13 +559,6 @@ public sealed partial class TimelineControl : UserControl
         if (count <= 0 || Viewport.DurationMs <= 0) return 0;
         return (int)Math.Clamp(Math.Floor(timeMs / Viewport.DurationMs * count), 0, count - 1);
     }
-    private ulong? HitCredit(double timeMs)
-    {
-        if (credits.Count == 0) return null;
-        var nearest = credits.MinBy(credit => Math.Abs((double)credit.TimeMs - timeMs));
-        return Math.Abs((double)nearest.TimeMs - timeMs) <= 120 ? nearest.Id : null;
-    }
-
     private void PreviewCreditTime(ulong id, ulong timeMs)
     {
         credits = [.. credits.Select(credit => credit.Id == id ? (credit.Id, timeMs, credit.Text) : credit)];

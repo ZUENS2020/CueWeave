@@ -28,8 +28,8 @@ if [ -d apps ]; then
 fi
 tokei --output json "$@" >"$report"
 
-production=$(jq '[.[] | .reports[]? | select(.name | test("\\.(rs|swift|cs)$")) | select(.name | test("/(tests|Tests)/") | not) | .stats.code] | add // 0' "$report")
-tests=$(jq '[.[] | .reports[]? | select(.name | test("\\.(rs|swift|cs)$")) | select(.name | test("/(tests|Tests)/")) | .stats.code] | add // 0' "$report")
+production=$(jq '[.[] | .reports[]? | select(.name | test("\\.(rs|swift|cs)$")) | select(.name | test("/(tests|Tests)/|/[^/]+\\.Tests/") | not) | .stats.code] | add // 0' "$report")
+tests=$(jq '[.[] | .reports[]? | select(.name | test("\\.(rs|swift|cs)$")) | select(.name | test("/(tests|Tests)/|/[^/]+\\.Tests/")) | .stats.code] | add // 0' "$report")
 oversized=$(jq -r '[.[] | .reports[]? | select(.name | test("\\.(rs|swift|cs)$")) | select(.stats.code > 600) | "\(.name): \(.stats.code)"] | .[]' "$report")
 dependencies=$(cargo metadata --format-version 1 --no-deps | jq '[.packages[].dependencies[] | select(.kind == null or .kind == "normal") | select(.source != null) | .name] | unique | length')
 

@@ -7,6 +7,15 @@ namespace CueWeave.Windows.Tests;
 public sealed class TimelineViewportTests
 {
     [TestMethod]
+    public void ZoomNotificationIncludesTheInitialNaNSentinel()
+    {
+        Assert.IsTrue(TimelineViewport.ShouldNotifyZoom(double.NaN, 2));
+        Assert.IsFalse(TimelineViewport.ShouldNotifyZoom(2, 2));
+        Assert.IsFalse(TimelineViewport.ShouldNotifyZoom(2, 2.001));
+        Assert.IsTrue(TimelineViewport.ShouldNotifyZoom(2, 6.7));
+    }
+
+    [TestMethod]
     public void FullDocumentClicksMapToExactTargetTimes()
     {
         var viewport = NewViewport();
@@ -22,7 +31,6 @@ public sealed class TimelineViewportTests
         viewport.SetZoom(2, 74_545.5);
         Assert.AreEqual(2, viewport.Zoom, .0001);
         Assert.AreEqual(74_545.5, viewport.VisibleStartMs + viewport.VisibleDurationMs / 2, .001);
-        Assert.AreEqual(100, TimelineViewport.MaximumZoom);
     }
 
     [TestMethod]

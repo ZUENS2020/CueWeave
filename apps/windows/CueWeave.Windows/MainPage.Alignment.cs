@@ -234,7 +234,7 @@ public sealed partial class MainPage
         FinalTime.Text = FormatTime(segment?.Timing.Final?.TimeMs);
         GeminiConfidence.Text = FormatConfidence(segment?.Timing.Gemini?.Confidence);
         FinalConfidence.Text = FormatConfidence(segment?.Timing.Final?.Confidence);
-        if (!refreshing) InspectorLyricBox.Text = line?.Original ?? "";
+        SetDraft(InspectorLyricBox, line?.Original ?? "");
         UseGeminiButton.IsEnabled = segment?.Timing.Gemini is not null;
         InspectorClearFinal.IsEnabled = segment?.Timing.Final is not null;
     }
@@ -257,8 +257,8 @@ public sealed partial class MainPage
     private void UpdateQueueVisuals(ulong? active)
     {
         if (AlignmentList.ItemsSource is not IList<SegmentRow> rows) return;
-        selectedFill ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(115, 50, 127, 159));
-        playingFill ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(55, 50, 127, 159));
+        selectedFill ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(70, 56, 110, 140));
+        playingFill ??= new SolidColorBrush(Microsoft.UI.ColorHelper.FromArgb(36, 56, 110, 140));
         var selected = Timeline.SelectedSegmentId;
         if (paintedActive == active && paintedSelected == selected) return;
         PaintRow(rows, paintedActive, null, null);

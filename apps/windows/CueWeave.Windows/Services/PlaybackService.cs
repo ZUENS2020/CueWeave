@@ -54,9 +54,7 @@ public sealed class PlaybackService : IDisposable
 
     public double Tick()
     {
-        var position = TimelineViewport.ApplyLoop(PositionMs, IsPlaying, LoopStartMs, LoopEndMs);
-        if (position != PositionMs) Seek(position);
-        return position;
+        return PlaybackTick.Update(() => PositionMs, Seek, IsPlaying, LoopStartMs, LoopEndMs);
     }
 
     public void MarkA()

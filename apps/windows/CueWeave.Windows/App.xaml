@@ -8,7 +8,12 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
-            <SolidColorBrush x:Key="CueAccentBrush" Color="#327F9F" />
+            <SolidColorBrush x:Key="CueAccentBrush" Color="#386E8C" />
+            <Style TargetType="Button">
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="CornerRadius" Value="3" />
+                <Setter Property="Padding" Value="10,5" />
+            </Style>
             <SolidColorBrush x:Key="CueReadyBrush" Color="#568A73" />
             <SolidColorBrush x:Key="CueWarningBrush" Color="#B66D20" />
         </ResourceDictionary>

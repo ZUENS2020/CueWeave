@@ -99,6 +99,8 @@ public sealed class TimelineViewport
     public static bool KeepsFollowSelection(int relativeOffset) => relativeOffset == 1;
 
     public static bool IsSelection(double startX, double currentX) => Math.Abs(currentX - startX) > DragThreshold;
+    public static bool ShouldNotifyZoom(double previous, double current) =>
+        !double.IsFinite(previous) || Math.Abs(current - previous) > .01;
     public static long NudgeDelta(int heldStep, bool right) => (right ? 1L : -1L) * heldStep;
     public static (double Ruler, double Waveform, double Bands, double Lyrics) Layout(double height)
     {

@@ -45,7 +45,7 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet restore tests failed" }
 
 dotnet build $TestProj --nologo --no-restore
 if ($LASTEXITCODE -ne 0) { throw "dotnet test build failed" }
-$TestExe = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\bin\Debug\net10.0\CueWeave.Windows.Tests.exe"
+$TestExe = Join-Path $Repo "apps\windows\CueWeave.Windows.Tests\bin\Debug\net10.0-windows10.0.26100.0\CueWeave.Windows.Tests.exe"
 & $TestExe
 if ($LASTEXITCODE -ne 0) { throw "dotnet test failed" }
 

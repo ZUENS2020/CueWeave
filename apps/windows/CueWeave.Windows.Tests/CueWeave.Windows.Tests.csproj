@@ -1,6 +1,6 @@
 <Project Sdk="MSTest.Sdk/4.3.3">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
@@ -10,6 +10,7 @@
     <Compile Include="..\CueWeave.Windows\Timeline\AudioVizCatalog.cs" Link="AudioVizCatalog.cs" />
     <Compile Include="..\CueWeave.Windows\Services\WaveformAnalyzer.cs" Link="WaveformAnalyzer.cs" />
     <Compile Include="..\CueWeave.Windows\Services\CoreRpc.cs" Link="CoreRpc.cs" />
+    <Compile Include="..\CueWeave.Windows\Services\PlaybackTick.cs" Link="PlaybackTick.cs" />
     <Compile Include="..\CueWeave.Windows\Services\WinPaths.cs" Link="WinPaths.cs" />
     <Compile Include="..\CueWeave.Windows\Services\LocalSettingsStore.cs" Link="LocalSettingsStore.cs" />
     <Compile Include="..\CueWeave.Windows\Services\L10n.cs" Link="L10n.cs" />

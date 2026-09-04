@@ -7,12 +7,15 @@
     KeyboardAcceleratorPlacementMode="Hidden">
     <Page.Resources>
         <Style x:Key="MetaDraftBox" TargetType="TextBox">
+            <Setter Property="MaxHeight" Value="96" />
             <Setter Property="MinWidth" Value="0" />
             <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="VerticalAlignment" Value="Top" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
         <Style x:Key="MetaValueText" TargetType="TextBlock">
+            <Setter Property="MaxLines" Value="3" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="MinWidth" Value="0" />
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -65,7 +68,7 @@
 
         <Grid Grid.Row="1">
         <NavigationView x:Name="Navigation" Visibility="Collapsed" IsBackButtonVisible="Collapsed" IsSettingsVisible="False"
-                        IsPaneToggleButtonVisible="False" PaneDisplayMode="Left" OpenPaneLength="230"
+                        IsPaneToggleButtonVisible="True" PaneDisplayMode="Auto" OpenPaneLength="200"
                         SelectionChanged="Navigation_SelectionChanged">
             <NavigationView.PaneHeader>
                 <StackPanel Margin="14,8,14,4" Spacing="3">
@@ -402,11 +405,12 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Grid Padding="20,0" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="3">
                             <TextBlock x:Name="LyricsHeading" FontSize="24" FontWeight="SemiBold" Text="Lyrics" />
                             <TextBlock x:Name="LyricsSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Source text only · timing is always rebuilt" />
                         </StackPanel>
-                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Button x:Name="RequestPreviewButton" Content="Request Preview" Click="RequestPreview_Click" />
                             <Button x:Name="AddLyricsButton" Content="Add Lines…" Click="AddLyrics_Click" />
                             <Button x:Name="ImportLyricsButton" Content="Import Text…" Click="ImportLyrics_Click" />
@@ -484,7 +488,7 @@
                                     <RowDefinition Height="*" />
                                 </Grid.RowDefinitions>
                                 <Button x:Name="InsertAtStartButton" Margin="12,0" HorizontalAlignment="Left" Content="Insert here" Click="InsertAtStart_Click" />
-                                <ListView x:Name="LyricsList" Grid.Row="1">
+                                <ListView x:Name="LyricsList" Grid.Row="1" SelectionMode="None" ItemContainerStyle="{StaticResource SegmentListItem}">
                                     <ListView.ItemTemplate>
                                         <DataTemplate>
                                             <Grid Padding="8,6" ColumnSpacing="8">
@@ -512,12 +516,13 @@
                         <RowDefinition Height="72" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Grid Padding="20,0">
+                    <Grid Padding="20,0" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center" Spacing="3">
                             <TextBlock x:Name="TranslationHeading" FontSize="24" FontWeight="SemiBold" Text="Translation" />
                             <TextBlock x:Name="TranslationSubtitle" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Line-level only. Originals and timing stay untouched." />
                         </StackPanel>
-                        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Button x:Name="ImportTranslationButton" Content="Import Text…" Click="ImportTranslations_Click" />
                             <Button x:Name="ClearTranslationButton" Content="Clear All" Click="ClearTranslations_Click" />
                             <Button x:Name="TranslateButton" Style="{StaticResource AccentButtonStyle}" Content="Translate" Click="Translate_Click" />
@@ -565,7 +570,7 @@
                                 <TextBlock x:Name="TranslationLineHeader" FontFamily="Consolas" FontSize="10" FontWeight="SemiBold" />
                                 <TextBlock x:Name="TranslationLinesCount" HorizontalAlignment="Right" FontFamily="Consolas" FontSize="9" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             </Grid>
-                            <ListView x:Name="TranslationList" Grid.Row="1">
+                            <ListView x:Name="TranslationList" Grid.Row="1" SelectionMode="None" ItemContainerStyle="{StaticResource SegmentListItem}">
                                 <ListView.ItemTemplate>
                                     <DataTemplate>
                                         <StackPanel Padding="10,8" Spacing="6">
@@ -614,7 +619,7 @@
                     </Grid>
                     <Grid x:Name="AlignmentBody" Grid.Row="2">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="280" MinWidth="200" />
+                            <ColumnDefinition Width="248" MinWidth="200" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Border BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,1,0">
@@ -684,11 +689,12 @@
                         </Border>
                         <Grid Grid.Column="1">
                             <Grid.RowDefinitions>
-                                <RowDefinition Height="42" />
+                                <RowDefinition Height="Auto" />
                                 <RowDefinition Height="*" />
-                                <RowDefinition Height="220" MinHeight="180" />
+                                <RowDefinition Height="190" MinHeight="140" />
                             </Grid.RowDefinitions>
-                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Padding="0,6">
+                                <StackPanel Spacing="6">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Padding="8,0">
                                     <Button x:Name="PlayButton" Width="36" Click="Play_Click" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <ComboBox x:Name="SpeedPicker" Width="82" SelectedIndex="2" SelectionChanged="Speed_Changed">
@@ -705,15 +711,19 @@
                                     <ToggleButton x:Name="FollowButton" Content="Follow" Checked="Follow_Changed" Unchecked="Follow_Changed" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <ToggleButton x:Name="NextButton" Content="Next" Checked="Next_Changed" Unchecked="Next_Changed" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" AllowFocusOnInteraction="False" IsTabStop="False" />
+                                </StackPanel>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8" Padding="8,0">
                                     <Button x:Name="AlignUndoButton" Content="Undo" Click="Undo_Click" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <Button x:Name="AlignRedoButton" Content="Redo" Click="Redo_Click" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <Slider x:Name="ZoomSlider" Width="130" VerticalAlignment="Center" ValueChanged="Zoom_Changed" IsTabStop="False" />
                                     <TextBlock x:Name="ZoomText" Width="44" VerticalAlignment="Center" FontFamily="Consolas" Text="2.0×" />
                                     <TextBlock x:Name="PlaybackTime" VerticalAlignment="Center" FontFamily="Consolas" Text="00:00.000" />
                                 </StackPanel>
+                                </StackPanel>
                             </ScrollViewer>
                             <timeline:TimelineControl x:Name="Timeline" Grid.Row="1" />
                             <Border Grid.Row="2" Padding="14" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="0,1,0,0" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}">
+                                <ScrollViewer HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
                                 <Grid>
                                     <StackPanel x:Name="InspectorEmpty" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="6">
                                         <TextBlock x:Name="InspectEmptyTitle" FontSize="18" FontWeight="SemiBold" HorizontalAlignment="Center" Text="Select a segment" />
@@ -739,7 +749,7 @@
                                             <TextBlock x:Name="InspectorText" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
                                             <TextBlock x:Name="InspectorTranslation" Margin="0,4,0,0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                         </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Spacing="16">
+                                        <StackPanel Orientation="Horizontal" Spacing="12">
                                             <StackPanel Width="140" Padding="8" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                                 <Grid>
                                                     <TextBlock FontFamily="Consolas" FontSize="9" Text="GEMINI" />
@@ -754,6 +764,9 @@
                                                 </Grid>
                                                 <TextBlock x:Name="FinalTime" FontFamily="Consolas" FontSize="14" />
                                             </StackPanel>
+                                        </StackPanel>
+                                        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
                                             <Button Content="−50" Click="Nudge_Click" Tag="-50" />
                                             <Button Content="−10" Click="Nudge_Click" Tag="-10" />
                                             <Button Content="−1" Click="Nudge_Click" Tag="-1" />
@@ -763,6 +776,7 @@
                                             <Button x:Name="PlayAroundButton" Content="Play 2s Before" Click="PlayAround_Click" />
                                             <Button x:Name="UseGeminiButton" Content="Use Gemini" Click="UseGemini_Click" />
                                         </StackPanel>
+                                        </ScrollViewer>
                                         <StackPanel Spacing="4">
                                             <TextBlock x:Name="InspectorLyricLabel" FontFamily="Consolas" FontSize="9" Text="LYRIC TEXT" />
                                             <TextBox x:Name="InspectorLyricBox" LostFocus="InspectorLyric_LostFocus" />
@@ -770,6 +784,7 @@
                                         <Button x:Name="InspectorClearFinal" HorizontalAlignment="Left" Content="Clear Final" Click="ClearFinal_Click" />
                                     </StackPanel>
                                 </Grid>
+                                </ScrollViewer>
                             </Border>
                         </Grid>
                     </Grid>
@@ -880,11 +895,10 @@
             </Grid>
         </NavigationView>
         <Grid x:Name="WelcomePanel">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="240" /></Grid.ColumnDefinitions>
-            <StackPanel Margin="64" VerticalAlignment="Center" Spacing="18">
+            <StackPanel Margin="64" MaxWidth="680" HorizontalAlignment="Left" VerticalAlignment="Center" Spacing="18">
                 <TextBlock x:Name="WelcomeKicker" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="CUEWEAVE / 02" />
                 <TextBlock x:Name="WelcomeHeadline" FontSize="40" FontWeight="SemiBold" Text="Lyrics, aligned&#x0a;to your track." />
-                <TextBlock x:Name="WelcomeBody" MaxWidth="560" FontSize="18" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
+                <TextBlock x:Name="WelcomeBody" MaxWidth="560" HorizontalAlignment="Left" FontSize="16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
                            Text="Transfer metadata. Rebuild timing against the target vocal. Adjust Final times on the timeline." />
                 <StackPanel Orientation="Horizontal" Spacing="10">
                     <Button x:Name="WelcomeNew" Style="{StaticResource AccentButtonStyle}" Content="New Song Project…" Click="NewProject_Click" />
@@ -892,7 +906,6 @@
                 </StackPanel>
                 <TextBlock x:Name="WelcomePipeline" Margin="0,28,0,0" FontFamily="Consolas" FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="SOURCE TEXT  →  TARGET AUDIO  →  FINAL TIMELINE" />
             </StackPanel>
-            <Border Grid.Column="1" Background="#12327F9F" />
         </Grid>
         </Grid>
 

@@ -19,6 +19,7 @@ public sealed partial class MainPage : Page
     private CancellationTokenSource? operationCancellation;
     private CancellationTokenSource? waveformCancellation;
     private bool refreshing;
+    private bool refreshQueued;
     private bool rendering;
     private bool changingZoom;
     private string? audioPath;
@@ -26,7 +27,6 @@ public sealed partial class MainPage : Page
     private double timelineDuration;
     private readonly HashSet<ulong> batchIds = [];
     private bool playRequested;
-    private long lastSpaceToggle;
 
     public MainPage()
     {
@@ -40,7 +40,7 @@ public sealed partial class MainPage : Page
         OffsetBox.Maximum = 2000;
         OffsetBox.SmallChange = 10;
         ZoomSlider.Minimum = 1;
-        ZoomSlider.Maximum = 64;
+        ZoomSlider.Maximum = TimelineViewport.MaximumZoom;
         ZoomSlider.StepFrequency = .5;
         ZoomSlider.Value = 2;
         PlayButton.Content = new SymbolIcon(Symbol.Play);
@@ -48,14 +48,11 @@ public sealed partial class MainPage : Page
         var save = new KeyboardAccelerator { Key = VirtualKey.S, Modifiers = VirtualKeyModifiers.Control };
         save.Invoked += (_, args) => { args.Handled = true; Save_Click(this, new RoutedEventArgs()); };
         KeyboardAccelerators.Add(save);
-        var space = new KeyboardAccelerator { Key = VirtualKey.Space };
-        space.Invoked += (_, args) =>
-        {
-            if (!TryHandleSpacePlay()) return;
-            args.Handled = true;
-        };
-        KeyboardAccelerators.Add(space);
-        Loaded += (_, _) => AddHandler(KeyDownEvent, new KeyEventHandler(GlobalKeyDown), true);
+        PreviewKeyDown += GlobalKeyDown;
+        PreviewKeyUp += Timeline.HandleKeyUp;
+        LostFocus += (_, _) => Timeline.ResetHeldKeys();
+        IsTabStop = true;
+        AddHandler(PointerPressedEvent, new PointerEventHandler(DismissEditor), true);
         playback.StateChanged += () => DispatcherQueue.TryEnqueue(() =>
         {
             if (playback.IsPlaying || !playback.IsTransportActive) playRequested = false;
@@ -63,7 +60,16 @@ public sealed partial class MainPage : Page
             UpdatePlaybackFrame();
         });
         BindChrome();
-        session.PropertyChanged += (_, _) => Refresh();
+        session.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName is nameof(ProjectSession.Project) or nameof(ProjectSession.ProjectPath))
+            {
+                if (refreshQueued) return;
+                refreshQueued = true;
+                DispatcherQueue.TryEnqueue(() => { refreshQueued = false; Refresh(); });
+            }
+            else RefreshState();
+        };
         Timeline.SeekRequested += time => { playback.Seek(time); UpdatePlaybackFrame(); };
         Timeline.NudgeRequested += NudgeSelected;
         Timeline.CommandRequested += HandleTimelineCommand;
@@ -108,7 +114,11 @@ public sealed partial class MainPage : Page
         if (file is not null) await RunAsync(L10n.T("activity.opening"), token => session.LoadAsync(file.Path, token));
     }
 
-    private async void Save_Click(object sender, RoutedEventArgs e) => await RunAsync(L10n.T("activity.saving"), session.SaveAsync);
+    private async void Save_Click(object sender, RoutedEventArgs e)
+    {
+        Focus(FocusState.Programmatic); // Commit the focused editor before Ctrl+S.
+        await RunAsync(L10n.T("activity.saving"), session.SaveAsync);
+    }
     private void Undo_Click(object sender, RoutedEventArgs e) => session.Undo();
     private void Redo_Click(object sender, RoutedEventArgs e) => session.Redo();
 
@@ -129,13 +139,17 @@ public sealed partial class MainPage : Page
 
     private async Task RunAsync(string label, Func<CancellationToken, Task> operation)
     {
-        operationCancellation?.Dispose();
+        if (operationCancellation is not null) return;
         operationCancellation = new CancellationTokenSource();
         SetBusy(true, label);
         try { await operation(operationCancellation.Token); ActivityText.Text = L10n.T("activity.doneFmt", label); }
         catch (OperationCanceledException) { ActivityText.Text = L10n.T("activity.cancelled"); }
         catch (Exception error) { ActivityText.Text = L10n.T("activity.failed"); await ShowErrorAsync(error.Message); }
-        finally { SetBusy(false, ActivityText.Text); Refresh(); }
+        finally
+        {
+            operationCancellation.Dispose(); operationCancellation = null;
+            SetBusy(false, ActivityText.Text); Refresh();
+        }
     }
 
     private void SetBusy(bool busy, string activity)
@@ -143,6 +157,8 @@ public sealed partial class MainPage : Page
         BusyBar.Visibility = VisibleIf(busy);
         CancelButton.Visibility = VisibleIf(busy);
         Navigation.IsEnabled = !busy;
+        NewButton.IsEnabled = OpenButton.IsEnabled = SettingsButton.IsEnabled = !busy;
+        WelcomeNew.IsEnabled = WelcomeOpen.IsEnabled = !busy;
         ActivityText.Text = activity;
     }
 
@@ -159,10 +175,7 @@ public sealed partial class MainPage : Page
         PaneProjectTitle.Text = project is null ? "CueWeave" : session.Title;
         PaneProjectPath.Text = session.ProjectPath ?? "";
         SaveStateText.Text = project is null ? L10n.T("status.noProject") : session.IsDirty ? L10n.T("status.edited") : L10n.T("status.saved");
-        UndoButton.IsEnabled = session.CanUndo;
-        RedoButton.IsEnabled = session.CanRedo;
-        AlignUndoButton.IsEnabled = session.CanUndo;
-        AlignRedoButton.IsEnabled = session.CanRedo;
+        RefreshState();
         var activeKey = settings.AlignmentProvider == "openrouter" ? settings.OpenRouterApiKey : settings.AiStudioApiKey;
         var providerName = settings.AlignmentProvider == "openrouter" ? "OpenRouter" : "AI Studio";
         ProviderState.Text = activeKey.Length == 0 ? L10n.T("chrome.providerMissing", providerName) : L10n.T("chrome.providerReady", providerName);
@@ -175,6 +188,23 @@ public sealed partial class MainPage : Page
             if (BusyBar.Visibility != Visibility.Visible) ActivityText.Text = L10n.T("activity.none");
         }
         refreshing = false;
+    }
+
+    private void RefreshState()
+    {
+        SaveStateText.Text = session.Project is null ? L10n.T("status.noProject") : session.IsDirty ? L10n.T("status.edited") : L10n.T("status.saved");
+        UndoButton.IsEnabled = AlignUndoButton.IsEnabled = session.CanUndo;
+        RedoButton.IsEnabled = AlignRedoButton.IsEnabled = session.CanRedo;
+    }
+
+    private void DismissEditor(object sender, PointerRoutedEventArgs args)
+    {
+        if (FocusManager.GetFocusedElement(XamlRoot) is not (TextBox or PasswordBox or RichEditBox)) return;
+        for (var node = args.OriginalSource as DependencyObject; node is not null && node != this;
+            node = VisualTreeHelper.GetParent(node))
+            if (node is TextBox or PasswordBox or RichEditBox or ContentDialog
+                or Microsoft.UI.Xaml.Controls.Primitives.ButtonBase or ComboBox or NumberBox) return;
+        Focus(FocusState.Pointer);
     }
 
     private void PopulateProject(ProjectDocument project)
@@ -241,19 +271,37 @@ public sealed partial class MainPage : Page
 
     private void GlobalKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Space || !TryHandleSpacePlay()) return;
-        e.Handled = true;
+        if (session.Project is null || BusyBar.Visibility == Visibility.Visible) return;
+        // Text editors and dialogs own their keys; all other alignment surfaces
+        // share the same shortcuts, including the left lyric list.
+        if (IsEditingOrDialog()) return;
+        var control = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Control)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var shift = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Shift)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        var alt = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(VirtualKey.Menu)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        if (alt) return;
+        if (control && e.Key is VirtualKey.Z or VirtualKey.Y)
+        {
+            if (e.Key == VirtualKey.Y || shift) session.Redo(); else session.Undo();
+            e.Handled = true;
+        }
+        else if (!control && e.Key == VirtualKey.Space)
+        {
+            if (!e.KeyStatus.WasKeyDown) TogglePlay();
+            e.Handled = true;
+        }
+        else if (CurrentPageTag() == "alignment") Timeline.HandleKeyDown(sender, e);
     }
 
-    private bool TryHandleSpacePlay()
+    private bool IsEditingOrDialog()
     {
-        if (session.Project is null) return false;
-        if (FocusManager.GetFocusedElement(XamlRoot) is TextBox or PasswordBox) return false;
-        var now = Environment.TickCount64;
-        if (now - lastSpaceToggle < 80) return true;
-        lastSpaceToggle = now;
-        TogglePlay();
-        return true;
+        if (VisualTreeHelper.GetOpenPopupsForXamlRoot(XamlRoot).Count > 0) return true;
+        for (var node = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
+            node is not null; node = VisualTreeHelper.GetParent(node))
+            if (node is TextBox or PasswordBox or RichEditBox or ContentDialog or ComboBox or Slider) return true;
+        return false;
     }
 
     private void TogglePlay()
