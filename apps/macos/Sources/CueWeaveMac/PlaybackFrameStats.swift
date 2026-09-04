@@ -2,7 +2,7 @@ import Foundation
 import OSLog
 
 /// Numeric-only local diagnostics: never includes media paths, lyrics, or credentials.
-struct PlaybackFrameStats {
+final class PlaybackFrameStats {
     private static let logger = Logger(subsystem: "dev.cueweave.app", category: "Playback")
     private(set) var frames = 0
     private(set) var missed = 0
@@ -10,7 +10,7 @@ struct PlaybackFrameStats {
     private(set) var maxWork = 0.0
     private var previousTarget: Double?
 
-    mutating func record(target: Double, interval: Double, work: Double, corrections: Int) {
+    func record(target: Double, interval: Double, work: Double, corrections: Int) {
         if let previousTarget, interval > 0 {
             let gap = target - previousTarget
             maxGap = max(maxGap, gap)

@@ -127,7 +127,7 @@ struct AudioPlaybackTests {
 
     @Test("Frame diagnostics count missed display slots instead of treating low CPU as smoothness")
     func frameDiagnostics() {
-        var stats = PlaybackFrameStats()
+        let stats = PlaybackFrameStats()
         for frame in [0, 1, 2, 6, 7] {
             stats.record(target: Double(frame) / 60, interval: 1 / 60, work: 0.002, corrections: 0)
         }
