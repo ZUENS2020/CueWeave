@@ -379,8 +379,7 @@ final class TimelineViewportProxy {
         guard let pendingAnchor else { return }
         scroll(
             documentAnchor: pendingAnchor.document,
-            viewportAnchor: pendingAnchor.viewport,
-            needsLayout: false
+            viewportAnchor: pendingAnchor.viewport
         )
         self.pendingAnchor = nil
         if endInteractionAfterGeometry {
@@ -391,19 +390,16 @@ final class TimelineViewportProxy {
 
     func center(on fraction: Double) {
         guard !interactionActive, pendingAnchor == nil else { return }
-        scroll(documentAnchor: fraction, viewportAnchor: 0.5, needsLayout: false)
+        scroll(documentAnchor: fraction, viewportAnchor: 0.5)
     }
 
     func position(documentAnchor: Double, viewportAnchor: Double) {
         guard pendingAnchor == nil else { return }
-        scroll(documentAnchor: documentAnchor, viewportAnchor: viewportAnchor, needsLayout: false)
+        scroll(documentAnchor: documentAnchor, viewportAnchor: viewportAnchor)
     }
 
-    private func scroll(documentAnchor: Double, viewportAnchor: Double, needsLayout: Bool) {
+    private func scroll(documentAnchor: Double, viewportAnchor: Double) {
         guard let scrollView, let document = scrollView.documentView else { return }
-        if needsLayout {
-            document.layoutSubtreeIfNeeded()
-        }
         let clip = scrollView.contentView
         let documentX = document.bounds.minX
             + CGFloat(min(max(0, documentAnchor), 1)) * document.bounds.width
@@ -414,7 +410,9 @@ final class TimelineViewportProxy {
             documentMinX: document.bounds.minX,
             documentMaxX: document.bounds.maxX
         )
-        let origin = NSPoint(x: originX, y: clip.bounds.minY)
+        let scale = scrollView.window?.backingScaleFactor ?? 1
+        let origin = NSPoint(x: (originX * scale).rounded() / scale, y: clip.bounds.minY)
+        guard origin != clip.bounds.origin else { return }
         clip.scroll(to: origin)
         scrollView.reflectScrolledClipView(clip)
     }

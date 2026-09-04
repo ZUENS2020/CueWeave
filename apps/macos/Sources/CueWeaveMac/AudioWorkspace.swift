@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Accelerate
 import AVFoundation
 import DSWaveformImage
@@ -7,7 +8,10 @@ import QuartzCore
 
 @MainActor
 final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
-    @Published private(set) var currentTime: TimeInterval = 0
+    // Per-frame updates bypass ObservableObject: transport controls only observe state changes.
+    private(set) var currentTime: TimeInterval = 0
+    let frames = PassthroughSubject<TimeInterval, Never>()
+    let readout = PlaybackReadout()
     @Published private(set) var duration: TimeInterval = 0
     @Published private(set) var isPlaying = false
     @Published private(set) var playbackRate = 1.0
@@ -37,6 +41,7 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         isPlaying = false
         startDisplayLink()
         displayLink?.isPaused = true
+        publishPosition(forceReadout: true)
     }
 
     func playPause() {
@@ -45,33 +50,18 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
             updateClock()
             audioPlayer.pause()
             isPlaying = false
-            displayClock.reset(
-                mediaTime: currentTime,
-                hostTime: CACurrentMediaTime(),
-                rate: playbackRate,
-                running: false
-            )
+            resetClock(to: currentTime, running: false)
             displayLink?.isPaused = true
         } else {
             if currentTime >= duration { currentTime = 0 }
             audioPlayer.currentTime = currentTime
             audioPlayer.rate = Float(playbackRate)
             lastAudioTime = audioPlayer.currentTime
-            displayClock.reset(
-                mediaTime: currentTime,
-                hostTime: CACurrentMediaTime(),
-                rate: playbackRate,
-                running: true
-            )
             isPlaying = audioPlayer.play()
-            displayClock.reset(
-                mediaTime: currentTime,
-                hostTime: CACurrentMediaTime(),
-                rate: playbackRate,
-                running: isPlaying
-            )
+            resetClock(to: currentTime, running: isPlaying)
             displayLink?.isPaused = !isPlaying
         }
+        publishPosition(forceReadout: true)
     }
 
     func seek(to time: TimeInterval) {
@@ -79,12 +69,8 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         currentTime = min(max(0, time), duration)
         audioPlayer.currentTime = currentTime
         lastAudioTime = currentTime
-        displayClock.reset(
-            mediaTime: currentTime,
-            hostTime: CACurrentMediaTime(),
-            rate: playbackRate,
-            running: isPlaying
-        )
+        resetClock(to: currentTime, running: isPlaying)
+        publishPosition(forceReadout: true)
     }
 
     func setPlaybackRate(_ value: Double) {
@@ -137,7 +123,17 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         }
         lastAudioTime = audioTime
         let nextTime = displayClock.tick(audioTime: audioTime, hostTime: now, duration: duration)
-        if abs(currentTime - nextTime) > 0.000_05 { currentTime = nextTime }
+        currentTime = nextTime
+        publishPosition()
+    }
+
+    private func resetClock(to time: TimeInterval, running: Bool) {
+        displayClock.reset(mediaTime: time, hostTime: CACurrentMediaTime(), rate: playbackRate, running: running)
+    }
+
+    private func publishPosition(forceReadout: Bool = false) {
+        frames.send(currentTime)
+        readout.update(time: currentTime, hostTime: CACurrentMediaTime(), force: forceReadout)
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
@@ -145,14 +141,10 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
             guard let self else { return }
             currentTime = duration
             lastAudioTime = duration
-            displayClock.reset(
-                mediaTime: duration,
-                hostTime: CACurrentMediaTime(),
-                rate: playbackRate,
-                running: false
-            )
+            resetClock(to: duration, running: false)
             isPlaying = false
             displayLink?.isPaused = true
+            publishPosition(forceReadout: true)
         }
     }
 
@@ -411,7 +403,7 @@ final class WaveformModel: ObservableObject {
     }
 }
 
-struct AudioDisplayBin: Sendable {
+struct AudioDisplayBin: Sendable, Equatable {
     var minimum: Float = 0
     var maximum: Float = 0
     var rms: Float = 0

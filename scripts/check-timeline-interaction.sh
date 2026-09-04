@@ -114,6 +114,15 @@ if ! rg -q 'PlaybackDisplayClock' "$audio_workspace"; then
     echo "playhead is still following raw AVAudioPlayer currentTime" >&2
     exit 1
 fi
+if rg -q '@Published.*currentTime|PlaybackTickBridge' "$audio_workspace" "$alignment_page"; then
+    echo "per-frame playback must not invalidate transport views or defer follow-scroll through SwiftUI" >&2
+    exit 1
+fi
+if ! rg -Fq 'CATransaction.setDisableActions(true)' "$repo_dir/apps/macos/Sources/CueWeaveMac/PlaybackPresentation.swift" \
+    || ! rg -Fq 'TimelineWaveformLanes' "$timeline_view"; then
+    echo "native frame transaction or isolated static waveform is missing" >&2
+    exit 1
+fi
 if ! rg -q 'AVAudioPlayer' "$audio_workspace" || ! rg -q 'enableRate = true' "$audio_workspace"; then
     echo "system pitch-preserving rate playback is not configured" >&2
     exit 1

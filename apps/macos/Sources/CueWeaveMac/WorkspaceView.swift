@@ -169,7 +169,7 @@ private struct PlaybackStatusBar: View {
                     .frame(width: 16)
             }
             .buttonStyle(.plain)
-            Text(time(player.currentTime)).fixedSize()
+            PlaybackTimeLabel(readout: player.readout).fixedSize()
             Text("/").foregroundStyle(.tertiary)
             Text(time(player.duration)).foregroundStyle(.secondary).fixedSize()
             if let start = player.loopStart, let end = player.loopEnd, end > start {

@@ -127,7 +127,10 @@ private struct TimelineCanvas: View {
                     width: geometry.size.width,
                     height: geometry.size.height
                 )
-                waveformLanes(size: geometry.size).allowsHitTesting(false)
+                TimelineWaveformLanes(
+                    samples: waveform.bins, spectrograms: waveform.spectrograms,
+                    lanes: interaction.lanes, metrics: metrics, size: geometry.size
+                ).equatable().allowsHitTesting(false)
                 segmentRegions(duration: duration, width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(false)
                 ForEach(store.allSegments) { segment in
@@ -136,11 +139,10 @@ private struct TimelineCanvas: View {
                 selectionOverlay(width: geometry.size.width, height: geometry.size.height)
                 TimelinePlayhead(
                     player: player,
-                    active: interaction.activeSegmentID != nil,
-                    duration: duration,
-                    width: geometry.size.width,
-                    height: geometry.size.height
+                    interaction: interaction
                 )
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .allowsHitTesting(false)
                 TimelinePointerSurface(onEvent: interaction.handle, creditAt: interaction.hitCreditHandle)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 creditHandles(duration: duration, width: geometry.size.width, height: geometry.size.height)
@@ -190,261 +192,6 @@ private struct TimelineCanvas: View {
                 .offset(x: frame.origin)
             }
         }
-    }
-
-    private func waveformLanes(size: CGSize) -> some View {
-        let tiles = TimelineInteractionMath.canvasTileCount(documentWidth: size.width)
-        return ZStack(alignment: .topLeading) {
-            ForEach(0..<tiles, id: \.self) { index in
-                let frame = TimelineInteractionMath.canvasTileFrame(index: index, documentWidth: size.width)
-                Canvas { context, canvasSize in
-                    drawWaveformTile(
-                        context: context,
-                        documentWidth: size.width,
-                        tileOrigin: frame.origin,
-                        tileSize: canvasSize
-                    )
-                }
-                .frame(width: frame.width, height: size.height)
-                .offset(x: frame.origin)
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func drawWaveformTile(
-        context: GraphicsContext,
-        documentWidth: CGFloat,
-        tileOrigin: CGFloat,
-        tileSize: CGSize
-    ) {
-        guard !waveform.bins.isEmpty, documentWidth > 0 else { return }
-        let bins = TimelineInteractionMath.canvasTileBins(
-            tileOrigin: tileOrigin,
-            tileWidth: tileSize.width,
-            documentWidth: documentWidth,
-            binCount: waveform.bins.count
-        )
-        guard !bins.isEmpty else { return }
-        let lanes = interaction.lanes
-        let step = documentWidth / CGFloat(max(1, waveform.bins.count - 1))
-        drawKind(
-            lanes.upper,
-            context: context,
-            documentWidth: documentWidth,
-            tileOrigin: tileOrigin,
-            tileSize: tileSize,
-            bins: bins,
-            step: step,
-            rect: CGRect(x: 0, y: TimelineLayoutMetrics.ruler, width: tileSize.width, height: metrics.waveform)
-        )
-        drawKind(
-            lanes.lower,
-            context: context,
-            documentWidth: documentWidth,
-            tileOrigin: tileOrigin,
-            tileSize: tileSize,
-            bins: bins,
-            step: step,
-            rect: CGRect(
-                x: 0,
-                y: TimelineLayoutMetrics.ruler + metrics.waveform,
-                width: tileSize.width,
-                height: metrics.bands
-            )
-        )
-    }
-
-    private func drawKind(
-        _ kind: AudioLaneKind,
-        context: GraphicsContext,
-        documentWidth: CGFloat,
-        tileOrigin: CGFloat,
-        tileSize: CGSize,
-        bins: Range<Int>,
-        step: CGFloat,
-        rect: CGRect
-    ) {
-        guard let adapter = kind.adapter else { return }
-        let center = rect.midY
-        let radius = rect.height * 0.39
-        switch adapter.surface {
-        case .waveform:
-            if adapter.series.contains("peak") {
-                fillPeak(context: context, bins: bins, step: step, tileOrigin: tileOrigin, center: center, radius: radius)
-            }
-            if adapter.series.contains("rms") {
-                strokeRMS(context: context, bins: bins, step: step, tileOrigin: tileOrigin, center: center, radius: radius)
-            }
-        case .bands:
-            drawBands(context: context, documentWidth: documentWidth, tileOrigin: tileOrigin, tileSize: tileSize, bins: bins, top: rect.minY, height: rect.height)
-        case .spectrogram:
-            if let scale = adapter.scale {
-                fillSpectrogram(
-                    context: context,
-                    tileOrigin: tileOrigin,
-                    tileSize: tileSize,
-                    documentWidth: documentWidth,
-                    rect: rect,
-                    scale: scale
-                )
-            }
-        }
-    }
-
-    private func fillPeak(
-        context: GraphicsContext,
-        bins: Range<Int>,
-        step: CGFloat,
-        tileOrigin: CGFloat,
-        center: CGFloat,
-        radius: CGFloat
-    ) {
-        var mono = Path()
-        let upper = bins.map { index in
-            CGPoint(
-                x: CGFloat(index) * step - tileOrigin,
-                y: center - CGFloat(waveform.bins[index].maximum) * radius
-            )
-        }
-        let lower = bins.reversed().map { index in
-            CGPoint(
-                x: CGFloat(index) * step - tileOrigin,
-                y: center - CGFloat(waveform.bins[index].minimum) * radius
-            )
-        }
-        if let first = upper.first {
-            mono.move(to: first)
-            for point in upper.dropFirst() { mono.addLine(to: point) }
-            for point in lower { mono.addLine(to: point) }
-            mono.closeSubpath()
-            context.fill(mono, with: .color(CueWeaveStyle.gemini.opacity(0.48)))
-        }
-    }
-
-    private func strokeRMS(
-        context: GraphicsContext,
-        bins: Range<Int>,
-        step: CGFloat,
-        tileOrigin: CGFloat,
-        center: CGFloat,
-        radius: CGFloat
-    ) {
-        var upper = Path()
-        var lower = Path()
-        for (offset, index) in bins.enumerated() {
-            let x = CGFloat(index) * step - tileOrigin
-            let rms = CGFloat(waveform.bins[index].rms) * radius
-            let top = CGPoint(x: x, y: center - rms)
-            let bottom = CGPoint(x: x, y: center + rms)
-            if offset == 0 {
-                upper.move(to: top)
-                lower.move(to: bottom)
-            } else {
-                upper.addLine(to: top)
-                lower.addLine(to: bottom)
-            }
-        }
-        context.stroke(upper, with: .color(CueWeaveStyle.accent.opacity(0.85)), lineWidth: 1)
-        context.stroke(lower, with: .color(CueWeaveStyle.accent.opacity(0.85)), lineWidth: 1)
-    }
-
-    private func drawBands(
-        context: GraphicsContext,
-        documentWidth: CGFloat,
-        tileOrigin: CGFloat,
-        tileSize: CGSize,
-        bins: Range<Int>,
-        top: CGFloat,
-        height: CGFloat
-    ) {
-        let rowHeight = height / 3
-        for row in 1 ... 2 {
-            var divider = Path()
-            let y = top + CGFloat(row) * rowHeight
-            divider.move(to: CGPoint(x: 0, y: y))
-            divider.addLine(to: CGPoint(x: tileSize.width, y: y))
-            context.stroke(divider, with: .color(.secondary.opacity(0.10)), lineWidth: 1)
-        }
-        context.fill(
-            bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, bandTop: top, rowHeight: rowHeight, row: 0, value: \.low),
-            with: .color(CueWeaveStyle.lowBand.opacity(0.55))
-        )
-        context.fill(
-            bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, bandTop: top, rowHeight: rowHeight, row: 1, value: \.mid),
-            with: .color(CueWeaveStyle.midBand.opacity(0.52))
-        )
-        context.fill(
-            bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, bandTop: top, rowHeight: rowHeight, row: 2, value: \.high),
-            with: .color(CueWeaveStyle.highBand.opacity(0.52))
-        )
-    }
-
-    private func fillSpectrogram(
-        context: GraphicsContext,
-        tileOrigin: CGFloat,
-        tileSize: CGSize,
-        documentWidth: CGFloat,
-        rect: CGRect,
-        scale: SpectrumScale
-    ) {
-        guard let frame = waveform.frame(for: scale), frame.timeBins > 0, frame.frequencyBins > 0 else { return }
-        let duration = max(1, frame.endMS)
-        let x0 = CGFloat(frame.startMS) / CGFloat(duration) * documentWidth - tileOrigin
-        let width = CGFloat(max(1, frame.endMS - frame.startMS)) / CGFloat(duration) * documentWidth
-        let cellW = width / CGFloat(frame.timeBins)
-        let cellH = rect.height / CGFloat(frame.frequencyBins)
-        let timeStride = max(1, Int((1 / max(cellW, 0.001)).rounded(.up)))
-        let freqStride = max(1, Int((1 / max(cellH, 0.001)).rounded(.up)))
-        let minX = rect.minX
-        let maxX = rect.minX + tileSize.width
-        var time = 0
-        while time < frame.timeBins {
-            let x = x0 + CGFloat(time) * cellW
-            if x + cellW * CGFloat(timeStride) < minX || x > maxX { time += timeStride; continue }
-            var freq = 0
-            while freq < frame.frequencyBins {
-                let value = frame.values[time * frame.frequencyBins + freq]
-                if value >= 8 {
-                    let y = rect.minY + CGFloat(frame.frequencyBins - 1 - freq) * cellH
-                    context.fill(
-                        Path(CGRect(x: x, y: y, width: max(1, cellW * CGFloat(timeStride)), height: max(1, cellH * CGFloat(freqStride)))),
-                        with: .color(CueWeaveStyle.gemini.opacity(0.15 + 0.75 * Double(value) / 255))
-                    )
-                }
-                freq += freqStride
-            }
-            time += timeStride
-        }
-    }
-
-    private func bandPath(
-        documentWidth: CGFloat,
-        tileOrigin: CGFloat,
-        bins: Range<Int>,
-        bandTop: CGFloat,
-        rowHeight: CGFloat,
-        row: Int,
-        value: KeyPath<AudioDisplayBin, Float>
-    ) -> Path {
-        let top = bandTop + CGFloat(row) * rowHeight
-        let baseline = top + rowHeight - 2
-        let amplitude = rowHeight - 4
-        let step = documentWidth / CGFloat(max(1, waveform.bins.count - 1))
-        var path = Path()
-        guard let first = bins.first, let last = bins.last else { return path }
-        let firstX = CGFloat(first) * step - tileOrigin
-        let lastX = CGFloat(last) * step - tileOrigin
-        path.move(to: CGPoint(x: firstX, y: baseline))
-        for index in bins {
-            path.addLine(to: CGPoint(
-                x: CGFloat(index) * step - tileOrigin,
-                y: baseline - CGFloat(waveform.bins[index][keyPath: value]) * amplitude
-            ))
-        }
-        path.addLine(to: CGPoint(x: lastX, y: baseline))
-        path.closeSubpath()
-        return path
     }
 
     private func segmentRegions(duration: UInt64, width: CGFloat, height: CGFloat) -> some View {
@@ -572,27 +319,5 @@ private struct TimelineLoopRegion: View {
                 .offset(x: x, y: TimelineLayoutMetrics.ruler)
                 .allowsHitTesting(false)
         }
-    }
-}
-
-private struct TimelinePlayhead: View {
-    @ObservedObject var player: AudioPlayer
-    let active: Bool
-    let duration: UInt64
-    let width: CGFloat
-    let height: CGFloat
-
-    var body: some View {
-        let x = CGFloat(player.currentTime * 1_000) / CGFloat(duration) * width
-        let tone = active ? CueWeaveStyle.accent : CueWeaveStyle.warning
-        let halo = active ? 11.0 : 5.0
-        let line = active ? 2.0 : 1.0
-        return ZStack {
-            Rectangle().fill(tone.opacity(0.12)).frame(width: halo, height: height)
-            Rectangle().fill(tone).frame(width: line, height: height)
-        }
-        .offset(x: x - (active ? 5 : 2))
-        .transaction { $0.animation = nil }
-        .allowsHitTesting(false)
     }
 }

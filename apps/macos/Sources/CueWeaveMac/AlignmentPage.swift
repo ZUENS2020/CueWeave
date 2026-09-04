@@ -42,9 +42,6 @@ struct AlignmentPage: View {
                     segmentSidebar.frame(minWidth: 200, idealWidth: 280, maxWidth: 340)
                     VStack(spacing: 0) {
                         TimelinePlaybackBar(store: store, interaction: interaction)
-                        PlaybackTickBridge(player: store.player) {
-                            interaction.playheadDidChange()
-                        }
                         ZoomableTimeline(
                             store: store,
                             player: store.player,
@@ -160,11 +157,8 @@ struct AlignmentPage: View {
                     }
                     .background(AlwaysVisibleScrollers())
                 }
-                .onChange(of: interaction.activeSegmentID) { _, segmentID in
-                    revealQueueItem(segmentID, proxy: proxy)
-                }
-                .onChange(of: interaction.selectedSegmentID) { _, segmentID in
-                    revealQueueItem(segmentID, proxy: proxy)
+                .onChange(of: QueueRevealState(active: interaction.activeSegmentID, selected: interaction.selectedSegmentID)) { old, new in
+                    revealQueueItem(new.target(after: old), proxy: proxy)
                 }
             }
             Divider()
@@ -309,7 +303,8 @@ struct AlignmentPage: View {
         guard let segmentID,
               let index = store.allSegments.firstIndex(where: { $0.id == segmentID })
         else { return }
-        withAnimation(.easeOut(duration: 0.16)) {
+        // Next changes both IDs together. Never enqueue two competing playback scroll animations.
+        withAnimation(store.player.isPlaying ? nil : .easeOut(duration: 0.16)) {
             proxy.scrollTo(segmentID, anchor: index < 2 ? .top : .center)
         }
     }
@@ -503,7 +498,7 @@ private struct TimelinePlaybackBar: View {
                     .font(.system(size: 10, design: .monospaced))
                     .frame(width: 40)
             }
-            Text(cueTime(UInt64(max(0, player.currentTime) * 1000)))
+            PlaybackTimeLabel(readout: player.readout)
                 .font(.system(size: 11, design: .monospaced))
         }
         .controlSize(.small)
@@ -524,18 +519,6 @@ private struct TimelinePlaybackBar: View {
         }
         guard let id = interaction.selectedSegmentID ?? store.allSegments.first?.id else { return }
         interaction.stamp(id)
-    }
-}
-
-private struct PlaybackTickBridge: View {
-    @ObservedObject var player: AudioPlayer
-    var onTick: () -> Void
-
-    var body: some View {
-        Color.clear
-            .frame(width: 0, height: 0)
-            .onChange(of: player.currentTime) { _, _ in onTick() }
-            .accessibilityHidden(true)
     }
 }
 

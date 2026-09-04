@@ -73,14 +73,17 @@ struct TimelineNativeScrollView<Content: View>: NSViewRepresentable {
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         let hostingView = context.coordinator.hostingView
         hostingView.rootView = content
-        hostingView.setFrameSize(NSSize(
+        let size = NSSize(
             width: TimelineInteractionMath.documentWidth(
                 viewportWidth: viewportSize.width,
                 zoom: zoom
             ),
             height: max(1, viewportSize.height)
-        ))
-        hostingView.layoutSubtreeIfNeeded()
+        )
+        if hostingView.frame.size != size {
+            hostingView.setFrameSize(size)
+            hostingView.layoutSubtreeIfNeeded()
+        }
         MiniLegacyScroller.install(on: scrollView, vertical: false, horizontal: true)
         viewport.attach(scrollView: scrollView)
         viewport.documentGeometryDidChange()

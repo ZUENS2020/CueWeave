@@ -57,7 +57,7 @@ struct AudioLaneSettings: Equatable {
     }
 }
 
-struct SpectrogramFrame: Sendable {
+struct SpectrogramFrame: Sendable, Equatable {
     var startMS: UInt64
     var endMS: UInt64
     var timeBins: Int
