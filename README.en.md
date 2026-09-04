@@ -15,18 +15,18 @@ License: [AGPL-3.0-only](LICENSE)
 
 ## Download
 
-Current release **v0.2.0**: [GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
+Current release **v0.2.3**: [GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
 
 Choose the ZIP matching your processor. Unzip and run; no extra .NET / Rust / Swift install.
 
 | OS | File | How to run |
 | --- | --- | --- |
-| macOS 14+ Apple Silicon | `CueWeave-0.2.0-macos-arm64.zip` | Unzip to get `CueWeave.app`. |
-| macOS 14+ Intel | `CueWeave-0.2.0-macos-x86_64.zip` | Unzip to get `CueWeave.app`. |
-| Windows 11 x64 | `CueWeave-0.2.0-windows-x64.zip` | Unzip to get a `CueWeave` folder, then run `CueWeave.Windows.exe` inside it. Do not copy the exe out of that folder. |
+| macOS 14+ Apple Silicon | [CueWeave-0.2.3-macos-arm64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.3/CueWeave-0.2.3-macos-arm64.zip) | Unzip to get `CueWeave.app`. |
+| macOS 14+ Intel | [CueWeave-0.2.3-macos-x86_64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.3/CueWeave-0.2.3-macos-x86_64.zip) | Unzip to get `CueWeave.app`. |
+| Windows 11 x64 | [CueWeave-0.2.3-windows-x64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.3/CueWeave-0.2.3-windows-x64.zip) | Unzip to get a `CueWeave` folder, then run `CueWeave.Windows.exe` inside it. Do not copy the exe out of that folder. |
 
 CI builds include SHA-256 checksums. macOS is ad-hoc signed and not notarized; Windows is not trusted-code-signed. OS security prompts may appear.
-CI is not interactive device acceptance; see the [release notes](docs/RELEASE_v0.2.0.md).
+CI is not interactive device acceptance; see the [release notes](docs/RELEASE_v0.2.3.md).
 
 ## What it does
 
