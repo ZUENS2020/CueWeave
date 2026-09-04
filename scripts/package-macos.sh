@@ -15,6 +15,8 @@ cleanup() {
 trap cleanup EXIT HUP INT TERM
 
 cd "$REPO_DIR"
+ruby "$SCRIPT_DIR/check-macos-toolchain.rb"
+export MACOSX_DEPLOYMENT_TARGET=$(jq -r .minimumOS "$SCRIPT_DIR/macos-toolchain.json")
 ruby "$SCRIPT_DIR/prepare-icons.rb" --check
 cargo build --locked --release -p cueweave-cli
 swift build -c release --package-path apps/macos --disable-automatic-resolution
@@ -27,6 +29,8 @@ cp apps/macos/Info.plist "$STAGED_APP/Contents/Info.plist"
 cp apps/macos/.build/release/CueWeaveMac "$MACOS_DIR/CueWeave"
 cp apps/shared/l10n.json "$MACOS_DIR/l10n.json"
 cp target/release/cueweave-cli "$MACOS_DIR/cueweave-cli"
+ruby "$SCRIPT_DIR/check-macos-toolchain.rb" --binary "$MACOS_DIR/CueWeave"
+cp "$SCRIPT_DIR/macos-toolchain.json" "$STAGED_APP/Contents/Resources/build-toolchain.json"
 chmod 755 "$MACOS_DIR/CueWeave" "$MACOS_DIR/cueweave-cli"
 xattr -cr "$STAGED_APP"
 codesign --force --deep --sign - "$STAGED_APP"
@@ -40,6 +44,7 @@ ditto -c -k --keepParent "$STAGED_APP" "$ZIP_PATH"
 mkdir -p "$VERIFY_DIR"
 ditto -x -k "$ZIP_PATH" "$VERIFY_DIR"
 codesign --verify --deep --strict "$VERIFY_DIR/CueWeave.app"
+ruby "$SCRIPT_DIR/check-macos-toolchain.rb" --binary "$VERIFY_DIR/CueWeave.app/Contents/MacOS/CueWeave"
 test -x "$VERIFY_DIR/CueWeave.app/Contents/MacOS/CueWeave"
 test -x "$VERIFY_DIR/CueWeave.app/Contents/MacOS/cueweave-cli"
 test -f "$VERIFY_DIR/CueWeave.app/Contents/MacOS/l10n.json"

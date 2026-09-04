@@ -20,6 +20,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      - name: Test macOS SDK regression gate
+        run: ruby scripts/tests/macos-toolchain-test.rb
       - id: version
         name: Validate app, Core and release versions
         env:
@@ -53,14 +55,22 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-15
+          - runner: macos-26
             arch: arm64
-          - runner: macos-15-intel
+          - runner: macos-26-intel
             arch: x86_64
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - name: Select and verify pinned Xcode and macOS SDK
+        run: |
+          export DEVELOPER_DIR="/Applications/Xcode_$(jq -r .xcode scripts/macos-toolchain.json).app/Contents/Developer"
+          test -d "$DEVELOPER_DIR"
+          echo "DEVELOPER_DIR=$DEVELOPER_DIR" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=$(jq -r .minimumOS scripts/macos-toolchain.json)" >> "$GITHUB_ENV"
+          ruby scripts/check-macos-toolchain.rb
+          xcrun swift --version
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Verify runner architecture and icons
