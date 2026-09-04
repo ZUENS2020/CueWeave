@@ -106,6 +106,37 @@ struct AudioPlaybackTests {
         #expect(displayed == 2.5)
     }
 
+    @Test("Display targets advance uniformly despite callback delivery jitter", arguments: [0.5, 1.0, 2.0])
+    func presentationTargets(rate: Double) {
+        var clock = PlaybackDisplayClock()
+        clock.reset(mediaTime: 80, hostTime: 100, rate: rate, running: true)
+        var previous = clock.presentationTime(at: 100, duration: 149)
+        for frame in 1...240 {
+            let target = 100 + Double(frame) / 60
+            let callback = target - 1 / 60.0 + Double(frame % 5) * 0.002
+            _ = clock.tick(audioTime: 80 + (callback - 100) * rate, hostTime: callback, duration: 149)
+            let presented = clock.presentationTime(at: target, duration: 149)
+            #expect(abs(presented - previous - rate / 60) < 0.000_001)
+            previous = presented
+        }
+        #expect(clock.resyncCount == 0)
+        #expect(clock.presentationTime(at: 1_000, duration: 149) == 149)
+        clock.reset(mediaTime: 2, hostTime: 104, rate: rate, running: false)
+        #expect(clock.presentationTime(at: 105, duration: 149) == 2)
+    }
+
+    @Test("Frame diagnostics count missed display slots instead of treating low CPU as smoothness")
+    func frameDiagnostics() {
+        var stats = PlaybackFrameStats()
+        for frame in [0, 1, 2, 6, 7] {
+            stats.record(target: Double(frame) / 60, interval: 1 / 60, work: 0.002, corrections: 0)
+        }
+        #expect(stats.frames == 5)
+        #expect(stats.missed == 3)
+        #expect(abs(stats.maxGap - 4 / 60) < 0.000_001)
+        #expect(stats.maxWork == 0.002)
+    }
+
     private func makeSilentFixture(at url: URL) throws {
         let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1)!
         let file = try AVAudioFile(forWriting: url, settings: format.settings)

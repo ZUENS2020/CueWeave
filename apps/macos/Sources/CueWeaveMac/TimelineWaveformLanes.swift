@@ -51,7 +51,7 @@ struct TimelineWaveformLanes: View, Equatable {
         for (kind, top, height) in rows {
             drawKind(
                 kind, context: context, documentWidth: documentWidth,
-                tileOrigin: tileOrigin, tileSize: tileSize, bins: bins, step: step,
+                tileOrigin: tileOrigin, bins: bins, step: step,
                 rect: CGRect(x: 0, y: top, width: tileSize.width, height: height)
             )
         }
@@ -62,7 +62,6 @@ struct TimelineWaveformLanes: View, Equatable {
         context: GraphicsContext,
         documentWidth: CGFloat,
         tileOrigin: CGFloat,
-        tileSize: CGSize,
         bins: Range<Int>,
         step: CGFloat,
         rect: CGRect
@@ -79,13 +78,12 @@ struct TimelineWaveformLanes: View, Equatable {
                 strokeRMS(context: context, bins: bins, step: step, tileOrigin: tileOrigin, center: center, radius: radius)
             }
         case .bands:
-            drawBands(context: context, documentWidth: documentWidth, tileOrigin: tileOrigin, tileSize: tileSize, bins: bins, top: rect.minY, height: rect.height)
+            drawBands(context: context, documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, rect: rect)
         case .spectrogram:
             if let scale = adapter.scale {
                 fillSpectrogram(
                     context: context,
                     tileOrigin: tileOrigin,
-                    tileSize: tileSize,
                     documentWidth: documentWidth,
                     rect: rect,
                     scale: scale
@@ -122,60 +120,46 @@ struct TimelineWaveformLanes: View, Equatable {
         center: CGFloat,
         radius: CGFloat
     ) {
-        var upper = Path()
-        var lower = Path()
-        for (offset, index) in bins.enumerated() {
-            let x = CGFloat(index) * step - tileOrigin
-            let rms = CGFloat(samples[index].rms) * radius
-            let top = CGPoint(x: x, y: center - rms)
-            let bottom = CGPoint(x: x, y: center + rms)
-            if offset == 0 {
-                upper.move(to: top)
-                lower.move(to: bottom)
-            } else {
-                upper.addLine(to: top)
-                lower.addLine(to: bottom)
+        for sign: CGFloat in [-1, 1] {
+            var path = Path()
+            for (offset, index) in bins.enumerated() {
+                let point = CGPoint(x: CGFloat(index) * step - tileOrigin,
+                                    y: center + sign * CGFloat(samples[index].rms) * radius)
+                if offset == 0 { path.move(to: point) } else { path.addLine(to: point) }
             }
+            context.stroke(path, with: .color(CueWeaveStyle.accent.opacity(0.85)), lineWidth: 1)
         }
-        context.stroke(upper, with: .color(CueWeaveStyle.accent.opacity(0.85)), lineWidth: 1)
-        context.stroke(lower, with: .color(CueWeaveStyle.accent.opacity(0.85)), lineWidth: 1)
     }
 
     private func drawBands(
         context: GraphicsContext,
         documentWidth: CGFloat,
         tileOrigin: CGFloat,
-        tileSize: CGSize,
         bins: Range<Int>,
-        top: CGFloat,
-        height: CGFloat
+        rect: CGRect
     ) {
-        let rowHeight = height / 3
+        let rowHeight = rect.height / 3
         for row in 1 ... 2 {
             var divider = Path()
-            let y = top + CGFloat(row) * rowHeight
+            let y = rect.minY + CGFloat(row) * rowHeight
             divider.move(to: CGPoint(x: 0, y: y))
-            divider.addLine(to: CGPoint(x: tileSize.width, y: y))
+            divider.addLine(to: CGPoint(x: rect.width, y: y))
             context.stroke(divider, with: .color(.secondary.opacity(0.10)), lineWidth: 1)
         }
-        context.fill(
-            bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, bandTop: top, rowHeight: rowHeight, row: 0, value: \.low),
-            with: .color(CueWeaveStyle.lowBand.opacity(0.55))
-        )
-        context.fill(
-            bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, bandTop: top, rowHeight: rowHeight, row: 1, value: \.mid),
-            with: .color(CueWeaveStyle.midBand.opacity(0.52))
-        )
-        context.fill(
-            bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins, bandTop: top, rowHeight: rowHeight, row: 2, value: \.high),
-            with: .color(CueWeaveStyle.highBand.opacity(0.52))
-        )
+        let bands: [(KeyPath<AudioDisplayBin, Float>, Color)] = [
+            (\.low, CueWeaveStyle.lowBand.opacity(0.55)),
+            (\.mid, CueWeaveStyle.midBand.opacity(0.52)),
+            (\.high, CueWeaveStyle.highBand.opacity(0.52)),
+        ]
+        for (row, band) in bands.enumerated() {
+            context.fill(bandPath(documentWidth: documentWidth, tileOrigin: tileOrigin, bins: bins,
+                                  bandTop: rect.minY, rowHeight: rowHeight, row: row, value: band.0), with: .color(band.1))
+        }
     }
 
     private func fillSpectrogram(
         context: GraphicsContext,
         tileOrigin: CGFloat,
-        tileSize: CGSize,
         documentWidth: CGFloat,
         rect: CGRect,
         scale: SpectrumScale
@@ -189,7 +173,7 @@ struct TimelineWaveformLanes: View, Equatable {
         let timeStride = max(1, Int((1 / max(cellW, 0.001)).rounded(.up)))
         let freqStride = max(1, Int((1 / max(cellH, 0.001)).rounded(.up)))
         let minX = rect.minX
-        let maxX = rect.minX + tileSize.width
+        let maxX = rect.maxX
         var time = 0
         while time < frame.timeBins {
             let x = x0 + CGFloat(time) * cellW

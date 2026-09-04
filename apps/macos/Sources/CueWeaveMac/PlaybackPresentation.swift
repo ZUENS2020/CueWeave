@@ -16,7 +16,14 @@ final class PlaybackReadout: ObservableObject {
 
 struct PlaybackTimeLabel: View {
     @ObservedObject var readout: PlaybackReadout
-    var body: some View { Text(cueTime(UInt64(max(0, readout.time) * 1_000))) }
+    // Fixed raster bounds keep digit changes out of the window's layout engine.
+    var body: some View {
+        Canvas { context, size in
+            context.draw(Text(cueTime(UInt64(max(0, readout.time) * 1_000)))
+                .font(.system(size: 11, design: .monospaced)), at: CGPoint(x: size.width / 2, y: size.height / 2))
+        }.frame(width: 74, height: 15)
+            .accessibilityLabel(cueTime(UInt64(max(0, readout.time) * 1_000)))
+    }
 }
 
 struct QueueRevealState: Equatable {
@@ -73,7 +80,7 @@ final class PlayheadSurface: NSView {
     }
 
     func render(player: AudioPlayer, active: Bool) {
-        fraction = TimelineInteractionMath.playheadFraction(currentTime: player.currentTime, duration: player.duration, fallback: 0)
+        fraction = TimelineInteractionMath.playheadFraction(currentTime: player.presentationTime, duration: player.duration, fallback: 0)
         let color = NSColor(active ? CueWeaveStyle.accent : CueWeaveStyle.warning)
         CATransaction.begin()
         CATransaction.setDisableActions(true)

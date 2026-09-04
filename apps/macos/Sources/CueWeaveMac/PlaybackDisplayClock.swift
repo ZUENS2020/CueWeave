@@ -12,6 +12,7 @@ struct PlaybackDisplayClock: Equatable {
     private(set) var hostTime: TimeInterval = 0
     private(set) var rate: Double = 1
     private(set) var running = false
+    private(set) var resyncCount = 0
 
     mutating func reset(
         mediaTime: TimeInterval,
@@ -30,16 +31,20 @@ struct PlaybackDisplayClock: Equatable {
         return mediaTime + (hostTime - self.hostTime) * rate
     }
 
+    func presentationTime(at timestamp: TimeInterval, duration: TimeInterval) -> TimeInterval {
+        clamp(predictedTime(at: timestamp), duration: max(0, duration))
+    }
+
     mutating func tick(
         audioTime: TimeInterval,
         hostTime: TimeInterval,
         duration: TimeInterval
     ) -> TimeInterval {
-        let clampedDuration = max(duration, 0)
-        var predicted = clamp(predictedTime(at: hostTime), duration: clampedDuration)
+        var predicted = presentationTime(at: hostTime, duration: duration)
         if abs(audioTime - predicted) >= Self.resyncThreshold {
+            resyncCount += 1
             reset(mediaTime: audioTime, hostTime: hostTime, rate: rate, running: running)
-            predicted = clamp(audioTime, duration: clampedDuration)
+            predicted = presentationTime(at: hostTime, duration: duration)
         }
         return predicted
     }

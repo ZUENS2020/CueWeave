@@ -10,6 +10,7 @@ import QuartzCore
 final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     // Per-frame updates bypass ObservableObject: transport controls only observe state changes.
     private(set) var currentTime: TimeInterval = 0
+    private(set) var presentationTime: TimeInterval = 0
     let frames = PassthroughSubject<TimeInterval, Never>()
     let readout = PlaybackReadout()
     @Published private(set) var duration: TimeInterval = 0
@@ -25,6 +26,7 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
     private var displayLink: CADisplayLink?
     private var lastAudioTime: TimeInterval = 0
     private var displayClock = PlaybackDisplayClock()
+    private var frameStats = PlaybackFrameStats()
 
     func load(_ url: URL) throws {
         let player = try AVAudioPlayer(contentsOf: url)
@@ -53,6 +55,7 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
             resetClock(to: currentTime, running: false)
             displayLink?.isPaused = true
         } else {
+            frameStats = PlaybackFrameStats()
             if currentTime >= duration { currentTime = 0 }
             audioPlayer.currentTime = currentTime
             audioPlayer.rate = Float(playbackRate)
@@ -80,12 +83,7 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         let displayed = displayClock.predictedTime(at: now)
         playbackRate = rate
         audioPlayer?.rate = Float(rate)
-        displayClock.reset(
-            mediaTime: min(max(0, displayed), duration),
-            hostTime: now,
-            rate: rate,
-            running: isPlaying
-        )
+        resetClock(to: min(max(0, displayed), duration), running: isPlaying, at: now)
     }
 
     func markLoopStart() {
@@ -106,7 +104,7 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         loopEnd = start
     }
 
-    private func updateClock() {
+    private func updateClock(targetTimestamp: TimeInterval? = nil) {
         guard isPlaying, let audioPlayer else { return }
         let now = CACurrentMediaTime()
         var audioTime = audioPlayer.currentTime
@@ -114,26 +112,29 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
            lastAudioTime < end, audioTime >= end {
             audioPlayer.currentTime = start
             audioTime = audioPlayer.currentTime
-            displayClock.reset(
-                mediaTime: audioTime,
-                hostTime: now,
-                rate: playbackRate,
-                running: true
-            )
+            resetClock(to: audioTime, running: true, at: now)
         }
         lastAudioTime = audioTime
-        let nextTime = displayClock.tick(audioTime: audioTime, hostTime: now, duration: duration)
-        currentTime = nextTime
-        publishPosition()
+        currentTime = displayClock.tick(audioTime: audioTime, hostTime: now, duration: duration)
+        publishPosition(presented: displayClock.presentationTime(at: max(now, targetTimestamp ?? now), duration: duration))
     }
 
-    private func resetClock(to time: TimeInterval, running: Bool) {
-        displayClock.reset(mediaTime: time, hostTime: CACurrentMediaTime(), rate: playbackRate, running: running)
+    private func resetClock(to time: TimeInterval, running: Bool, at hostTime: TimeInterval = CACurrentMediaTime()) {
+        displayClock.reset(mediaTime: time, hostTime: hostTime, rate: playbackRate, running: running)
     }
 
-    private func publishPosition(forceReadout: Bool = false) {
-        frames.send(currentTime)
+    private func publishPosition(forceReadout: Bool = false, presented: TimeInterval? = nil) {
+        presentationTime = presented ?? currentTime
+        frames.send(presentationTime)
         readout.update(time: currentTime, hostTime: CACurrentMediaTime(), force: forceReadout)
+    }
+
+    fileprivate func displayLinkDidFire(_ link: CADisplayLink) {
+        guard isPlaying else { return }
+        let start = CACurrentMediaTime()
+        updateClock(targetTimestamp: link.targetTimestamp)
+        frameStats.record(target: link.targetTimestamp, interval: link.targetTimestamp - link.timestamp,
+                          work: CACurrentMediaTime() - start, corrections: displayClock.resyncCount)
     }
 
     nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
@@ -168,13 +169,7 @@ private final class AudioDisplayLinkTarget: NSObject {
     weak var player: AudioPlayer?
 
     @objc func tick(_ link: CADisplayLink) {
-        player?.displayLinkDidFire()
-    }
-}
-
-private extension AudioPlayer {
-    func displayLinkDidFire() {
-        updateClock()
+        player?.displayLinkDidFire(link)
     }
 }
 
@@ -219,10 +214,6 @@ final class WaveformModel: ObservableObject {
                 self?.bins = []
             }
         }
-    }
-
-    func frame(for scale: SpectrumScale) -> SpectrogramFrame? {
-        spectrograms[scale.rawValue]
     }
 
     func loadSpectrograms(scales: [SpectrumScale]) {

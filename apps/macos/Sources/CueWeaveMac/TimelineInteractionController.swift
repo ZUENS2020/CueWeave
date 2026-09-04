@@ -84,7 +84,7 @@ final class TimelineInteractionController: ObservableObject {
             }
         }
         if followPlayback, player.isPlaying, selectionRange == nil, player.duration > 0 {
-            viewport.center(on: player.currentTime / player.duration)
+            viewport.center(on: player.presentationTime / player.duration)
         }
     }
 

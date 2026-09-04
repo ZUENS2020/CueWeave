@@ -109,25 +109,23 @@ private final class MiniLegacyScroller: NSScroller {
     }
 
     static func install(on scrollView: NSScrollView, vertical: Bool, horizontal: Bool) {
-        scrollView.hasVerticalScroller = vertical
-        scrollView.hasHorizontalScroller = horizontal
-        scrollView.autohidesScrollers = false
-        scrollView.scrollerStyle = .legacy
+        if scrollView.hasVerticalScroller != vertical { scrollView.hasVerticalScroller = vertical }
+        if scrollView.hasHorizontalScroller != horizontal { scrollView.hasHorizontalScroller = horizontal }
+        if scrollView.autohidesScrollers { scrollView.autohidesScrollers = false }
+        if scrollView.scrollerStyle != .legacy { scrollView.scrollerStyle = .legacy }
         if vertical {
             if !(scrollView.verticalScroller is MiniLegacyScroller) {
                 let bar = MiniLegacyScroller()
-                bar.controlSize = .mini
                 scrollView.verticalScroller = bar
             }
-            scrollView.verticalScroller?.controlSize = .mini
+            if scrollView.verticalScroller?.controlSize != .mini { scrollView.verticalScroller?.controlSize = .mini }
         }
         if horizontal {
             if !(scrollView.horizontalScroller is MiniLegacyScroller) {
                 let bar = MiniLegacyScroller()
-                bar.controlSize = .mini
                 scrollView.horizontalScroller = bar
             }
-            scrollView.horizontalScroller?.controlSize = .mini
+            if scrollView.horizontalScroller?.controlSize != .mini { scrollView.horizontalScroller?.controlSize = .mini }
         }
     }
 }

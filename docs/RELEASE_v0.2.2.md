@@ -13,6 +13,8 @@
 
 ### 2026-09-04 验收记录
 
+用户复验仍反馈明显卡顿，因此本版本未通过最终流畅度验收。以下 CPU 和有限观察结果只说明局部改善，不代表问题已彻底解决；继续处理显示时序与帧间隔。
+
 - 代码提交 `442242b` 的 [CI 33878651944](https://github.com/ZUENS2020/CueWeave/actions/runs/33878651944) 全部通过。Mac 双架构包含 37 项原生测试；Windows 构建通过，不代表 Windows 实机交互验收。
 - 本机安装 CI 的 ARM64 包（0.2.2 Build 5），验证签名与 SDK 26.5；冷启动显示开屏，打开项目后封面立即出现。
 - 使用原项目的独立副本，149 秒 / 38 句、64×、Follow + Next：检查歌曲后半段连续换句、0.5× / 1× / 2×、A–B 循环跳回、空格暂停、N、Tab 保持 Next、Shift-Tab 取消 Next。多次观察中指针保持居中，换句不再出现双重列表滚动。
@@ -31,6 +33,8 @@
 Draft release notes: CI artifacts are not a published release. Live playback acceptance is recorded separately. macOS remains ad-hoc signed, not notarized; Windows device acceptance requires an online machine.
 
 ### Acceptance — 2026-09-04
+
+User retesting still reported visible stutter, so this build did not pass final smoothness acceptance. The limited observations and CPU readings below indicate partial improvement, not resolution; presentation timing and frame pacing require further work.
 
 - [CI 33878651944](https://github.com/ZUENS2020/CueWeave/actions/runs/33878651944) passed for code commit `442242b`, including 37 native tests on each Mac architecture and the Windows build. This is not Windows device-interaction acceptance.
 - Installed and verified the ARM64 CI app, 0.2.2 Build 5 with SDK 26.5. Cold launch showed the welcome screen; opening a project displayed its cover immediately.
