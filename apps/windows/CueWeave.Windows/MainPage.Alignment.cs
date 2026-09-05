@@ -318,8 +318,9 @@ public sealed partial class MainPage
         if (AlignmentList.ItemsSource is not IList<SegmentRow> rows) return;
         var index = -1;
         for (var i = 0; i < rows.Count; i++) if (rows[i].Id == id) { index = i; break; }
-        if (index < 0 || AlignmentList.ContainerFromIndex(index) is not UIElement item) return;
-        item.StartBringIntoView(new BringIntoViewOptions { AnimationDesired = false, VerticalAlignmentRatio = 0.35 });
+        if (index < 0) return;
+        // ScrollIntoView virtualizes safely; ContainerFromIndex is null for offscreen lyrics.
+        AlignmentList.ScrollIntoView(rows[index], ScrollIntoViewAlignment.Default);
     }
 
     private static string FormatConfidence(float? value) => value is float number ? number.ToString("0.00") : "—";

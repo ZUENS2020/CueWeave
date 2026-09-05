@@ -1,11 +1,9 @@
 import AppKit
-import Combine
 import SwiftUI
 
 @MainActor
 final class TimelineInteractionController: ObservableObject {
     @Published private(set) var selectedCreditID: UInt64?
-    @Published private(set) var inspectorSegmentID: UInt64?
     @Published private(set) var selectionRange: ClosedRange<Double>?
     @Published private(set) var zoom = 2.0
     @Published var followPlayback = true
@@ -21,7 +19,6 @@ final class TimelineInteractionController: ObservableObject {
     private var hotkeys = TimelineHotkeyTranslator()
     private var cueIndex = PlaybackCueIndex()
     private var queueRevealPlanner = QueueRevealPlanner()
-    private var playbackStateSubscription: AnyCancellable?
 
     var selectedSegmentID: UInt64? { playbackHighlight.state.selected }
     var activeSegmentID: UInt64? { playbackHighlight.state.active }
@@ -29,12 +26,6 @@ final class TimelineInteractionController: ObservableObject {
     init(store: ProjectStore) {
         self.store = store
         player = store.player
-        playbackStateSubscription = player.$isPlaying
-            .removeDuplicates()
-            .sink { [weak self] isPlaying in
-                guard let self, !isPlaying else { return }
-                inspectorSegmentID = selectedSegmentID
-            }
     }
 
     func prepare() {
@@ -53,9 +44,6 @@ final class TimelineInteractionController: ObservableObject {
             selected = cueIndex.orderedIDs.first
         }
         setHighlight(active: activeSegmentID, selected: selected)
-        if inspectorSegmentID == nil || !ids.contains(inspectorSegmentID ?? 0) {
-            inspectorSegmentID = selected
-        }
         playheadDidChange()
     }
 
@@ -117,14 +105,12 @@ final class TimelineInteractionController: ObservableObject {
         guard store.project?.lyrics.credits.contains(where: { $0.id == creditID }) == true else { return }
         breakFollowSelection()
         selectedCreditID = creditID
-        inspectorSegmentID = nil
         setSelectedSegmentID(nil)
     }
 
     func stampCredit(_ creditID: UInt64) {
         store.setCreditTime(id: creditID, milliseconds: UInt64(max(0, player.currentTime * 1_000)))
         selectedCreditID = creditID
-        inspectorSegmentID = nil
         setSelectedSegmentID(nil)
     }
 
@@ -133,7 +119,6 @@ final class TimelineInteractionController: ObservableObject {
         let milliseconds = UInt64((player.duration * min(max(0, fraction), 1) * 1_000).rounded())
         store.setCreditTime(id: creditID, milliseconds: milliseconds)
         selectedCreditID = creditID
-        inspectorSegmentID = nil
         setSelectedSegmentID(nil)
     }
 
@@ -142,7 +127,6 @@ final class TimelineInteractionController: ObservableObject {
         if on {
             selectedCreditID = nil
             playheadDidChange()
-            inspectorSegmentID = selectedSegmentID
         }
     }
 
@@ -250,7 +234,6 @@ final class TimelineInteractionController: ObservableObject {
 
     private func setSelectedSegmentID(_ selected: UInt64?) {
         setHighlight(active: activeSegmentID, selected: selected)
-        inspectorSegmentID = selected
     }
 
     private func setHighlight(active: UInt64?, selected: UInt64?) {

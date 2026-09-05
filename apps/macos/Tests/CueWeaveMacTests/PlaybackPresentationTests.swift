@@ -25,13 +25,30 @@ struct PlaybackPresentationTests {
     @Test("Automatic queue reveal stays inside a comfort window")
     func queueRevealCadence() {
         var planner = QueueRevealPlanner()
-        #expect(!planner.shouldReveal(index: 10, automatically: true))
-        #expect(!planner.shouldReveal(index: 11, automatically: true))
-        #expect(!planner.shouldReveal(index: 13, automatically: true))
-        #expect(planner.shouldReveal(index: 14, automatically: true))
-        #expect(!planner.shouldReveal(index: 15, automatically: true))
-        #expect(planner.shouldReveal(index: 30, automatically: false))
-        #expect(!planner.shouldReveal(index: 31, automatically: true))
+        let initial = planner.shouldReveal(index: 10, automatically: true)
+        let nearby = planner.shouldReveal(index: 11, automatically: true)
+        let edge = planner.shouldReveal(index: 13, automatically: true)
+        let stride = planner.shouldReveal(index: 14, automatically: true)
+        let afterStride = planner.shouldReveal(index: 15, automatically: true)
+        let manual = planner.shouldReveal(index: 30, automatically: false)
+        let afterManual = planner.shouldReveal(index: 31, automatically: true)
+        #expect(!initial && !nearby && !edge && stride && !afterStride && manual && !afterManual)
+    }
+
+    @Test("Inspector source emits each selected Next change")
+    func inspectorSelectionSource() {
+        let highlight = PlaybackHighlightModel()
+        var changes: [UInt64?] = []
+        let subscription = highlight.changes.sink { changes.append($0.new.selected) }
+        highlight.set(active: 7, selected: 8)
+        highlight.set(active: 7, selected: 8)
+        highlight.set(active: 8, selected: 9)
+        highlight.set(active: 9, selected: nil)
+        #expect(changes.count == 3)
+        #expect(changes[0] == 8)
+        #expect(changes[1] == 9)
+        #expect(changes[2] == nil)
+        withExtendedLifetime(subscription) {}
     }
 
     @Test("Readout throttling never throttles a seek or pause")

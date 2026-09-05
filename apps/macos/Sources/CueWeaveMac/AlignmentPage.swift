@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 struct AlignmentPage: View {
@@ -189,20 +190,22 @@ struct AlignmentPage: View {
     }
 
     private var inspector: some View {
-        ScrollView {
-            Group {
-                if let credit = selectedCredit {
-                    creditInspector(credit)
-                } else if let segment = selected {
-                    unifiedInspector(segment)
-                } else {
-                    EmptyWorkspaceState(title: l10n.t("inspect.emptyTitle"), detail: l10n.t("inspect.emptyDetail"))
+        InspectorSelectionHost(highlight: interaction.playbackHighlight) { segmentID in
+            ScrollView {
+                Group {
+                    if let credit = selectedCredit {
+                        creditInspector(credit)
+                    } else if let segment = selected(segmentID) {
+                        unifiedInspector(segment)
+                    } else {
+                        EmptyWorkspaceState(title: l10n.t("inspect.emptyTitle"), detail: l10n.t("inspect.emptyDetail"))
+                    }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(14)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
+            .background(CueWeaveStyle.panel)
         }
-        .background(CueWeaveStyle.panel)
     }
 
     private func creditInspector(_ credit: Credit) -> some View {
@@ -295,8 +298,8 @@ struct AlignmentPage: View {
         )
     }
 
-    private var selected: LyricSegment? {
-        store.allSegments.first { $0.id == interaction.inspectorSegmentID }
+    private func selected(_ segmentID: UInt64?) -> LyricSegment? {
+        store.allSegments.first { $0.id == segmentID }
     }
 
     private var selectedCredit: Credit? {
@@ -532,6 +535,31 @@ private struct TimelinePlaybackBar: View {
 
 private enum InspectorField: Hashable {
     case original
+}
+
+private struct InspectorSelectionHost<Content: View>: View {
+    let highlight: PlaybackHighlightModel
+    let content: (UInt64?) -> Content
+    @State private var segmentID: UInt64?
+
+    init(
+        highlight: PlaybackHighlightModel,
+        @ViewBuilder content: @escaping (UInt64?) -> Content
+    ) {
+        self.highlight = highlight
+        self.content = content
+        _segmentID = State(initialValue: highlight.state.selected)
+    }
+
+    var body: some View {
+        content(segmentID)
+            // Move the SwiftUI state change to the next main-run-loop turn.
+            // The source event originates in CADisplayLink/NSView rendering;
+            // mutating view state synchronously there is undefined behavior.
+            .onReceive(highlight.changes.receive(on: DispatchQueue.main)) { change in
+                segmentID = change.new.selected
+            }
+    }
 }
 
 private struct WindowAnchor: NSViewRepresentable {

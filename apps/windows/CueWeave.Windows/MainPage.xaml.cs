@@ -85,8 +85,8 @@ public sealed partial class MainPage : Page
         Timeline.ActiveSegmentChanged += id =>
         {
             UpdateQueueVisuals(id);
-            if (id is ulong value) ScrollToSegment(value);
-            FollowNextIfNeeded(id);
+            if (NextButton.IsChecked == true) FollowNextIfNeeded(id);
+            else if (id is ulong value) ScrollToSegment(value);
         };
         Timeline.SelectedSegmentChanged += id =>
         {

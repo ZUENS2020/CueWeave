@@ -16,18 +16,18 @@
 
 ## 下载
 
-当前版本 **v0.2.3**：[GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
+当前版本 **v0.2.4**：[GitHub Releases](https://github.com/ZUENS2020/CueWeave/releases/latest)
 
 按处理器下载对应压缩包，解压即可用，不必再装 .NET / Rust / Swift。
 
 | 系统 | 文件 | 用法 |
 | --- | --- | --- |
-| macOS 14+ Apple Silicon | [CueWeave-0.2.3-macos-arm64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.3/CueWeave-0.2.3-macos-arm64.zip) | 解压得到 `CueWeave.app`。 |
-| macOS 14+ Intel | [CueWeave-0.2.3-macos-x86_64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.3/CueWeave-0.2.3-macos-x86_64.zip) | 解压得到 `CueWeave.app`。 |
-| Windows 11 x64 | [CueWeave-0.2.3-windows-x64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.3/CueWeave-0.2.3-windows-x64.zip) | 解压得到 `CueWeave` 文件夹，双击其中的 `CueWeave.Windows.exe`。不要把 exe 单独拷走。 |
+| macOS 14+ Apple Silicon | [CueWeave-0.2.4-macos-arm64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.4/CueWeave-0.2.4-macos-arm64.zip) | 解压得到 `CueWeave.app`。 |
+| macOS 14+ Intel | [CueWeave-0.2.4-macos-x86_64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.4/CueWeave-0.2.4-macos-x86_64.zip) | 解压得到 `CueWeave.app`。 |
+| Windows 11 x64 | [CueWeave-0.2.4-windows-x64.zip](https://github.com/ZUENS2020/CueWeave/releases/download/v0.2.4/CueWeave-0.2.4-windows-x64.zip) | 解压得到 `CueWeave` 文件夹，双击其中的 `CueWeave.Windows.exe`。不要把 exe 单独拷走。 |
 
 包由 CI 构建并附 SHA-256 校验和。macOS 为 ad-hoc 签名、未公证；Windows 未做受信任代码签名，首次打开可能出现系统安全提示。
-CI 通过不等于实机交互验收，详见[发行说明](docs/RELEASE_v0.2.3.md)。
+CI 通过不等于实机交互验收，详见[发行说明](docs/RELEASE_v0.2.4.md)。
 
 ## 它做什么
 

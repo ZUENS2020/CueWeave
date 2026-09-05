@@ -175,11 +175,13 @@ public sealed partial class TimelineControl : UserControl
 
     public void Select(ulong? id)
     {
+        if (SelectedSegmentId == id && SelectedCreditId is null) return;
         SelectedSegmentId = id; SelectedCreditId = null; SelectedSegmentChanged?.Invoke(id); canvas?.Invalidate();
     }
 
     public void SelectCredit(ulong? id)
     {
+        if (SelectedCreditId == id && SelectedSegmentId is null) return;
         SelectedCreditId = id; SelectedSegmentId = null; SelectedSegmentChanged?.Invoke(null); canvas?.Invalidate();
     }
 

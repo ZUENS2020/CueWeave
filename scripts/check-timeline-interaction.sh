@@ -69,6 +69,13 @@ if ! rg -q 'followSelection' "$controller" \
     echo "lyric selection cannot follow the next line after the playhead" >&2
     exit 1
 fi
+if ! rg -q 'InspectorSelectionHost' "$alignment_page" \
+    || ! rg -q 'highlight\.changes' "$alignment_page" \
+    || ! rg -q 'change\.new\.selected' "$alignment_page" \
+    || rg -q '@Published.*inspectorSegmentID' "$controller"; then
+    echo "Next must update the inspector without invalidating the complete Alignment page" >&2
+    exit 1
+fi
 if rg -q '@Published.*highlight' "$controller" \
     || ! rg -q 'TimelineHighlightSurface' "$timeline_view" \
     || ! rg -q 'SegmentQueueHighlightSurface' "$segment_row"; then

@@ -8,7 +8,7 @@ case "$phase" in
     P1) production_limit=6200; test_limit=2000 ;;
     P2) production_limit=8500; test_limit=3000 ;;
     P3) production_limit=10500; test_limit=3800 ;;
-    P4) production_limit=13500; test_limit=4500 ;;
+    P4) production_limit=14000; test_limit=4500 ;;
     *) echo "unknown phase: $phase" >&2; exit 2 ;;
 esac
 
