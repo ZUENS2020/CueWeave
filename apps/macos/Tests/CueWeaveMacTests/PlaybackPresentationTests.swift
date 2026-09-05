@@ -90,14 +90,15 @@ struct PlaybackPresentationTests {
             #expect(player.currentTime == time)
             frameTimes.append(time)
         }
-        for fraction in [0.0, 0.000_01, 0.6, 0.8, 0.99, 0.2, 1.0] {
+        let fractions = [0.0, 0.000_01, 0.6, 0.8, 0.99, 0.2, 1.0]
+        for fraction in fractions {
             player.seek(to: player.duration * fraction)
             #expect(abs(line.frame.minX - min(64_000 * fraction, 63_999)) < 0.001)
             #expect(player.readout.time == player.currentTime)
             #expect(line.animationKeys()?.isEmpty ?? true)
         }
         #expect(transportChanges == 0)
-        #expect(frameTimes.count == 6)
+        #expect(frameTimes.count == fractions.count)
         surface.setFrameSize(NSSize(width: 1_000, height: 300))
         surface.layout()
         #expect(line.frame == CGRect(x: 999, y: 0, width: 1, height: 300))
