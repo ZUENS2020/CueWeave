@@ -74,7 +74,19 @@ public sealed partial class MainPage
     private void Follow_Changed(object sender, RoutedEventArgs e) => Timeline.SetFollow(FollowButton.IsChecked == true);
     private void Next_Changed(object sender, RoutedEventArgs e)
     {
-        if (NextButton.IsChecked == true) FollowNextIfNeeded(Timeline.ActiveSegmentId);
+        if (NextButton.IsChecked == true)
+        {
+            if (CurrentButton.IsChecked == true) CurrentButton.IsChecked = false;
+            FollowNextIfNeeded(Timeline.ActiveSegmentId);
+        }
+    }
+    private void Current_Changed(object sender, RoutedEventArgs e)
+    {
+        if (CurrentButton.IsChecked == true)
+        {
+            if (NextButton.IsChecked == true) NextButton.IsChecked = false;
+            FollowCurrentIfNeeded(Timeline.ActiveSegmentId);
+        }
     }
     private void Zoom_Changed(object sender, RangeBaseValueChangedEventArgs e) { if (!changingZoom) Timeline.SetZoom(e.NewValue); }
 
@@ -125,7 +137,7 @@ public sealed partial class MainPage
     {
         if (e.ClickedItem is SegmentRow row)
         {
-            SetFollowSelection(false);
+            ClearFollowSelection();
             Timeline.Select(row.Id);
         }
     }
@@ -182,19 +194,21 @@ public sealed partial class MainPage
     {
         switch (command)
         {
-            case "select_current": SetFollowSelection(false); Timeline.SelectCurrent(); break;
+            case "select_current": ClearFollowSelection(); Timeline.SelectCurrent(); break;
             case "select_next_playing":
+                if (CurrentButton.IsChecked == true) SetFollowCurrentSelection(false);
                 if (!TimelineViewport.KeepsFollowSelection(1)) SetFollowSelection(false);
                 Timeline.SelectRelativeToPlayhead(1); break;
-            case "select_previous_playing": SetFollowSelection(false); Timeline.SelectRelativeToPlayhead(-1); break;
+            case "select_previous_playing": ClearFollowSelection(); Timeline.SelectRelativeToPlayhead(-1); break;
             case "play": Play_Click(this, new RoutedEventArgs()); break;
             case "loop_a": playback.MarkA(); SyncLoop(); break;
             case "loop_b": playback.MarkB(); SyncLoop(); break;
             case "loop_clear": playback.ClearLoop(); SyncLoop(); break;
-            case "next": SetFollowSelection(false); NavigateSegment(1); break;
-            case "previous": SetFollowSelection(false); NavigateSegment(-1); break;
+            case "next": ClearFollowSelection(); NavigateSegment(1); break;
+            case "previous": ClearFollowSelection(); NavigateSegment(-1); break;
             case "mark": Mark_Click(this, new RoutedEventArgs()); break;
             case "toggle_follow_next": SetFollowSelection(NextButton.IsChecked != true); break;
+            case "toggle_follow_current": SetFollowCurrentSelection(CurrentButton.IsChecked != true); break;
             case "clear_final": ClearFinal_Click(this, new RoutedEventArgs()); break;
             case "rate_up": AdjustRate(1); break;
             case "rate_down": AdjustRate(-1); break;
@@ -310,7 +324,26 @@ public sealed partial class MainPage
 
     private void SetFollowSelection(bool on)
     {
+        if (on && CurrentButton.IsChecked == true) CurrentButton.IsChecked = false;
         if (NextButton.IsChecked != on) NextButton.IsChecked = on;
+    }
+
+    private void FollowCurrentIfNeeded(ulong? activeId)
+    {
+        if (CurrentButton.IsChecked != true) return;
+        if (Timeline.SelectedSegmentId != activeId || Timeline.SelectedCreditId is not null) Timeline.Select(activeId);
+    }
+
+    private void SetFollowCurrentSelection(bool on)
+    {
+        if (on && NextButton.IsChecked == true) NextButton.IsChecked = false;
+        if (CurrentButton.IsChecked != on) CurrentButton.IsChecked = on;
+    }
+
+    private void ClearFollowSelection()
+    {
+        SetFollowSelection(false);
+        SetFollowCurrentSelection(false);
     }
 
     private void ScrollToSegment(ulong id)

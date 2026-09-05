@@ -118,6 +118,8 @@ public sealed partial class MainPage
         ToolTipService.SetToolTip(FollowButton, L10n.T("follow.help"));
         NextButton.Content = L10n.T("next");
         ToolTipService.SetToolTip(NextButton, L10n.T("next.help"));
+        CurrentButton.Content = L10n.T("current");
+        ToolTipService.SetToolTip(CurrentButton, L10n.T("current.help"));
         MarkButton.Content = L10n.T("mark");
         AlignUndoButton.Content = L10n.T("action.undo");
         AlignRedoButton.Content = L10n.T("action.redo");

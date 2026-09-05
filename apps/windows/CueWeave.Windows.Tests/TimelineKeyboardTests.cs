@@ -12,9 +12,13 @@ public sealed class TimelineKeyboardTests
         var keyboard = new TimelineKeyboard();
         Assert.IsFalse(TimelineKeyboard.IsReserved(VirtualKey.N, ShortcutOwner.Workspace));
         Assert.IsFalse(TimelineKeyboard.IsReserved(VirtualKey.N, ShortcutOwner.NativeControl));
+        Assert.IsFalse(TimelineKeyboard.IsReserved(VirtualKey.C, ShortcutOwner.NativeControl));
         Assert.IsTrue(TimelineKeyboard.IsReserved(VirtualKey.N, ShortcutOwner.Editor));
+        Assert.IsTrue(TimelineKeyboard.IsReserved(VirtualKey.C, ShortcutOwner.Editor));
         Assert.IsTrue(TimelineKeyboard.IsReserved(VirtualKey.N, ShortcutOwner.Modal));
         Assert.AreEqual(new TimelineKeyAction("toggle_follow_next"), keyboard.Translate(new(VirtualKey.N)));
+        Assert.AreEqual(new TimelineKeyAction("toggle_follow_current"), keyboard.Translate(new(VirtualKey.C)));
+        Assert.AreEqual(new TimelineKeyAction("consume"), keyboard.Translate(new(VirtualKey.C, Repeat: true)));
         Assert.AreEqual(new TimelineKeyAction("consume"), keyboard.Translate(new(VirtualKey.N, Repeat: true)));
         Assert.IsNull(keyboard.Translate(new(VirtualKey.N, Control: true)));
         Assert.IsNull(keyboard.Translate(new(VirtualKey.N, Alt: true)));

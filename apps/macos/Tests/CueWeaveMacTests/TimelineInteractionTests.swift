@@ -195,6 +195,25 @@ struct TimelineInteractionTests {
         #expect(!TimelineInteractionMath.keepsFollowSelection(relativeOffset: 0))
     }
 
+    @Test("Current follow has a dedicated keyboard toggle")
+    func currentFollowHotkey() {
+        var translator = TimelineHotkeyTranslator()
+        let input = TimelineHotkeyInput(
+            keyCode: 8,
+            characters: "c",
+            command: false,
+            shift: false,
+            option: false,
+            control: false,
+            isKeyUp: false,
+            isRepeat: false
+        )
+        #expect(translator.translate(input) == .toggleFollowCurrentSelection)
+        var repeated = input
+        repeated.isRepeat = true
+        #expect(translator.translate(repeated) == .consume)
+    }
+
     @Test("Playback cue lookup is cached, ordered, and handles equal timestamps")
     func playbackCueIndex() {
         let segments = [

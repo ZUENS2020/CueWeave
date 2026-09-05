@@ -714,6 +714,7 @@
                                     <Button x:Name="LoopClearButton" Content="Clear" Click="LoopClear_Click" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <ToggleButton x:Name="FollowButton" Content="Follow" Checked="Follow_Changed" Unchecked="Follow_Changed" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <ToggleButton x:Name="NextButton" Content="Next" Checked="Next_Changed" Unchecked="Next_Changed" AllowFocusOnInteraction="False" IsTabStop="False" />
+                                    <ToggleButton x:Name="CurrentButton" Content="Current" Checked="Current_Changed" Unchecked="Current_Changed" AllowFocusOnInteraction="False" IsTabStop="False" />
                                     <Button x:Name="MarkButton" Content="Mark" Click="Mark_Click" AllowFocusOnInteraction="False" IsTabStop="False" />
                                 </controls:WrapPanel>
                                 <controls:WrapPanel Spacing="8">

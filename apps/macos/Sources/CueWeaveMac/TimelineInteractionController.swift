@@ -8,6 +8,7 @@ final class TimelineInteractionController: ObservableObject {
     @Published private(set) var zoom = 2.0
     @Published var followPlayback = true
     @Published var followSelection = false
+    @Published var followCurrentSelection = false
     @Published var lanes = AudioLaneSettings()
     var inspectorEditing = false
     weak var hostWindow: NSWindow?
@@ -84,6 +85,8 @@ final class TimelineInteractionController: ObservableObject {
         var nextSelected = selectedSegmentID
         if followSelection {
             nextSelected = cueIndex.followingID(after: nextActive)
+        } else if followCurrentSelection {
+            nextSelected = nextActive
         }
         setHighlight(active: nextActive, selected: nextSelected)
         if followPlayback, player.isPlaying, selectionRange == nil, player.duration > 0 {
@@ -123,11 +126,26 @@ final class TimelineInteractionController: ObservableObject {
     }
 
     func setFollowSelection(_ on: Bool) {
+        if on, followCurrentSelection { followCurrentSelection = false }
         followSelection = on
         if on {
             selectedCreditID = nil
             playheadDidChange()
         }
+    }
+
+    func setFollowCurrentSelection(_ on: Bool) {
+        if on, followSelection { followSelection = false }
+        followCurrentSelection = on
+        if on {
+            selectedCreditID = nil
+            playheadDidChange()
+        }
+    }
+
+    func clearFollowSelection() {
+        if followSelection { followSelection = false }
+        if followCurrentSelection { followCurrentSelection = false }
     }
 
     func selectCurrent() {
@@ -137,7 +155,7 @@ final class TimelineInteractionController: ObservableObject {
     }
 
     func selectRelativeToPlayhead(offset: Int) {
-        if !TimelineInteractionMath.keepsFollowSelection(relativeOffset: offset) {
+        if followCurrentSelection || !TimelineInteractionMath.keepsFollowSelection(relativeOffset: offset) {
             breakFollowSelection()
         }
         selectedCreditID = nil
@@ -229,7 +247,7 @@ final class TimelineInteractionController: ObservableObject {
     }
 
     private func breakFollowSelection() {
-        if followSelection { followSelection = false }
+        clearFollowSelection()
     }
 
     private func setSelectedSegmentID(_ selected: UInt64?) {
@@ -303,6 +321,8 @@ final class TimelineInteractionController: ObservableObject {
             )
         case .toggleFollowSelection:
             setFollowSelection(!followSelection)
+        case .toggleFollowCurrentSelection:
+            setFollowCurrentSelection(!followCurrentSelection)
         }
         return true
     }

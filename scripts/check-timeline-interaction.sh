@@ -69,6 +69,12 @@ if ! rg -q 'followSelection' "$controller" \
     echo "lyric selection cannot follow the next line after the playhead" >&2
     exit 1
 fi
+if ! rg -q 'followCurrentSelection' "$controller" \
+    || ! rg -q 'nextSelected = nextActive' "$controller" \
+    || ! rg -q 'current\.help' "$alignment_page"; then
+    echo "lyric selection cannot continuously follow the currently playing line" >&2
+    exit 1
+fi
 if ! rg -q 'InspectorSelectionHost' "$alignment_page" \
     || ! rg -q 'highlight\.changes' "$alignment_page" \
     || ! rg -q 'change\.new\.selected' "$alignment_page" \

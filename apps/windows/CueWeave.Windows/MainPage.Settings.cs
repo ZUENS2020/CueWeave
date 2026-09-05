@@ -10,7 +10,7 @@ public sealed partial class MainPage
     private async void Hotkeys_Click(object sender, RoutedEventArgs e)
     {
         var content = new StackPanel { Spacing = 12, MaxWidth = 480 };
-        foreach (var key in new[] { "play", "selectPlaying", "selectNext", "selectPrev", "followNext", "mark",
+        foreach (var key in new[] { "play", "selectPlaying", "selectNext", "selectPrev", "followNext", "followCurrent", "mark",
             "clearFinal", "nextPrev", "movePlayhead", "nudge1", "nudge10", "nudge50", "nudgeComma", "jump",
             "speed", "zoom.win", "loopA", "loopB", "loopClear", "undo.win", "redo.win", "clickAway" })
             content.Children.Add(new TextBlock { Text = L10n.T("hotkey." + key), TextWrapping = TextWrapping.Wrap });

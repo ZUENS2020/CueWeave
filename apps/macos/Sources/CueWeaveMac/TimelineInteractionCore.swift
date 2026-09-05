@@ -333,6 +333,7 @@ enum TimelineHotkey: Equatable {
     case zoom(Double)
     case adjustPlaybackRate(Int)
     case toggleFollowSelection
+    case toggleFollowCurrentSelection
 }
 
 struct TimelineHotkeyInput: Equatable {
@@ -404,6 +405,7 @@ struct TimelineHotkeyTranslator: Equatable {
         case 119: return .seekToEnd
         case 53: return .clearLoop
         case 51, 117: return .clearFinal
+        case 8: return .toggleFollowCurrentSelection
         case 45: return .toggleFollowSelection
         default:
             switch input.characters.lowercased() {
@@ -411,6 +413,7 @@ struct TimelineHotkeyTranslator: Equatable {
             case "a": return .loopStart
             case "b": return .loopEnd
             case "n": return .toggleFollowSelection
+            case "c": return .toggleFollowCurrentSelection
             case ",", "<": return .nudgeFinal(-1)
             case ".", ">": return .nudgeFinal(1)
             default: return nil

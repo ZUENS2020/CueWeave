@@ -66,7 +66,7 @@ struct AlignmentPage: View {
         .onDisappear { removeKeyMonitor() }
         .onChange(of: inspectorField) { _, field in
             interaction.inspectorEditing = field != nil
-            if field != nil { interaction.setFollowSelection(false) }
+            if field != nil { interaction.clearFollowSelection() }
             interaction.resetHotkeys()
         }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notification in
@@ -457,6 +457,16 @@ private struct TimelinePlaybackBar: View {
             }
             .toggleStyle(.button)
             .help(l10n.t("next.help"))
+            Toggle(
+                isOn: Binding(
+                    get: { interaction.followCurrentSelection },
+                    set: { interaction.setFollowCurrentSelection($0) }
+                )
+            ) {
+                Label(l10n.t("current"), systemImage: "scope")
+            }
+            .toggleStyle(.button)
+            .help(l10n.t("current.help"))
             Button(l10n.t("mark")) { stampCurrent() }
             .disabled(interaction.selectedSegmentID == nil && interaction.selectedCreditID == nil)
             Button { store.undo() } label: { Image(systemName: "arrow.uturn.backward") }
@@ -472,6 +482,9 @@ private struct TimelinePlaybackBar: View {
                 Button(l10n.t("hotkey.selectPrev")) { interaction.selectRelativeToPlayhead(offset: -1) }
                 Button(l10n.t("hotkey.followNext")) {
                     interaction.setFollowSelection(!interaction.followSelection)
+                }
+                Button(l10n.t("hotkey.followCurrent")) {
+                    interaction.setFollowCurrentSelection(!interaction.followCurrentSelection)
                 }
                 Button(l10n.t("hotkey.mark")) { stampCurrent() }
                 Button(l10n.t("hotkey.clearFinal")) {

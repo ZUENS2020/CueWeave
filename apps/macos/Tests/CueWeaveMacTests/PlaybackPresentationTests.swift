@@ -7,6 +7,36 @@ import Testing
 @Suite("Playback presentation", .serialized)
 @MainActor
 struct PlaybackPresentationTests {
+    @Test("Current and Next follow the playhead target and remain mutually exclusive")
+    func selectionFollowModes() throws {
+        let json = #"{"schema_version":3,"metadata":{"source":{"artists":[]},"target":{"artists":[]},"draft":{"artists":[]}},"lyrics":{"credits":[],"lines":[{"id":10,"original":"A B","segments":[{"id":1,"text":"A","timing":{"final":{"time_ms":0}}},{"id":2,"text":"B","timing":{"final":{"time_ms":1000}}}]}]},"timeline":[],"export":{"offset_ms":0,"formats":["lrc"],"bilingual":"original_only"}}"#
+        let store = ProjectStore()
+        store.project = try JSONDecoder().decode(ProjectDocument.self, from: Data(json.utf8))
+        let interaction = TimelineInteractionController(store: store)
+        interaction.prepare()
+
+        #expect(interaction.activeSegmentID == 1)
+        interaction.setFollowSelection(true)
+        #expect(interaction.followSelection)
+        #expect(!interaction.followCurrentSelection)
+        #expect(interaction.selectedSegmentID == 2)
+
+        interaction.setFollowCurrentSelection(true)
+        #expect(!interaction.followSelection)
+        #expect(interaction.followCurrentSelection)
+        #expect(interaction.selectedSegmentID == 1)
+
+        interaction.selectRelativeToPlayhead(offset: 1)
+        #expect(!interaction.followCurrentSelection)
+        #expect(interaction.selectedSegmentID == 2)
+
+        interaction.setFollowSelection(true)
+        interaction.selectRelativeToPlayhead(offset: 1)
+        #expect(interaction.followSelection)
+        interaction.select(1)
+        #expect(!interaction.followSelection)
+    }
+
     @Test("Next produces one selected reveal, including the second half and end of the song")
     func queueReveal() {
         var previous = QueueRevealState(active: 1, selected: 2)

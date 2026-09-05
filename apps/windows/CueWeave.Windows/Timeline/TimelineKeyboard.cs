@@ -53,6 +53,7 @@ public sealed class TimelineKeyboard
             VirtualKey.Enter => new("select_current"), VirtualKey.Space => new("play"),
             VirtualKey.A => new("loop_a"), VirtualKey.B => new("loop_b"), VirtualKey.Escape => new("loop_clear"),
             VirtualKey.Down => new("next"), VirtualKey.Up => new("previous"),
+            VirtualKey.C => new("toggle_follow_current"),
             VirtualKey.M => new("mark"), VirtualKey.N => new("toggle_follow_next"),
             VirtualKey.Delete or VirtualKey.Back => new("clear_final"),
             (VirtualKey)188 => new("nudge", -1), (VirtualKey)190 => new("nudge", 1),

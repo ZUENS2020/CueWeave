@@ -36,6 +36,7 @@ public sealed partial class MainPage : Page
         InitializeComponent();
         FollowButton.IsChecked = true;
         NextButton.IsChecked = false;
+        CurrentButton.IsChecked = false;
         OverwriteCheck.IsChecked = true;
         OffsetBox.Minimum = -2000;
         OffsetBox.Maximum = 2000;
@@ -57,7 +58,7 @@ public sealed partial class MainPage : Page
         PreviewKeyUp += Timeline.HandleKeyUp;
         LostFocus += (_, _) => Timeline.ResetHeldKeys();
         SpeedPicker.DropDownClosed += (_, _) => Timeline.Focus(FocusState.Programmatic);
-        InspectorLyricBox.GotFocus += (_, _) => SetFollowSelection(false);
+        InspectorLyricBox.GotFocus += (_, _) => ClearFollowSelection();
         IsTabStop = true;
         AddHandler(PointerPressedEvent, new PointerEventHandler(DismissEditor), true);
         playback.StateChanged += () => DispatcherQueue.TryEnqueue(() =>
@@ -86,6 +87,7 @@ public sealed partial class MainPage : Page
         {
             UpdateQueueVisuals(id);
             if (NextButton.IsChecked == true) FollowNextIfNeeded(id);
+            else if (CurrentButton.IsChecked == true) FollowCurrentIfNeeded(id);
             else if (id is ulong value) ScrollToSegment(value);
         };
         Timeline.SelectedSegmentChanged += id =>
