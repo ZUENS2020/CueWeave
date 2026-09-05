@@ -1,11 +1,11 @@
 import AppKit
+import Combine
 import SwiftUI
 
 @MainActor
 final class TimelineInteractionController: ObservableObject {
-    @Published private(set) var selectedSegmentID: UInt64?
     @Published private(set) var selectedCreditID: UInt64?
-    @Published private(set) var activeSegmentID: UInt64?
+    @Published private(set) var inspectorSegmentID: UInt64?
     @Published private(set) var selectionRange: ClosedRange<Double>?
     @Published private(set) var zoom = 2.0
     @Published var followPlayback = true
@@ -15,26 +15,46 @@ final class TimelineInteractionController: ObservableObject {
     weak var hostWindow: NSWindow?
 
     let viewport = TimelineViewportProxy()
+    let playbackHighlight = PlaybackHighlightModel()
     private let store: ProjectStore
     private let player: AudioPlayer
     private var hotkeys = TimelineHotkeyTranslator()
+    private var cueIndex = PlaybackCueIndex()
+    private var queueRevealPlanner = QueueRevealPlanner()
+    private var playbackStateSubscription: AnyCancellable?
+
+    var selectedSegmentID: UInt64? { playbackHighlight.state.selected }
+    var activeSegmentID: UInt64? { playbackHighlight.state.active }
 
     init(store: ProjectStore) {
         self.store = store
         player = store.player
+        playbackStateSubscription = player.$isPlaying
+            .removeDuplicates()
+            .sink { [weak self] isPlaying in
+                guard let self, !isPlaying else { return }
+                inspectorSegmentID = selectedSegmentID
+            }
     }
 
     func prepare() {
         reconcileSegments()
-        playheadDidChange()
     }
 
     func reconcileSegments() {
-        let ids = Set(store.allSegments.map(\.id))
+        let segments = store.allSegments
+        cueIndex.rebuild(segments: segments)
+        queueRevealPlanner = QueueRevealPlanner()
+        let ids = Set(cueIndex.orderedIDs)
+        var selected = selectedSegmentID
         if let selectedSegmentID, !ids.contains(selectedSegmentID) {
-            self.selectedSegmentID = nil
+            selected = nil
         } else if selectedSegmentID == nil {
-            selectedSegmentID = store.allSegments.first?.id
+            selected = cueIndex.orderedIDs.first
+        }
+        setHighlight(active: activeSegmentID, selected: selected)
+        if inspectorSegmentID == nil || !ids.contains(inspectorSegmentID ?? 0) {
+            inspectorSegmentID = selected
         }
         playheadDidChange()
     }
@@ -70,21 +90,19 @@ final class TimelineInteractionController: ObservableObject {
         }
     }
 
-    func playheadDidChange() {
+    func playheadDidChange(frameHostTime: TimeInterval? = nil) {
         let currentMS = UInt64(max(0, player.currentTime) * 1_000)
-        let nextActive = timedSegments.last { $0.timeMS <= currentMS }?.id
-        if activeSegmentID != nextActive { activeSegmentID = nextActive }
+        let nextActive = cueIndex.activeID(at: currentMS)
+        var nextSelected = selectedSegmentID
         if followSelection {
-            let followed = TimelineInteractionMath.followingSegmentID(
-                activeID: nextActive,
-                orderedIDs: store.allSegments.map(\.id)
-            )
-            if let followed, selectedSegmentID != followed {
-                selectedSegmentID = followed
-            }
+            nextSelected = cueIndex.followingID(after: nextActive)
         }
+        setHighlight(active: nextActive, selected: nextSelected)
         if followPlayback, player.isPlaying, selectionRange == nil, player.duration > 0 {
-            viewport.center(on: player.presentationTime / player.duration)
+            viewport.center(
+                on: player.presentationTime / player.duration,
+                frameHostTime: frameHostTime
+            )
         }
     }
 
@@ -92,20 +110,22 @@ final class TimelineInteractionController: ObservableObject {
         guard store.allSegments.contains(where: { $0.id == segmentID }) else { return }
         breakFollowSelection()
         selectedCreditID = nil
-        selectedSegmentID = segmentID
+        setSelectedSegmentID(segmentID)
     }
 
     func selectCredit(_ creditID: UInt64) {
         guard store.project?.lyrics.credits.contains(where: { $0.id == creditID }) == true else { return }
         breakFollowSelection()
         selectedCreditID = creditID
-        selectedSegmentID = nil
+        inspectorSegmentID = nil
+        setSelectedSegmentID(nil)
     }
 
     func stampCredit(_ creditID: UInt64) {
         store.setCreditTime(id: creditID, milliseconds: UInt64(max(0, player.currentTime * 1_000)))
         selectedCreditID = creditID
-        selectedSegmentID = nil
+        inspectorSegmentID = nil
+        setSelectedSegmentID(nil)
     }
 
     func dragCredit(_ creditID: UInt64, fraction: Double) {
@@ -113,18 +133,23 @@ final class TimelineInteractionController: ObservableObject {
         let milliseconds = UInt64((player.duration * min(max(0, fraction), 1) * 1_000).rounded())
         store.setCreditTime(id: creditID, milliseconds: milliseconds)
         selectedCreditID = creditID
-        selectedSegmentID = nil
+        inspectorSegmentID = nil
+        setSelectedSegmentID(nil)
     }
 
     func setFollowSelection(_ on: Bool) {
         followSelection = on
-        if on { selectedCreditID = nil; playheadDidChange() }
+        if on {
+            selectedCreditID = nil
+            playheadDidChange()
+            inspectorSegmentID = selectedSegmentID
+        }
     }
 
     func selectCurrent() {
         breakFollowSelection()
         selectedCreditID = nil
-        selectedSegmentID = activeSegmentID
+        setSelectedSegmentID(activeSegmentID)
     }
 
     func selectRelativeToPlayhead(offset: Int) {
@@ -135,14 +160,14 @@ final class TimelineInteractionController: ObservableObject {
         let segments = store.allSegments
         guard !segments.isEmpty else { return }
         let current = segments.firstIndex { $0.id == activeSegmentID } ?? -1
-        selectedSegmentID = segments[min(max(0, current + offset), segments.count - 1)].id
+        setSelectedSegmentID(segments[min(max(0, current + offset), segments.count - 1)].id)
     }
 
     func jump(to segmentID: UInt64) {
         breakFollowSelection()
-        selectedSegmentID = segmentID
+        setSelectedSegmentID(segmentID)
         guard let segment = store.allSegments.first(where: { $0.id == segmentID }),
-              let point = timingPoint(for: segment)
+              let point = segment.timing.finalPoint ?? segment.timing.gemini
         else { return }
         seek(toSeconds: Double(point.timeMS) / 1_000)
     }
@@ -153,7 +178,7 @@ final class TimelineInteractionController: ObservableObject {
         let segments = store.allSegments
         guard !segments.isEmpty else { return }
         let current = segments.firstIndex { $0.id == selectedSegmentID } ?? (offset > 0 ? -1 : segments.count)
-        selectedSegmentID = segments[min(max(0, current + offset), segments.count - 1)].id
+        setSelectedSegmentID(segments[min(max(0, current + offset), segments.count - 1)].id)
     }
 
     func stamp(_ segmentID: UInt64) {
@@ -221,6 +246,19 @@ final class TimelineInteractionController: ObservableObject {
 
     private func breakFollowSelection() {
         if followSelection { followSelection = false }
+    }
+
+    private func setSelectedSegmentID(_ selected: UInt64?) {
+        setHighlight(active: activeSegmentID, selected: selected)
+        inspectorSegmentID = selected
+    }
+
+    private func setHighlight(active: UInt64?, selected: UInt64?) {
+        playbackHighlight.set(active: active, selected: selected)
+    }
+
+    func shouldRevealQueueItem(index: Int, automatically: Bool) -> Bool {
+        queueRevealPlanner.shouldReveal(index: index, automatically: automatically)
     }
 
     func markLoopStart() { player.markLoopStart() }
@@ -318,25 +356,16 @@ final class TimelineInteractionController: ObservableObject {
         )
     }
 
-    private func timingPoint(for segment: LyricSegment) -> AlignmentPoint? {
-        segment.timing.finalPoint ?? segment.timing.gemini
-    }
-
-    private var timedSegments: [(id: UInt64, timeMS: UInt64, order: Int)] {
-        store.allSegments.enumerated().compactMap { order, segment in
-            timingPoint(for: segment).map { (segment.id, $0.timeMS, order) }
-        }.sorted { lhs, rhs in
-            lhs.timeMS == rhs.timeMS ? lhs.order < rhs.order : lhs.timeMS < rhs.timeMS
-        }
-    }
 }
 
 @MainActor
 final class TimelineViewportProxy {
+    private static let scrollerRefreshInterval: TimeInterval = 1.0 / 30.0
     weak var scrollView: NSScrollView?
     private var pendingAnchor: (document: Double, viewport: Double)?
     private var interactionActive = false
     private var endInteractionAfterGeometry = false
+    private var lastScrollerReflection = -Double.infinity
 
     var visibleCenterFraction: Double {
         guard let scrollView, let document = scrollView.documentView, document.bounds.width > 0 else { return 0.5 }
@@ -350,6 +379,7 @@ final class TimelineViewportProxy {
     }
 
     func attach(scrollView: NSScrollView?) {
+        if self.scrollView !== scrollView { lastScrollerReflection = -Double.infinity }
         self.scrollView = scrollView
     }
 
@@ -388,9 +418,13 @@ final class TimelineViewportProxy {
         }
     }
 
-    func center(on fraction: Double) {
+    func center(on fraction: Double, frameHostTime: TimeInterval? = nil) {
         guard !interactionActive, pendingAnchor == nil else { return }
-        scroll(documentAnchor: fraction, viewportAnchor: 0.5)
+        scroll(
+            documentAnchor: fraction,
+            viewportAnchor: 0.5,
+            frameHostTime: frameHostTime
+        )
     }
 
     func position(documentAnchor: Double, viewportAnchor: Double) {
@@ -398,7 +432,11 @@ final class TimelineViewportProxy {
         scroll(documentAnchor: documentAnchor, viewportAnchor: viewportAnchor)
     }
 
-    private func scroll(documentAnchor: Double, viewportAnchor: Double) {
+    private func scroll(
+        documentAnchor: Double,
+        viewportAnchor: Double,
+        frameHostTime: TimeInterval? = nil
+    ) {
         guard let scrollView, let document = scrollView.documentView else { return }
         let clip = scrollView.contentView
         let documentX = document.bounds.minX
@@ -410,10 +448,19 @@ final class TimelineViewportProxy {
             documentMinX: document.bounds.minX,
             documentMaxX: document.bounds.maxX
         )
-        let scale = scrollView.window?.backingScaleFactor ?? 1
-        let origin = NSPoint(x: (originX * scale).rounded() / scale, y: clip.bounds.minY)
+        // NSClipView supports fractional bounds. Rounding here made the moving
+        // waveform visibly step at well below 60 fps on long songs.
+        let origin = NSPoint(x: originX, y: clip.bounds.minY)
         guard origin != clip.bounds.origin else { return }
         clip.scroll(to: origin)
+        if let frameHostTime {
+            guard frameHostTime - lastScrollerReflection >= Self.scrollerRefreshInterval else { return }
+            lastScrollerReflection = frameHostTime
+        } else {
+            lastScrollerReflection = -Double.infinity
+        }
+        // The visible document scrolls every display frame. The scrollbar thumb
+        // is bookkeeping UI, so refreshing it at 30 Hz avoids redundant layout.
         scrollView.reflectScrolledClipView(clip)
     }
 

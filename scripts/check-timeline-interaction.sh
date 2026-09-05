@@ -16,6 +16,7 @@ native_scroll="$repo_dir/apps/macos/Sources/CueWeaveMac/TimelineNativeScrollView
 segment_row="$repo_dir/apps/macos/Sources/CueWeaveMac/SegmentQueueRow.swift"
 audio_workspace="$repo_dir/apps/macos/Sources/CueWeaveMac/AudioWorkspace.swift"
 design_system="$repo_dir/apps/macos/Sources/CueWeaveMac/DesignSystem.swift"
+playback_presentation="$repo_dir/apps/macos/Sources/CueWeaveMac/PlaybackPresentation.swift"
 
 if rg -q 'finalMarker|DragGesture|onTapGesture|player\.seek' "$timeline_view"; then
     echo "TimelineView still contains a direct seek or draggable/clickable marker" >&2
@@ -45,16 +46,16 @@ if rg -Fq 'selectSegment(atFraction' "$controller" || rg -Fq 'lane == .lyrics' "
     echo "timeline clicks still select lyrics instead of seeking" >&2
     exit 1
 fi
-if ! rg -Fq 'lyricPlayingFill' "$segment_row" || ! rg -Fq 'lyricSelectedFill' "$segment_row"; then
+if ! rg -Fq 'lyricPlayingNSColor' "$segment_row" || ! rg -Fq 'lyricSelectedNSColor' "$segment_row"; then
     echo "lyric row highlight is not using the shared light-blue pair" >&2
     exit 1
 fi
-if ! rg -Fq 'lyricPlayingFill' "$timeline_view" || ! rg -Fq 'lyricSelectedFill' "$timeline_view"; then
+if ! rg -Fq 'lyricPlayingNSColor' "$playback_presentation" || ! rg -Fq 'lyricSelectedNSColor' "$playback_presentation"; then
     echo "timeline lyric lane is not using the same selection fills as the sidebar" >&2
     exit 1
 fi
-if sed -n '/func playheadDidChange()/,/^    }/p' "$controller" | rg -q 'selectedSegmentID' \
-    && ! sed -n '/func playheadDidChange()/,/^    }/p' "$controller" | rg -q 'followSelection'; then
+if sed -n '/func playheadDidChange/,/^    }/p' "$controller" | rg -q 'selectedSegmentID' \
+    && ! sed -n '/func playheadDidChange/,/^    }/p' "$controller" | rg -q 'followSelection'; then
     echo "playback highlighting still overwrites manual selection" >&2
     exit 1
 fi
@@ -62,8 +63,16 @@ if ! rg -q 'leftMouseDown' "$alignment_page" || ! rg -q 'resignInspectorFocus' "
     echo "text fields cannot be dismissed by clicking empty space" >&2
     exit 1
 fi
-if ! rg -q 'followSelection' "$controller" || ! rg -q 'followingSegmentID' "$controller"; then
+if ! rg -q 'followSelection' "$controller" \
+    || ! rg -q 'cueIndex\.followingID' "$controller" \
+    || ! rg -q 'followingSegmentID' "$repo_dir/apps/macos/Sources/CueWeaveMac/TimelineInteractionCore.swift"; then
     echo "lyric selection cannot follow the next line after the playhead" >&2
+    exit 1
+fi
+if rg -q '@Published.*highlight' "$controller" \
+    || ! rg -q 'TimelineHighlightSurface' "$timeline_view" \
+    || ! rg -q 'SegmentQueueHighlightSurface' "$segment_row"; then
+    echo "playback lyric transitions must not invalidate the complete Alignment page" >&2
     exit 1
 fi
 if ! rg -q 'breakFollowSelection' "$controller" || ! rg -q 'keepsFollowSelection' "$controller"; then
@@ -110,6 +119,10 @@ if ! rg -q 'preferredFrameRateRange' "$audio_workspace"; then
     echo "display link is not requesting a high frame-rate range" >&2
     exit 1
 fi
+if ! rg -q 'screen\.maximumFramesPerSecond' "$audio_workspace"; then
+    echo "playback display link must request the current screen's native refresh rate" >&2
+    exit 1
+fi
 if ! rg -q 'PlaybackDisplayClock' "$audio_workspace"; then
     echo "playhead is still following raw AVAudioPlayer currentTime" >&2
     exit 1
@@ -118,9 +131,11 @@ if rg -q '@Published.*currentTime|PlaybackTickBridge' "$audio_workspace" "$align
     echo "per-frame playback must not invalidate transport views or defer follow-scroll through SwiftUI" >&2
     exit 1
 fi
-if ! rg -Fq 'CATransaction.setDisableActions(true)' "$repo_dir/apps/macos/Sources/CueWeaveMac/PlaybackPresentation.swift" \
+if ! rg -Fq 'halo.actions = disabledActions' "$playback_presentation" \
+    || rg -Fq 'CATransaction.commit()' "$playback_presentation" \
+    || rg -Fq '.rounded() / scale' "$playback_presentation" \
     || ! rg -Fq 'TimelineWaveformLanes' "$timeline_view"; then
-    echo "native frame transaction or isolated static waveform is missing" >&2
+    echo "playhead must keep subpixel motion and disable layer actions without committing window layout on every frame" >&2
     exit 1
 fi
 if ! rg -q 'AVAudioPlayer' "$audio_workspace" || ! rg -q 'enableRate = true' "$audio_workspace"; then

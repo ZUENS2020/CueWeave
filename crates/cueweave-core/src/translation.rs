@@ -1,4 +1,7 @@
-use crate::{AiStudioConfig, LineId, OpenRouterConfig, SongProject};
+use crate::{
+    AiStudioConfig, DEFAULT_AI_STUDIO_MODEL, LineId, OpenRouterConfig, SongProject,
+    alignment::{add_legacy_generation_temperature, add_legacy_temperature},
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashSet;
@@ -88,7 +91,8 @@ pub fn translate_with_ai_studio(
     {
         return invalid("AI Studio model name contains unsupported characters");
     }
-    let request = build_ai_studio_translation_request(project, target_language)?;
+    let request =
+        build_ai_studio_translation_request_for_model(project, target_language, &config.model)?;
     ensure_request_size(&request, "AI Studio")?;
     let url = format!(
         "{}/models/{}:generateContent",
@@ -121,7 +125,7 @@ pub fn build_openrouter_translation_request(
     target_language: Option<&str>,
 ) -> Result<Value, TranslationError> {
     let prompt = translation_prompt(project, target_language)?;
-    Ok(json!({
+    let mut request = json!({
         "model": model,
         "messages": [{
             "role": "user",
@@ -136,23 +140,31 @@ pub fn build_openrouter_translation_request(
             }
         },
         "provider": {"require_parameters": true},
-        "temperature": 0,
         "stream": false
-    }))
+    });
+    add_legacy_temperature(&mut request, model);
+    Ok(request)
 }
 
 pub fn build_ai_studio_translation_request(
     project: &SongProject,
     target_language: Option<&str>,
 ) -> Result<Value, TranslationError> {
+    build_ai_studio_translation_request_for_model(project, target_language, DEFAULT_AI_STUDIO_MODEL)
+}
+
+pub fn build_ai_studio_translation_request_for_model(
+    project: &SongProject,
+    target_language: Option<&str>,
+    model: &str,
+) -> Result<Value, TranslationError> {
     let prompt = translation_prompt(project, target_language)?;
-    Ok(json!({
+    let mut request = json!({
         "contents": [{
             "role": "user",
             "parts": [{"text": prompt}]
         }],
         "generationConfig": {
-            "temperature": 0,
             "responseFormat": {
                 "text": {
                     "mimeType": "APPLICATION_JSON",
@@ -160,7 +172,9 @@ pub fn build_ai_studio_translation_request(
                 }
             }
         }
-    }))
+    });
+    add_legacy_generation_temperature(&mut request, model);
+    Ok(request)
 }
 
 pub fn parse_openrouter_translation_envelope(

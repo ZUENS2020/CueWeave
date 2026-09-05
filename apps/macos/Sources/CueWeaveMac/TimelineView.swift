@@ -133,6 +133,14 @@ private struct TimelineCanvas: View {
                 ).equatable().allowsHitTesting(false)
                 segmentRegions(duration: duration, width: geometry.size.width, height: geometry.size.height)
                     .allowsHitTesting(false)
+                TimelineHighlightSurface(
+                    segments: store.allSegments,
+                    duration: duration,
+                    lyricTop: metrics.lyricTop,
+                    highlight: interaction.playbackHighlight
+                )
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                .allowsHitTesting(false)
                 ForEach(store.allSegments) { segment in
                     geminiMarker(segment, duration: duration, width: geometry.size.width)
                 }
@@ -280,22 +288,16 @@ private struct TimelineCanvas: View {
     }
 
     private func lyricLaneFill(_ segment: LyricSegment) -> Color {
-        if interaction.selectedSegmentID == segment.id { return CueWeaveStyle.lyricSelectedFill }
-        if interaction.activeSegmentID == segment.id { return CueWeaveStyle.lyricPlayingFill }
         if segment.timing.finalPoint != nil { return CueWeaveStyle.gemini.opacity(0.07) }
         return Color.secondary.opacity(0.05)
     }
 
     private func lyricLaneStroke(_ segment: LyricSegment) -> Color {
-        if interaction.selectedSegmentID == segment.id { return CueWeaveStyle.accent.opacity(0.42) }
-        if interaction.activeSegmentID == segment.id { return CueWeaveStyle.accent.opacity(0.28) }
         if segment.timing.finalPoint != nil { return CueWeaveStyle.gemini.opacity(0.16) }
         return Color.secondary.opacity(0.12)
     }
 
     private func segmentTone(_ segment: LyricSegment) -> Color {
-        if interaction.selectedSegmentID == segment.id { return CueWeaveStyle.accent }
-        if interaction.activeSegmentID == segment.id { return CueWeaveStyle.accent.opacity(0.72) }
         if segment.timing.finalPoint != nil { return CueWeaveStyle.gemini }
         return Color.secondary
     }

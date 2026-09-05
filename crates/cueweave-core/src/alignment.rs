@@ -9,6 +9,8 @@ use thiserror::Error;
 
 const INLINE_AUDIO_LIMIT: u64 = 14 * 1024 * 1024;
 const INLINE_REQUEST_LIMIT: usize = 19 * 1024 * 1024;
+pub const DEFAULT_OPENROUTER_MODEL: &str = "google/gemini-3.8-flash";
+pub const DEFAULT_AI_STUDIO_MODEL: &str = "gemini-3.8-flash";
 
 #[derive(Clone, Debug)]
 pub struct OpenRouterConfig {
@@ -28,7 +30,7 @@ impl OpenRouterConfig {
     pub fn new(api_key: impl Into<String>) -> Self {
         Self {
             api_key: api_key.into(),
-            model: "google/gemini-3.7-flash".into(),
+            model: DEFAULT_OPENROUTER_MODEL.into(),
             endpoint: "https://openrouter.ai/api/v1/chat/completions".into(),
         }
     }
@@ -38,7 +40,7 @@ impl AiStudioConfig {
     pub fn new(api_key: impl Into<String>) -> Self {
         Self {
             api_key: api_key.into(),
-            model: "gemini-3.7-flash".into(),
+            model: DEFAULT_AI_STUDIO_MODEL.into(),
             endpoint: "https://generativelanguage.googleapis.com/v1beta".into(),
         }
     }
@@ -144,7 +146,8 @@ pub fn align_with_ai_studio(
     {
         return invalid("AI Studio model name contains unsupported characters");
     }
-    let request = build_ai_studio_request(project, encode_target_audio(project)?)?;
+    let request =
+        build_ai_studio_request_for_model(project, encode_target_audio(project)?, &config.model)?;
     ensure_request_size(&request, "AI Studio")?;
     let url = format!(
         "{}/models/{}:generateContent",
@@ -177,7 +180,7 @@ pub fn build_openrouter_request(
     model: &str,
 ) -> Result<Value, AlignmentError> {
     let prompt = alignment_prompt(project)?;
-    let request = json!({
+    let mut request = json!({
         "model": model,
         "messages": [{
             "role": "user",
@@ -195,9 +198,9 @@ pub fn build_openrouter_request(
             }
         },
         "provider": {"require_parameters": true},
-        "temperature": 0,
         "stream": false
     });
+    add_legacy_temperature(&mut request, model);
     Ok(request)
 }
 
@@ -205,8 +208,16 @@ pub fn build_ai_studio_request(
     project: &SongProject,
     audio_base64: String,
 ) -> Result<Value, AlignmentError> {
+    build_ai_studio_request_for_model(project, audio_base64, DEFAULT_AI_STUDIO_MODEL)
+}
+
+pub fn build_ai_studio_request_for_model(
+    project: &SongProject,
+    audio_base64: String,
+    model: &str,
+) -> Result<Value, AlignmentError> {
     let prompt = alignment_prompt(project)?;
-    Ok(json!({
+    let mut request = json!({
         "contents": [{
             "role": "user",
             "parts": [
@@ -215,7 +226,6 @@ pub fn build_ai_studio_request(
             ]
         }],
         "generationConfig": {
-            "temperature": 0,
             "responseFormat": {
                 "text": {
                     "mimeType": "APPLICATION_JSON",
@@ -223,7 +233,32 @@ pub fn build_ai_studio_request(
                 }
             }
         }
-    }))
+    });
+    add_legacy_generation_temperature(&mut request, model);
+    Ok(request)
+}
+
+pub(crate) fn uses_gemini_38(model: &str) -> bool {
+    model.contains("gemini-3.8-flash")
+}
+
+pub(crate) fn add_legacy_temperature(request: &mut Value, model: &str) {
+    if !uses_gemini_38(model) {
+        request
+            .as_object_mut()
+            .expect("request payload must be an object")
+            .insert("temperature".into(), json!(0));
+    }
+}
+
+pub(crate) fn add_legacy_generation_temperature(request: &mut Value, model: &str) {
+    if !uses_gemini_38(model) {
+        request
+            .pointer_mut("/generationConfig")
+            .and_then(Value::as_object_mut)
+            .expect("generationConfig must be an object")
+            .insert("temperature".into(), json!(0));
+    }
 }
 
 pub fn parse_openrouter_envelope(

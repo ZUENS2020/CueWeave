@@ -73,8 +73,8 @@ struct AlignmentPage: View {
                 interaction.resetHotkeys()
             }
         }
-        .onChange(of: store.allSegments.map(\.id)) { _, segmentIDs in
-            selectedIDs.formIntersection(segmentIDs)
+        .onChange(of: store.allSegments) { _, segments in
+            selectedIDs.formIntersection(segments.map(\.id))
             interaction.reconcileSegments()
         }
     }
@@ -142,8 +142,7 @@ struct AlignmentPage: View {
                         ForEach(store.allSegments) { segment in
                             SegmentQueueRow(
                                 segment: segment,
-                                isPrimary: interaction.selectedSegmentID == segment.id,
-                                isPlaybackActive: interaction.activeSegmentID == segment.id,
+                                highlight: interaction.playbackHighlight,
                                 isIncluded: selectedIDs.contains(segment.id),
                                 onSelect: { interaction.select(segment.id) },
                                 onJump: { interaction.jump(to: segment.id) },
@@ -151,14 +150,19 @@ struct AlignmentPage: View {
                                 onStamp: { interaction.stamp(segment.id) },
                                 onClear: { store.clearFinal(segmentID: segment.id) }
                             )
+                            .equatable()
                             .id(segment.id)
                             Divider()
                         }
                     }
                     .background(AlwaysVisibleScrollers())
                 }
-                .onChange(of: QueueRevealState(active: interaction.activeSegmentID, selected: interaction.selectedSegmentID)) { old, new in
-                    revealQueueItem(new.target(after: old), proxy: proxy)
+                .onReceive(interaction.playbackHighlight.changes) { change in
+                    revealQueueItem(
+                        change.new.target(after: change.old),
+                        automatically: store.player.isPlaying && change.old.active != change.new.active,
+                        proxy: proxy
+                    )
                 }
             }
             Divider()
@@ -292,19 +296,23 @@ struct AlignmentPage: View {
     }
 
     private var selected: LyricSegment? {
-        store.allSegments.first { $0.id == interaction.selectedSegmentID }
+        store.allSegments.first { $0.id == interaction.inspectorSegmentID }
     }
 
     private var selectedCredit: Credit? {
         store.project?.lyrics.credits.first { $0.id == interaction.selectedCreditID }
     }
 
-    private func revealQueueItem(_ segmentID: UInt64?, proxy: ScrollViewProxy) {
+    private func revealQueueItem(
+        _ segmentID: UInt64?,
+        automatically: Bool,
+        proxy: ScrollViewProxy
+    ) {
         guard let segmentID,
               let index = store.allSegments.firstIndex(where: { $0.id == segmentID })
         else { return }
-        // Next changes both IDs together. Never enqueue two competing playback scroll animations.
-        withAnimation(store.player.isPlaying ? nil : .easeOut(duration: 0.16)) {
+        guard interaction.shouldRevealQueueItem(index: index, automatically: automatically) else { return }
+        withAnimation(automatically ? nil : .easeOut(duration: 0.16)) {
             proxy.scrollTo(segmentID, anchor: index < 2 ? .top : .center)
         }
     }

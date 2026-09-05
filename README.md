@@ -160,7 +160,7 @@ Alignment 检查器里的译文只读。
 cueweave-cli translations song.cueweave translation.txt
 ```
 
-默认模型：AI Studio `gemini-3.7-flash`，OpenRouter `google/gemini-3.7-flash`。带音频的 Align 目前接受不超过 14 MiB 的目标 MP3；更大的文件仍可全程离线打轴和导出。
+默认模型：AI Studio `gemini-3.8-flash`，OpenRouter `google/gemini-3.8-flash`。带音频的 Align 目前接受不超过 14 MiB 的目标 MP3；更大的文件仍可全程离线打轴和导出。
 
 ## 快捷键
 

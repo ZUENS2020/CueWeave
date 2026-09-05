@@ -13,7 +13,10 @@ public static class LocalSettingsStore
         path ??= ConfigPath;
         try {
             if (!File.Exists(path)) return new();
-            return JsonSerializer.Deserialize(File.ReadAllBytes(path), CueJsonContext.Default.LocalSettings) ?? new();
+            var settings = JsonSerializer.Deserialize(
+                File.ReadAllBytes(path), CueJsonContext.Default.LocalSettings) ?? new();
+            settings.MigrateLegacyModelDefaults();
+            return settings;
         } catch { return new(); }
     }
 

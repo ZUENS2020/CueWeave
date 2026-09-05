@@ -25,8 +25,8 @@ final class ProjectStore: ObservableObject, ReferenceFileDocument {
     ) ?? .openRouter
     @Published var openRouterAPIKey = initialSettings.openRouterAPIKey ?? ""
     @Published var aiStudioAPIKey = initialSettings.aiStudioAPIKey ?? ""
-    @Published var openRouterModel = initialSettings.openRouterModel ?? "google/gemini-3.7-flash"
-    @Published var aiStudioModel = initialSettings.aiStudioModel ?? "gemini-3.7-flash"
+    @Published var openRouterModel = initialSettings.openRouterModel ?? ModelDefaults.openRouter
+    @Published var aiStudioModel = initialSettings.aiStudioModel ?? ModelDefaults.aiStudio
     @Published var uiLanguage = initialSettings.uiLanguage ?? "system"
     @Published var overwriteExistingExport = true
 

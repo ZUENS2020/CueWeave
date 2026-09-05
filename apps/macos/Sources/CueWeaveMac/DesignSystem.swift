@@ -1,10 +1,13 @@
 import SwiftUI
 
 enum CueWeaveStyle {
-    static let accent = Color(red: 0.22, green: 0.43, blue: 0.55)
+    static let accentNSColor = NSColor(red: 0.22, green: 0.43, blue: 0.55, alpha: 1)
+    static let accent = Color(nsColor: accentNSColor)
     static let gemini = Color(red: 0.30, green: 0.49, blue: 0.61)
     static var lyricPlayingFill: Color { accent.opacity(0.14) }
     static var lyricSelectedFill: Color { accent.opacity(0.20) }
+    static var lyricPlayingNSColor: NSColor { accentNSColor.withAlphaComponent(0.14) }
+    static var lyricSelectedNSColor: NSColor { accentNSColor.withAlphaComponent(0.20) }
     static let ready = Color(red: 0.39, green: 0.52, blue: 0.48)
     static let warning = Color(red: 0.72, green: 0.47, blue: 0.18)
     static let lowBand = Color(red: 0.25, green: 0.48, blue: 0.64)

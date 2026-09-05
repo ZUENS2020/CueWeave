@@ -149,7 +149,7 @@ If the project has three originals, only the first two get translations.
 cueweave-cli translations song.cueweave translation.txt
 ```
 
-Defaults: AI Studio `gemini-3.7-flash`, OpenRouter `google/gemini-3.7-flash`. Align uploads accept target MP3s up to 14 MiB; larger files can still be timed and exported offline.
+Defaults: AI Studio `gemini-3.8-flash`, OpenRouter `google/gemini-3.8-flash`. Align uploads accept target MP3s up to 14 MiB; larger files can still be timed and exported offline.
 
 ## Keyboard shortcuts
 

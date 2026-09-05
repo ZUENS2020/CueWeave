@@ -352,9 +352,9 @@ private struct SettingsView: View {
 
     private func resetModel() {
         if store.alignmentProvider == .openRouter {
-            store.openRouterModel = "google/gemini-3.7-flash"
+            store.openRouterModel = ModelDefaults.openRouter
         } else {
-            store.aiStudioModel = "gemini-3.7-flash"
+            store.aiStudioModel = ModelDefaults.aiStudio
         }
     }
 }

@@ -2,9 +2,10 @@ use aes::Aes128;
 use aes::cipher::{BlockEncrypt, KeyInit, generic_array::GenericArray};
 use base64::Engine;
 use cueweave_core::{
-    AlignmentItem, AlignmentResponse, BilingualMode, CUESHEET_SCHEMA_VERSION, ExportFormat,
-    LrcAdapter, MatchStatus, MetadataValues, PlayerExportAdapter, SegmentId, SongProject,
-    SourceInfo, TargetAudio, apply_alignment_response, apply_alignment_response_selected,
+    AiStudioConfig, AlignmentItem, AlignmentResponse, BilingualMode, CUESHEET_SCHEMA_VERSION,
+    DEFAULT_AI_STUDIO_MODEL, DEFAULT_OPENROUTER_MODEL, ExportFormat, LrcAdapter, MatchStatus,
+    MetadataValues, OpenRouterConfig, PlayerExportAdapter, SegmentId, SongProject, SourceInfo,
+    TargetAudio, apply_alignment_response, apply_alignment_response_selected,
     apply_line_translations, apply_translation_response, audio_payload_sha256,
     build_ai_studio_request, build_export_cue_sheet, build_openrouter_request,
     build_openrouter_translation_request, decode_netease_payload, download_cover, export_mp3,
@@ -191,13 +192,20 @@ fn gemini_translation_json_must_cover_every_line_id_in_order() {
     assert!(parse_translation_response(&swapped, &project).is_err());
 
     let request =
-        build_openrouter_translation_request(&project, "google/gemini-3.7-flash", None).unwrap();
+        build_openrouter_translation_request(&project, DEFAULT_OPENROUTER_MODEL, None).unwrap();
     let encoded = request.to_string();
     assert!(!encoded.contains("input_audio"));
     assert!(encoded.contains("cueweave_translation"));
     assert!(encoded.contains(&first.0.to_string()));
     assert!(encoded.contains("complete original lyric"));
     assert!(encoded.contains("朝焼けに\\nほどける"));
+    assert!(request.pointer("/temperature").is_none());
+}
+
+#[test]
+fn provider_defaults_use_gemini_38_flash() {
+    assert_eq!(OpenRouterConfig::new("key").model, DEFAULT_OPENROUTER_MODEL);
+    assert_eq!(AiStudioConfig::new("key").model, DEFAULT_AI_STUDIO_MODEL);
 }
 
 #[test]
@@ -270,7 +278,7 @@ fn alignment_validator_requires_every_id_once_and_in_order() {
 fn openrouter_contract_carries_mp3_and_strict_schema_without_source_timing() {
     let project = sung_line_project(PathBuf::from("target.mp3"));
     let request =
-        build_openrouter_request(&project, "base64-audio".into(), "google/gemini-3.7-flash")
+        build_openrouter_request(&project, "base64-audio".into(), DEFAULT_OPENROUTER_MODEL)
             .unwrap();
     assert_eq!(
         request.pointer("/messages/0/content/1/input_audio/format"),
@@ -294,7 +302,7 @@ fn openrouter_contract_carries_mp3_and_strict_schema_without_source_timing() {
         request.pointer("/provider/require_parameters"),
         Some(&serde_json::json!(true))
     );
-    assert_eq!(request.pointer("/temperature"), Some(&serde_json::json!(0)));
+    assert!(request.pointer("/temperature").is_none());
     let prompt = request
         .pointer("/messages/0/content/0/text")
         .and_then(serde_json::Value::as_str)
@@ -325,10 +333,7 @@ fn ai_studio_contract_uses_live_mime_enum_and_shared_validator() {
         request.pointer("/generationConfig/responseFormat/text/mimeType"),
         Some(&serde_json::json!("APPLICATION_JSON"))
     );
-    assert_eq!(
-        request.pointer("/generationConfig/temperature"),
-        Some(&serde_json::json!(0))
-    );
+    assert!(request.pointer("/generationConfig/temperature").is_none());
     assert!(!request.to_string().contains("source_timing"));
 
     let alignment = r#"{"segments":[

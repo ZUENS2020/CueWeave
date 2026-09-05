@@ -195,6 +195,28 @@ struct TimelineInteractionTests {
         #expect(!TimelineInteractionMath.keepsFollowSelection(relativeOffset: 0))
     }
 
+    @Test("Playback cue lookup is cached, ordered, and handles equal timestamps")
+    func playbackCueIndex() {
+        let segments = [
+            LyricSegment(id: 3, text: "C", timing: SegmentTiming(gemini: AlignmentPoint(timeMS: 2_000, confidence: nil), finalPoint: nil)),
+            LyricSegment(id: 1, text: "A", timing: SegmentTiming(gemini: AlignmentPoint(timeMS: 1_000, confidence: nil), finalPoint: nil)),
+            LyricSegment(id: 2, text: "B", timing: SegmentTiming(gemini: AlignmentPoint(timeMS: 1_000, confidence: nil), finalPoint: AlignmentPoint(timeMS: 1_500, confidence: nil))),
+            LyricSegment(id: 4, text: "D", timing: SegmentTiming(gemini: nil, finalPoint: nil)),
+        ]
+        var index = PlaybackCueIndex(segments: segments)
+        #expect(index.orderedIDs == [3, 1, 2, 4])
+        #expect(index.timed.map(\.id) == [1, 2, 3])
+        #expect(index.activeID(at: 999) == nil)
+        #expect(index.activeID(at: 1_000) == 1)
+        #expect(index.activeID(at: 1_500) == 2)
+        #expect(index.activeID(at: 9_000) == 3)
+        #expect(index.followingID(after: 1) == 2)
+
+        index.rebuild(segments: Array(segments.prefix(2)))
+        #expect(index.orderedIDs == [3, 1])
+        #expect(index.activeID(at: 1_500) == 1)
+    }
+
     @Test("Timing chords and plain arrows have correct direction and scale")
     func keyboardMath() {
         #expect(TimelineInteractionMath.nudgeStep(forKeyCode: 18) == 1)

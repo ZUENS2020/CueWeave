@@ -135,6 +135,7 @@ struct AudioPlaybackTests {
         #expect(stats.missed == 3)
         #expect(abs(stats.maxGap - 4 / 60) < 0.000_001)
         #expect(stats.maxWork == 0.002)
+        #expect(abs(stats.deliveredHz - (4 / (7 / 60.0))) < 0.000_001)
     }
 
     private func makeSilentFixture(at url: URL) throws {

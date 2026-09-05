@@ -14,3 +14,7 @@
 *.flac
 *.m4a
 *.wav
+/promo/node_modules/
+/promo/private/
+/promo/public/generated/
+/promo/out/

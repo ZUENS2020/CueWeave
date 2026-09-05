@@ -1,0 +1,36 @@
+{
+  "name": "cueweave-promo",
+  "private": true,
+  "version": "0.2.3",
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "clips": "node scripts/build-private-clips.mjs",
+    "assets:prepare": "node scripts/prepare-assets.mjs",
+    "captions": "node scripts/generate-srt.mjs",
+    "typecheck": "tsc --noEmit",
+    "compositions": "remotion compositions src/index.ts",
+    "render:mp4": "npm run assets:prepare && npm run captions && remotion render src/index.ts CueWeavePromoZHPrivate ../dist/promo-private/CueWeave-Promo-Private-ZH-render.mp4 --codec=h264 --pixel-format=yuv420p --crf=16 --audio-codec=aac --audio-bitrate=320k && node scripts/normalize-mp4.mjs ../dist/promo-private/CueWeave-Promo-Private-ZH-render.mp4 ../dist/promo-private/CueWeave-Promo-Private-ZH-1080p60.mp4",
+    "render:master": "npm run assets:prepare && remotion render src/index.ts CueWeavePromoZHPrivate ../dist/promo-private/CueWeave-Promo-Private-ZH-1080p60-ProRes.mov --codec=prores --prores-profile=light --pixel-format=yuv422p10le --audio-codec=pcm-16",
+    "render:poster": "npm run assets:prepare && remotion still src/index.ts PromoPosterZH ../dist/promo-private/CueWeave-Promo-Poster-ZH-1920x1080.png",
+    "verify": "node scripts/verify-output.mjs ../dist/promo-private/CueWeave-Promo-Private-ZH-1080p60.mp4",
+    "verify:master": "node scripts/verify-master.mjs ../dist/promo-private/CueWeave-Promo-Private-ZH-1080p60-ProRes.mov",
+    "contact-sheet": "ffmpeg -y -i ../dist/promo-private/CueWeave-Promo-Private-ZH-1080p60.mp4 -vf 'select=eq(n\\,180)+eq(n\\,570)+eq(n\\,1080)+eq(n\\,1890)+eq(n\\,2700)+eq(n\\,3600)+eq(n\\,4560)+eq(n\\,5160),scale=640:-1,tile=4x2' -frames:v 1 ../dist/promo-private/CueWeave-Promo-Contact-Sheet.png"
+  },
+  "dependencies": {
+    "@fontsource/ibm-plex-mono": "5.3.0",
+    "@fontsource/noto-sans-sc": "5.3.0",
+    "@remotion/captions": "4.0.520",
+    "@remotion/cli": "4.0.520",
+    "@remotion/media": "4.0.520",
+    "@remotion/media-utils": "4.0.520",
+    "remotion": "4.0.520",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.3",
+    "typescript": "7.0.2"
+  }
+}

@@ -153,7 +153,15 @@ final class AudioPlayer: NSObject, ObservableObject, AVAudioPlayerDelegate {
         guard displayLink == nil, let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         displayLinkTarget.player = self
         let link = screen.displayLink(target: displayLinkTarget, selector: #selector(AudioDisplayLinkTarget.tick(_:)))
-        link.preferredFrameRateRange = CAFrameRateRange(minimum: 60, maximum: 120, preferred: 120)
+        // Run at the display's native cadence. The built-in MacBook Air panel is
+        // 60 Hz, while ProMotion/external displays can deliver more than 60 Hz.
+        let nativeMaximum = Float(max(1, screen.maximumFramesPerSecond))
+        let minimum = min(60, nativeMaximum)
+        link.preferredFrameRateRange = CAFrameRateRange(
+            minimum: minimum,
+            maximum: nativeMaximum,
+            preferred: nativeMaximum
+        )
         link.isPaused = true
         link.add(to: .main, forMode: .common)
         displayLink = link

@@ -27,6 +27,49 @@ enum TimelinePointerEvent: Equatable {
     case zoomEnded
 }
 
+struct PlaybackCueIndex {
+    struct Entry: Equatable {
+        let id: UInt64
+        let timeMS: UInt64
+        let order: Int
+    }
+
+    private(set) var orderedIDs: [UInt64] = []
+    private(set) var timed: [Entry] = []
+
+    init(segments: [LyricSegment] = []) {
+        rebuild(segments: segments)
+    }
+
+    mutating func rebuild(segments: [LyricSegment]) {
+        orderedIDs = segments.map(\.id)
+        timed = segments.enumerated().compactMap { order, segment in
+            let point = segment.timing.finalPoint ?? segment.timing.gemini
+            return point.map { Entry(id: segment.id, timeMS: $0.timeMS, order: order) }
+        }.sorted { lhs, rhs in
+            lhs.timeMS == rhs.timeMS ? lhs.order < rhs.order : lhs.timeMS < rhs.timeMS
+        }
+    }
+
+    func activeID(at timeMS: UInt64) -> UInt64? {
+        var lower = 0
+        var upper = timed.count
+        while lower < upper {
+            let middle = lower + (upper - lower) / 2
+            if timed[middle].timeMS <= timeMS {
+                lower = middle + 1
+            } else {
+                upper = middle
+            }
+        }
+        return lower > 0 ? timed[lower - 1].id : nil
+    }
+
+    func followingID(after activeID: UInt64?) -> UInt64? {
+        TimelineInteractionMath.followingSegmentID(activeID: activeID, orderedIDs: orderedIDs)
+    }
+}
+
 struct TimelinePointerStateMachine {
     private var start: TimelinePointerSample?
     private var startX: CGFloat = 0

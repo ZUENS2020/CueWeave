@@ -1,5 +1,13 @@
 import Foundation
 
+enum ModelDefaults {
+    static let openRouter = "google/gemini-3.8-flash"
+    static let aiStudio = "gemini-3.8-flash"
+
+    fileprivate static let legacyOpenRouter = "google/gemini-3.7-flash"
+    fileprivate static let legacyAIStudio = "gemini-3.7-flash"
+}
+
 struct LocalSettings: Codable, Equatable {
     var alignmentProvider: String?
     var openRouterAPIKey: String?
@@ -7,6 +15,15 @@ struct LocalSettings: Codable, Equatable {
     var openRouterModel: String?
     var aiStudioModel: String?
     var uiLanguage: String?
+
+    mutating func migrateLegacyModelDefaults() {
+        if openRouterModel == ModelDefaults.legacyOpenRouter {
+            openRouterModel = ModelDefaults.openRouter
+        }
+        if aiStudioModel == ModelDefaults.legacyAIStudio {
+            aiStudioModel = ModelDefaults.aiStudio
+        }
+    }
 }
 
 enum LocalSettingsStore {
@@ -17,8 +34,9 @@ enum LocalSettingsStore {
 
     static func load(from url: URL = configURL) -> LocalSettings {
         guard let data = try? Data(contentsOf: url),
-              let settings = try? JSONDecoder().decode(LocalSettings.self, from: data)
+              var settings = try? JSONDecoder().decode(LocalSettings.self, from: data)
         else { return LocalSettings() }
+        settings.migrateLegacyModelDefaults()
         return settings
     }
 
